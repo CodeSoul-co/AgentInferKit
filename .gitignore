@@ -1,3 +1,9 @@
+# Uploaded design docs (do not push)
+API.md
+ARCHITECTURE.md
+SCHEMA.md
+TASKS.md
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
