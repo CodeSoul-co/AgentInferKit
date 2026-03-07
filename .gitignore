@@ -3,6 +3,7 @@ API.md
 ARCHITECTURE.md
 SCHEMA.md
 TASKS.md
+rule
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

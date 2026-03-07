@@ -1,0 +1,42 @@
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.18
+
+# HTTP client (for model adapters)
+httpx==0.28.1
+aiohttp==3.11.11
+
+# Data handling
+pydantic==2.10.4
+pydantic-settings==2.7.1
+python-dotenv==1.0.1
+pyyaml==6.0.2
+orjson==3.10.13
+
+# Anthropic SDK
+anthropic==0.42.0
+
+# OpenAI-compatible SDK (used by deepseek/openai/qwen adapters)
+openai==1.58.1
+
+# RAG - embeddings
+sentence-transformers==3.3.1
+
+# RAG - vector store
+pymilvus==2.5.4
+
+# Evaluation metrics
+rouge-score==0.1.2
+nltk==3.9.1
+numpy==1.26.4
+
+# Logging
+loguru==0.7.3
+
+# CLI scripts
+tqdm==4.67.1
+click==8.1.8
+
+# Plotting (for export_figures.py)
+matplotlib==3.9.4

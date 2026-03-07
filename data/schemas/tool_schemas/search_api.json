@@ -1,0 +1,31 @@
+{
+  "tool_id": "search_api",
+  "name": "Search API",
+  "description": "Search for relevant information given a query.",
+  "version": "1.0.0",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "Search query",
+        "required": true
+      },
+      "top_k": {
+        "type": "integer",
+        "description": "Number of results to return",
+        "default": 5,
+        "required": false
+      }
+    }
+  },
+  "mock_responses": [
+    {
+      "condition": "default",
+      "response": {
+        "results": ["result1", "result2"],
+        "total": 2
+      }
+    }
+  ]
+}
