@@ -70,32 +70,6 @@ The data layer is designed to make data **runnable**, **evaluable**, **traceable
 
 ---
 
-## Repository Structure
-
-```text
-project/
-  configs/
-  src/
-    adapters/
-    strategies/
-    rag/
-    runners/
-    evaluators/
-    toolsim/
-    visualization/
-    utils/
-  data/
-    raw/
-    processed/
-    indexes/
-  outputs/
-  webui/
-  docs/
-  scripts/
-```
-
----
-
 ## Contributing
 
 Contributions are welcome, especially in:
