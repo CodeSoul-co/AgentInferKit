@@ -1,0 +1,14 @@
+provider: qwen
+model: qwen-plus
+base_url: "${QWEN_BASE_URL}"
+api_key: "${QWEN_API_KEY}"
+
+temperature: 0.0
+top_p: 1.0
+max_tokens: 2048
+seed: 42
+
+system_prompt: "You are a helpful assistant."
+
+batch_size: 10
+request_timeout_s: 60
