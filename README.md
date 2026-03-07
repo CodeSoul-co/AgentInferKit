@@ -96,60 +96,6 @@ project/
 
 ---
 
-## Roadmap
-
-### Phase 1
-- Unified model adapters
-- Task runners
-- Basic evaluator
-- Batch inference pipeline
-- Single-sample debugging UI
-
-### Phase 2
-- QA-to-chunk pipeline
-- Image data transformation pipeline
-- Function-calling dataset and tool schema alignment
-
-### Phase 3
-- Stable evaluation scripts
-- Visualization and analysis panels
-- Result export for papers and reports
-
-### Phase 4
-- Open-source polishing
-- Example configs
-- Documentation and contribution guidelines
-
-### Future
-- Agent reasoning extensions
-- Training-ready interfaces
-- Trajectory storage
-- Reward modeling hooks
-- RL-based optimization loops
-
----
-
-## Design Principles
-
-- **Modular**
-- **Config-driven**
-- **Traceable**
-- **Extensible**
-- **Research-oriented**
-
----
-
-## Status
-
-AgentInferKit is currently under active development.
-
-Current focus:
-- platform layer implementation
-- unified data layer construction
-- inference and evaluation pipeline stabilization
-
----
-
 ## Contributing
 
 Contributions are welcome, especially in:
@@ -170,7 +116,7 @@ Contributions are welcome, especially in:
 ```bibtex
 @misc{agentinferkit,
   title={AgentInferKit: A Modular Platform for Agent Inference, Evaluation, and Training},
-  author={Your Name or Team Name},
+  author={Zhenke Duan},
   year={2026},
   howpublished={GitHub repository}
 }
