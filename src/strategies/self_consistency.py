@@ -1,54 +1,62 @@
-import re
 from collections import Counter
 from typing import Any, Dict, List, Optional, Union
 
 from src.api.schemas import Message
-from src.prompts import get_prompt
 from src.strategies.base import BaseStrategy
 
 
 class SelfConsistencyStrategy(BaseStrategy):
-    """Self-Consistency strategy.
+    """Self-Consistency strategy using LangChain LLMChain for multi-sampling.
 
-    Sample N diverse CoT reasoning paths (with temperature > 0), then
-    take a majority vote over the extracted answers. The caller is
-    responsible for generating multiple outputs; this class provides
-    the prompt and the majority-vote aggregation logic.
+    Reads config from configs/strategies/self_consistency.yaml.
+    Samples N diverse CoT reasoning paths (with temperature > 0), then
+    takes a majority vote over the extracted answers.
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
-        self._config = config or {}
-        self._num_samples = self._config.get("num_samples", 5)
-        self._temperature = self._config.get("temperature", 0.7)
+        super().__init__("self_consistency", config)
+        sc_cfg = self._yaml_cfg.get("sc_config", {})
+        self._num_samples = self._runtime_cfg.get("num_samples", sc_cfg.get("num_samples", 5))
+        self._temperature = self._runtime_cfg.get("temperature", sc_cfg.get("temperature", 0.7))
 
-    def build_prompt(self, sample: Dict[str, Any]) -> List[Message]:
+    @property
+    def num_samples(self) -> int:
+        return self._num_samples
+
+    @property
+    def temperature(self) -> float:
+        return self._temperature
+
+    def build_prompt(self, sample: Dict[str, Any], **kwargs: Any) -> List[Message]:
         """Build a CoT-style prompt (same for each sample path)."""
         task_type = sample.get("task_type", "text_qa")
+
+        prompt_id = self.resolve_prompt(task_type)
+        if prompt_id:
+            self._resolved_prompt_id = prompt_id
+            return self.build_messages_from_prompt_id(prompt_id, **self.build_template_vars(sample))
+
+        # Fallback to legacy strategy YAML
         question = sample.get("question", "")
+        system = self._prompts.get("system", "")
+        messages: List[Message] = []
+        if system and system.strip():
+            messages.append(Message(role="system", content=system.strip()))
 
         if task_type in ("text_exam", "image_mcq"):
             options = sample.get("options", {})
             options_text = "\n".join(f"{k}. {v}" for k, v in sorted(options.items()))
-            user_content = get_prompt("self_consistency", "user_exam", question=question, options_text=options_text)
+            user_content = self.render_prompt("user_exam", question=question, options_text=options_text)
         else:
-            user_content = get_prompt("self_consistency", "user_qa", question=question)
+            user_content = self.render_prompt("user_qa", question=question)
 
-        return [Message(role="user", content=user_content.strip())]
+        messages.append(Message(role="user", content=user_content.strip()))
+        return messages
 
     def parse_output(
         self, raw_output: Union[str, List[str]], sample: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Parse one or multiple outputs and return majority-voted answer.
-
-        Args:
-            raw_output: Either a single string (one sample) or a list of
-                        strings (multiple samples for majority voting).
-            sample: The original sample dict.
-
-        Returns:
-            Dict with parsed_answer (majority vote), reasoning_trace,
-            vote_distribution, and all_answers.
-        """
+        """Parse one or multiple outputs and return majority-voted answer."""
         if isinstance(raw_output, str):
             raw_output = [raw_output]
 
@@ -57,11 +65,11 @@ class SelfConsistencyStrategy(BaseStrategy):
         all_traces: List[str] = []
 
         for text in raw_output:
-            answer, trace = self._extract_answer(text, task_type)
+            answer = self._extract_answer(text, task_type)
+            trace = self._extract_trace(text)
             all_answers.append(answer)
-            all_traces.append(trace)
+            all_traces.append(trace or "")
 
-        # Majority vote
         counter = Counter(all_answers)
         majority_answer = counter.most_common(1)[0][0] if counter else ""
 
@@ -71,29 +79,3 @@ class SelfConsistencyStrategy(BaseStrategy):
             "vote_distribution": dict(counter),
             "all_answers": all_answers,
         }
-
-    def _extract_answer(self, text: str, task_type: str) -> tuple:
-        """Extract answer and reasoning from a single output.
-
-        Returns:
-            Tuple of (answer_str, reasoning_str).
-        """
-        lines = text.strip().split("\n")
-        answer_match = re.search(r"[Aa]nswer\s*:\s*(.+)", text)
-
-        if answer_match:
-            parsed = answer_match.group(1).strip()
-            if task_type in ("text_exam", "image_mcq"):
-                letter = re.search(r"\b([A-D])\b", parsed)
-                if letter:
-                    parsed = letter.group(1)
-            reasoning = "\n".join(
-                line for line in lines if not re.search(r"[Aa]nswer\s*:", line)
-            ).strip()
-            return parsed, reasoning
-
-        if task_type in ("text_exam", "image_mcq"):
-            letter = re.search(r"\b([A-D])\b", text)
-            return (letter.group(1) if letter else text.strip()), text.strip()
-
-        return (lines[-1].strip() if lines else text.strip()), text.strip()

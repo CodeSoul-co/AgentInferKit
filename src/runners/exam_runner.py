@@ -53,17 +53,39 @@ class ExamRunner(BaseRunner):
         result = await self._adapter.generate(messages)
         parsed = self._strategy.parse_output(result.content, sample)
 
+        # Normalize reasoning_trace to structured list format
+        raw_trace = parsed.get("reasoning_trace")
+        if isinstance(raw_trace, str) and raw_trace:
+            reasoning_trace = [{"step": 1, "thought": raw_trace, "action": ""}]
+        elif isinstance(raw_trace, list):
+            reasoning_trace = raw_trace
+        else:
+            reasoning_trace = []
+
+        # Resolve prompt_id and prompt_version from strategy
+        resolved_pid = getattr(self._strategy, "_resolved_prompt_id", None) or getattr(self._strategy, "_explicit_prompt_id", None)
+        prompt_version = None
+        if resolved_pid:
+            try:
+                from src.prompts.loader import get_prompt_version
+                prompt_version = get_prompt_version(resolved_pid)
+            except Exception:
+                pass
+
         prediction = {
             "sample_id": sample.get("sample_id", ""),
             "experiment_id": "",
             "model": "",
             "strategy": "",
+            "prompt_id": resolved_pid or "",
+            "prompt_version": prompt_version or "",
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "input_prompt": "\n".join(f"[{m.role}] {m.content}" for m in messages),
             "raw_output": result.content,
             "parsed_answer": parsed["parsed_answer"],
-            "reasoning_trace": parsed.get("reasoning_trace"),
+            "reasoning_trace": reasoning_trace,
             "rag_context": rag_context,
+            "tool_trace": [],
             "usage": {
                 "prompt_tokens": result.prompt_tokens,
                 "completion_tokens": result.completion_tokens,

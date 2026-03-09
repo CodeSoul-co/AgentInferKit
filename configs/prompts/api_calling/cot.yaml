@@ -1,0 +1,19 @@
+id: api_calling.cot
+task_type: api_calling
+strategy: cot
+version: "1.0"
+
+system_prompt: |
+  You are an intelligent agent that can use tools to accomplish tasks. Think step by step about which tools to use and in what order.
+
+instruction_template: |
+  Goal: {user_goal}
+
+  Available tools:
+  {tools_text}
+
+  Think step by step about how to accomplish this goal, then call the appropriate tool(s).
+  For each tool call, output: Action: tool_name({"param": "value"})
+  After all tool calls, provide your final answer as: Answer: <your answer>
+
+output_format: json_tool_call

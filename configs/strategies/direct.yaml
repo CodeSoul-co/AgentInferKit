@@ -1,17 +1,20 @@
 name: direct
-description: Direct prompting — ask the question as-is, no chain-of-thought.
-version: "1.0"
+library: langchain
+chain_type: LLMChain
 
 prompts:
+  system: ""
   user_exam: |
     {question}
 
     {options_text}
 
     Please provide only the letter of the correct answer.
-
   user_qa: |
     {question}
-
   user_default: |
     {user_goal}
+
+parse:
+  answer_pattern: "\\b([A-D])\\b"
+  trace_split: "\n"

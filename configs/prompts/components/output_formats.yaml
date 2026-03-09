@@ -1,0 +1,13 @@
+choice_letter: |
+  Put your final answer on the last line in the format: Answer: X
+  where X is the letter of the correct option (A, B, C, or D).
+
+free_text: |
+  Put your final answer on the last line in the format: Answer: <your answer>
+
+json_tool_call: |
+  Output your tool call as JSON in the format:
+  Action: tool_name({"param": "value"})
+
+step_by_step: |
+  Show your reasoning step by step, then give the final answer.

@@ -1,5 +1,21 @@
-"""Prompt management module — centralized prompt templates for all strategies."""
+"""Prompt management module — loads prompt configs from configs/prompts/."""
 
-from src.prompts.registry import PromptRegistry, get_prompt, list_strategies, list_keys
+from src.prompts.loader import (
+    get_instruction_template,
+    get_prompt_version,
+    get_system_prompt,
+    list_prompt_ids,
+    load_prompt,
+    render_instruction,
+    resolve_prompt_id,
+)
 
-__all__ = ["PromptRegistry", "get_prompt", "list_strategies", "list_keys"]
+__all__ = [
+    "load_prompt",
+    "render_instruction",
+    "resolve_prompt_id",
+    "get_system_prompt",
+    "get_instruction_template",
+    "get_prompt_version",
+    "list_prompt_ids",
+]

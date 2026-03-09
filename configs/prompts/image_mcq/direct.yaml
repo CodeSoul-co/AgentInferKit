@@ -1,0 +1,16 @@
+id: image_mcq.direct
+task_type: image_mcq
+strategy: direct
+version: "1.0"
+
+system_prompt: |
+  You are a visual question answering assistant. Analyze the image and answer the question based on what you see.
+
+instruction_template: |
+  {question}
+
+  {options_text}
+
+  Please provide only the letter of the correct answer.
+
+output_format: choice_letter

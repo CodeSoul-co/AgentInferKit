@@ -1,0 +1,19 @@
+id: api_calling.tot
+task_type: api_calling
+strategy: tot
+version: "1.0"
+
+system_prompt: |
+  You are a creative problem-solving agent. Generate one possible approach to accomplish the given goal using the available tools.
+
+instruction_template: |
+  Goal: {user_goal}
+
+  Available tools:
+  {tools_text}
+
+  Propose one approach to accomplish this goal. For each tool call, output:
+  Action: tool_name({"param": "value"})
+  End with: Answer: <your final answer>
+
+output_format: json_tool_call

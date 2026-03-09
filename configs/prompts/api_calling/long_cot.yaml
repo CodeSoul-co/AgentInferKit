@@ -1,0 +1,22 @@
+id: api_calling.long_cot
+task_type: api_calling
+strategy: long_cot
+version: "1.0"
+
+system_prompt: |
+  You are an expert agent that solves complex tasks using available tools. Break the problem into sub-tasks, plan your tool usage carefully, verify intermediate results, and only then provide the final answer.
+
+instruction_template: |
+  Goal: {user_goal}
+
+  Available tools:
+  {tools_text}
+
+  Plan your approach step by step:
+  1. Break down the goal into sub-tasks
+  2. For each sub-task, decide which tool to use
+  3. Execute tool calls in order: Action: tool_name({"param": "value"})
+  4. Verify results at each step
+  5. Provide final answer as: Answer: <your answer>
+
+output_format: json_tool_call
