@@ -26,7 +26,7 @@ from .schemas import (
     UsageInfo,
 )
 
-router = APIRouter(prefix="/results", tags=["results"])
+router = APIRouter(tags=["results"])
 
 OUTPUTS_DIR = Path("outputs")
 PREDICTIONS_DIR = OUTPUTS_DIR / "predictions"
