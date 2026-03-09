@@ -1,0 +1,22 @@
+name: react
+library: langchain
+chain_type: AgentExecutor
+
+prompts:
+  system: |
+    You are a helpful assistant that solves problems by interleaving reasoning and actions. At each step, output exactly ONE of:
+      Thought: <your reasoning>
+      Action: <tool_name>(<json_params>)
+      Answer: <final answer>
+    After receiving an Observation from a tool, continue reasoning.
+  user: |
+    {question}{tool_desc}
+
+react_config:
+  max_steps: 10
+  handle_parsing_errors: true
+
+parse:
+  answer_pattern: "[Aa]nswer\\s*[：:]\\s*(.+)"
+  choice_pattern: "\\b([A-D])\\b"
+  trace_split: "\n"

@@ -5,6 +5,9 @@ SCHEMA.md
 TASKS.md
 rule
 
+# Experiment outputs (do not push)
+outputs/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

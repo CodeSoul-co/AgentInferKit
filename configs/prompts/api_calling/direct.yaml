@@ -1,0 +1,18 @@
+id: api_calling.direct
+task_type: api_calling
+strategy: direct
+version: "1.0"
+
+system_prompt: |
+  You are an intelligent agent that can use tools to accomplish tasks. Think about which tools to use and in what order.
+
+instruction_template: |
+  Goal: {user_goal}
+
+  Available tools:
+  {tools_text}
+
+  Call the appropriate tool(s) to accomplish the goal. Output each tool call as:
+  Action: tool_name({"param": "value"})
+
+output_format: json_tool_call

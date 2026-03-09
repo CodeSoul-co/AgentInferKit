@@ -1,0 +1,16 @@
+id: text_exam.direct
+task_type: text_exam
+strategy: direct
+version: "1.0"
+
+system_prompt: |
+  You are an exam-taking assistant. Read the question and options carefully, then select the correct answer.
+
+instruction_template: |
+  {question}
+
+  {options_text}
+
+  Please provide only the letter of the correct answer.
+
+output_format: choice_letter

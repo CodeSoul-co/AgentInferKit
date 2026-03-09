@@ -1,0 +1,26 @@
+name: cot
+library: langchain
+chain_type: LLMChain
+
+prompts:
+  system: |
+    You are a helpful assistant. Think step by step before giving your final answer.
+  user_exam: |
+    {question}
+
+    {options_text}
+
+    Please think step by step, then provide your final answer on the last line in the format: Answer: X
+  user_qa: |
+    {question}
+
+    Please think step by step, then provide your final answer on the last line in the format: Answer: <your answer>
+  user_default: |
+    {user_goal}
+
+    Please think step by step, then provide your final answer on the last line in the format: Answer: <your answer>
+
+parse:
+  answer_pattern: "[Aa]nswer\\s*[：:]\\s*(.+)"
+  choice_pattern: "\\b([A-D])\\b"
+  trace_split: "\n"

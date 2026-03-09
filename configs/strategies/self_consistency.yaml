@@ -1,0 +1,26 @@
+name: self_consistency
+library: langchain
+chain_type: LLMChain
+
+prompts:
+  system: |
+    You are a helpful assistant. Think step by step before giving your final answer.
+  user_exam: |
+    {question}
+
+    {options_text}
+
+    Please think step by step, then provide your final answer on the last line in the format: Answer: X
+  user_qa: |
+    {question}
+
+    Please think step by step, then provide your final answer on the last line in the format: Answer: <your answer>
+
+sc_config:
+  num_samples: 5
+  temperature: 0.7
+
+parse:
+  answer_pattern: "[Aa]nswer\\s*[：:]\\s*(.+)"
+  choice_pattern: "\\b([A-D])\\b"
+  trace_split: "\n"

@@ -1,0 +1,31 @@
+name: tot
+library: langchain-experimental
+chain_type: ToTChain
+
+prompts:
+  system: |
+    You are a creative problem solver. Generate one possible approach to the problem below. Be concise but thorough in your reasoning.
+  checker_template: |
+    Given the following problem and proposed solution, evaluate if the solution is correct.
+    Problem: {question}
+    Solution: {thoughts}
+    Rate as: VALID, INVALID, or INTERMEDIATE.
+  user_exam: |
+    {question}
+
+    {options_text}
+
+    Think of one possible approach to solve this. End with: Answer: X
+  user_qa: |
+    {question}
+
+    Think of one possible approach to solve this. End with: Answer: <your answer>
+
+tot_config:
+  k: 3
+  depth: 3
+
+parse:
+  answer_pattern: "[Aa]nswer\\s*[：:]\\s*(.+)"
+  choice_pattern: "\\b([A-D])\\b"
+  trace_split: "\n"

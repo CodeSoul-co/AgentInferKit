@@ -1,4 +1,3 @@
-import re
 from typing import Any, Dict, List, Optional
 
 from src.api.schemas import Message
@@ -6,48 +5,45 @@ from src.strategies.base import BaseStrategy
 
 
 class DirectStrategy(BaseStrategy):
-    """Direct prompting strategy: ask the question as-is, no chain-of-thought."""
+    """Direct prompting strategy using LangChain LLMChain.
+
+    Reads prompt templates from configs/strategies/direct.yaml.
+    No chain-of-thought; asks the question as-is.
+    """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
-        self._config = config or {}
+        super().__init__("direct", config)
 
-    def build_prompt(self, sample: Dict[str, Any]) -> List[Message]:
-        """Build a straightforward prompt based on task_type."""
+    def build_prompt(self, sample: Dict[str, Any], **kwargs: Any) -> List[Message]:
         task_type = sample.get("task_type", "text_qa")
         question = sample.get("question", "")
 
+        prompt_id = self.resolve_prompt(task_type)
+        if prompt_id:
+            self._resolved_prompt_id = prompt_id
+            return self.build_messages_from_prompt_id(prompt_id, **self.build_template_vars(sample))
+
+        # Fallback to legacy strategy YAML
+        system = self._prompts.get("system", "")
         if task_type in ("text_exam", "image_mcq"):
             options = sample.get("options", {})
-            options_text = "\n".join(
-                f"{k}. {v}" for k, v in sorted(options.items())
-            )
-            user_content = (
-                f"{question}\n\n"
-                f"{options_text}\n\n"
-                "Please provide only the letter of the correct answer."
-            )
+            options_text = "\n".join(f"{k}. {v}" for k, v in sorted(options.items()))
+            user_content = self.render_prompt("user_exam", question=question, options_text=options_text)
         elif task_type == "text_qa":
-            user_content = question
+            user_content = self.render_prompt("user_qa", question=question)
         else:
-            user_content = sample.get("user_goal", question)
+            user_goal = sample.get("user_goal", question)
+            user_content = self.render_prompt("user_default", user_goal=user_goal)
 
-        return [Message(role="user", content=user_content)]
+        messages: List[Message] = []
+        if system and system.strip():
+            messages.append(Message(role="system", content=system.strip()))
+        messages.append(Message(role="user", content=user_content.strip()))
+        return messages
 
     def parse_output(self, raw_output: str, sample: Dict[str, Any]) -> Dict[str, Any]:
-        """Extract the answer from the model's raw output.
-
-        For choice tasks, extract the first uppercase letter (A-D).
-        For QA tasks, return the full output as the answer.
-        """
         task_type = sample.get("task_type", "text_qa")
-
-        if task_type in ("text_exam", "image_mcq"):
-            match = re.search(r"\b([A-D])\b", raw_output)
-            parsed_answer = match.group(1) if match else raw_output.strip()
-        else:
-            parsed_answer = raw_output.strip()
-
         return {
-            "parsed_answer": parsed_answer,
+            "parsed_answer": self._extract_answer(raw_output, task_type),
             "reasoning_trace": None,
         }

@@ -1,0 +1,16 @@
+id: text_exam.long_cot
+task_type: text_exam
+strategy: long_cot
+version: "1.0"
+
+system_prompt: |
+  You are an expert problem solver. When given a question, think through it very carefully and thoroughly. Break the problem into sub-problems, solve each one step by step, verify your intermediate results, and only then state your final answer.
+
+instruction_template: |
+  {question}
+
+  {options_text}
+
+  Reason through each option carefully before selecting the correct one. Put your final answer on the last line as: Answer: X
+
+output_format: choice_letter

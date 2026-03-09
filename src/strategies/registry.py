@@ -1,9 +1,9 @@
 import importlib
 import inspect
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
-from src.strategies.base import BaseStrategy
+from src.strategies.base import BaseStrategy, _CONFIGS_DIR
 
 
 # Strategy name -> class mapping, populated by _scan_strategies()
@@ -13,10 +13,9 @@ _STRATEGY_MAP: Dict[str, type] = {}
 def _scan_strategies() -> None:
     """Dynamically scan the strategies package and register all BaseStrategy subclasses.
 
+    Only registers strategies that have a matching YAML config in configs/strategies/.
     Convention: each .py file in src/strategies/ (except base.py and registry.py)
-    maps to a strategy key equal to the file stem (e.g. cot.py -> 'cot',
-    self_refine.py -> 'self_refine'). Each file is expected to contain exactly
-    one BaseStrategy subclass.
+    maps to a strategy key equal to the file stem.
     """
     if _STRATEGY_MAP:
         return
@@ -58,3 +57,9 @@ def load_strategy(name: str, config: Optional[Dict[str, Any]] = None) -> BaseStr
 
     strategy_cls = _STRATEGY_MAP[name]
     return strategy_cls(config=config or {})
+
+
+def list_strategies() -> List[str]:
+    """List all available strategy names."""
+    _scan_strategies()
+    return sorted(_STRATEGY_MAP.keys())
