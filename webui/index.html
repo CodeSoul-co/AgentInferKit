@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Benchmark Platform - Dashboard</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">📊 Benchmark Platform</div>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#dashboard" class="nav-item active" data-tab="dashboard">
+                    <span class="nav-item-icon">🏠</span>
+                    Dashboard
+                </a>
+                <a href="#datasets" class="nav-item" data-tab="datasets">
+                    <span class="nav-item-icon">📁</span>
+                    数据集管理
+                </a>
+                <a href="#experiments" class="nav-item" data-tab="experiments">
+                    <span class="nav-item-icon">🧪</span>
+                    实验配置
+                </a>
+                <a href="#results" class="nav-item" data-tab="results">
+                    <span class="nav-item-icon">📈</span>
+                    结果分析
+                </a>
+                <a href="#rag" class="nav-item" data-tab="rag">
+                    <span class="nav-item-icon">🔍</span>
+                    知识库管理
+                </a>
+                <a href="#chat" class="nav-item" data-tab="chat">
+                    <span class="nav-item-icon">💬</span>
+                    对话调试
+                </a>
+            </nav>
+            <div class="sidebar-footer" style="padding: 16px; border-top: 1px solid var(--border-color);">
+                <div class="text-muted" style="font-size: 0.75rem;">
+                    <span id="system-status">检查系统状态...</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard Tab -->
+            <div id="tab-dashboard" class="tab-content active">
+                <div class="page-header">
+                    <h1 class="page-title">Dashboard</h1>
+                    <button class="btn btn-primary" onclick="refreshDashboard()">
+                        🔄 刷新
+                    </button>
+                </div>
+
+                <!-- Stats Grid -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">数据集数量</div>
+                        <div class="stat-value" id="stat-datasets">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">实验数量</div>
+                        <div class="stat-value" id="stat-experiments">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">知识库数量</div>
+                        <div class="stat-value" id="stat-kbs">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">可用模型</div>
+                        <div class="stat-value" id="stat-models">-</div>
+                    </div>
+                </div>
+
+                <!-- Recent Experiments -->
+                <div class="card">
+                    <div class="card-header">
+                        最近实验
+                    </div>
+                    <div class="card-body">
+                        <div id="recent-experiments" class="table-container">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">🧪</div>
+                                <div class="empty-state-title">暂无实验</div>
+                                <div class="empty-state-description">创建您的第一个实验开始评测</div>
+                                <button class="btn btn-primary" onclick="switchTab('experiments')">
+                                    创建实验
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Datasets Tab -->
+            <div id="tab-datasets" class="tab-content">
+                <div class="page-header">
+                    <h1 class="page-title">数据集管理</h1>
+                    <button class="btn btn-primary" onclick="showUploadModal()">
+                        📤 上传数据集
+                    </button>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <div id="datasets-list" class="table-container">
+                            <div class="loading-spinner"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Experiments Tab -->
+            <div id="tab-experiments" class="tab-content">
+                <div class="page-header">
+                    <h1 class="page-title">实验配置</h1>
+                    <button class="btn btn-primary" onclick="showCreateExperimentModal()">
+                        ➕ 新建实验
+                    </button>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <div id="experiments-list" class="table-container">
+                            <div class="loading-spinner"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Tab -->
+            <div id="tab-results" class="tab-content">
+                <div class="page-header">
+                    <h1 class="page-title">结果分析</h1>
+                </div>
+
+                <div class="card mb-md">
+                    <div class="card-header">
+                        实验对比
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label class="form-label">选择实验进行对比</label>
+                            <select id="compare-experiments" class="form-select" multiple style="height: 120px;">
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" onclick="compareExperiments()">
+                            📊 生成对比
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        对比结果
+                    </div>
+                    <div class="card-body">
+                        <div id="compare-results">
+                            <div class="empty-state">
+                                <div class="empty-state-description">选择实验后点击"生成对比"查看结果</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RAG Tab -->
+            <div id="tab-rag" class="tab-content">
+                <div class="page-header">
+                    <h1 class="page-title">知识库管理</h1>
+                    <button class="btn btn-primary" onclick="showBuildKBModal()">
+                        🔨 构建知识库
+                    </button>
+                </div>
+
+                <div class="card mb-md">
+                    <div class="card-header">
+                        检索测试
+                    </div>
+                    <div class="card-body">
+                        <div class="flex gap-md">
+                            <select id="search-kb" class="form-select" style="width: 200px;">
+                                <option value="">选择知识库</option>
+                            </select>
+                            <input type="text" id="search-query" class="form-input flex-1" placeholder="输入检索查询...">
+                            <button class="btn btn-primary" onclick="searchRAG()">
+                                🔍 检索
+                            </button>
+                        </div>
+                        <div id="search-results" class="mt-md"></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        知识库列表
+                    </div>
+                    <div class="card-body">
+                        <div id="kb-list" class="table-container">
+                            <div class="loading-spinner"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Tab -->
+            <div id="tab-chat" class="tab-content">
+                <div class="page-header">
+                    <h1 class="page-title">对话调试</h1>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <div class="flex gap-md mb-md">
+                            <div class="form-group" style="width: 200px; margin-bottom: 0;">
+                                <label class="form-label">模型</label>
+                                <select id="chat-model" class="form-select">
+                                    <option value="deepseek-chat">DeepSeek Chat</option>
+                                    <option value="gpt-4">GPT-4</option>
+                                    <option value="claude-3">Claude 3</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="width: 150px; margin-bottom: 0;">
+                                <label class="form-label">策略</label>
+                                <select id="chat-strategy" class="form-select">
+                                    <option value="direct">Direct</option>
+                                    <option value="cot">CoT</option>
+                                    <option value="long_cot">Long CoT</option>
+                                    <option value="tot">ToT</option>
+                                </select>
+                            </div>
+                            <div class="form-group flex-1" style="margin-bottom: 0;">
+                                <label class="form-label">RAG 知识库（可选）</label>
+                                <select id="chat-kb" class="form-select">
+                                    <option value="">不使用 RAG</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div id="chat-messages" style="height: 400px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: var(--spacing-md); margin-bottom: var(--spacing-md); background: var(--bg-secondary);">
+                            <div class="empty-state">
+                                <div class="empty-state-description">开始对话调试</div>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-md">
+                            <input type="text" id="chat-input" class="form-input flex-1" placeholder="输入消息..." onkeypress="if(event.key==='Enter') sendChat()">
+                            <button class="btn btn-primary" onclick="sendChat()">
+                                发送
+                            </button>
+                            <button class="btn btn-secondary" onclick="sendChatStream()">
+                                流式发送
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Upload Modal -->
+    <div id="upload-modal" class="modal hidden">
+        <div class="modal-backdrop" onclick="closeModal('upload-modal')"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>上传数据集</h3>
+                <button class="btn btn-icon" onclick="closeModal('upload-modal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="upload-form">
+                    <div class="form-group">
+                        <label class="form-label">数据集文件 (JSONL)</label>
+                        <input type="file" id="upload-file" class="form-input" accept=".jsonl" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">数据集名称</label>
+                        <input type="text" id="upload-name" class="form-input" placeholder="my_dataset" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">任务类型</label>
+                        <select id="upload-task-type" class="form-select" required>
+                            <option value="qa">QA</option>
+                            <option value="text_exam">Text Exam</option>
+                            <option value="image_mcq">Image MCQ</option>
+                            <option value="api_calling">API Calling</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">版本</label>
+                        <input type="text" id="upload-version" class="form-input" value="1.0.0">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('upload-modal')">取消</button>
+                <button class="btn btn-primary" onclick="uploadDataset()">上传</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+        }
+        .modal-content {
+            position: relative;
+            background: var(--bg-primary);
+            border-radius: var(--border-radius);
+            width: 100%;
+            max-width: 500px;
+            box-shadow: var(--shadow-lg);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--spacing-md) var(--spacing-lg);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .modal-body {
+            padding: var(--spacing-lg);
+        }
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: var(--spacing-sm);
+            padding: var(--spacing-md) var(--spacing-lg);
+            border-top: 1px solid var(--border-color);
+        }
+        .chat-message {
+            margin-bottom: var(--spacing-md);
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: var(--border-radius);
+        }
+        .chat-message.user {
+            background: var(--primary-color);
+            color: white;
+            margin-left: 20%;
+        }
+        .chat-message.assistant {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            margin-right: 20%;
+        }
+        .chat-message .role {
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+            opacity: 0.8;
+        }
+    </style>
+
+    <script src="/static/js/api.js"></script>
+    <script>
+        // =============================================================================
+        // Tab Navigation
+        // =============================================================================
+        
+        function switchTab(tabName) {
+            // Update nav items
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.dataset.tab === tabName) {
+                    item.classList.add('active');
+                }
+            });
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById('tab-' + tabName).classList.add('active');
+            
+            // Load tab data
+            loadTabData(tabName);
+        }
+        
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                switchTab(item.dataset.tab);
+            });
+        });
+        
+        // =============================================================================
+        // Data Loading
+        // =============================================================================
+        
+        async function loadTabData(tabName) {
+            try {
+                switch (tabName) {
+                    case 'dashboard':
+                        await refreshDashboard();
+                        break;
+                    case 'datasets':
+                        await loadDatasets();
+                        break;
+                    case 'experiments':
+                        await loadExperiments();
+                        break;
+                    case 'rag':
+                        await loadKnowledgeBases();
+                        break;
+                }
+            } catch (error) {
+                console.error('Failed to load tab data:', error);
+                showAlert('error', error.message);
+            }
+        }
+        
+        async function refreshDashboard() {
+            try {
+                const config = await API.System.config();
+                document.getElementById('stat-datasets').textContent = config.dataset_count || 0;
+                document.getElementById('stat-kbs').textContent = config.kb_count || 0;
+                document.getElementById('stat-models').textContent = config.models?.length || 0;
+                document.getElementById('stat-experiments').textContent = '-';
+            } catch (error) {
+                console.warn('Dashboard refresh failed:', error);
+            }
+        }
+        
+        async function loadDatasets() {
+            const container = document.getElementById('datasets-list');
+            try {
+                const data = await API.Datasets.list();
+                if (data.datasets.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📁</div>
+                            <div class="empty-state-title">暂无数据集</div>
+                            <div class="empty-state-description">上传您的第一个数据集</div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = `
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>数据集 ID</th>
+                                <th>任务类型</th>
+                                <th>样本数</th>
+                                <th>版本</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.datasets.map(ds => `
+                                <tr>
+                                    <td>${ds.dataset_id}</td>
+                                    <td><span class="badge badge-info">${ds.task_type}</span></td>
+                                    <td>${ds.total_samples}</td>
+                                    <td>${ds.version}</td>
+                                    <td>
+                                        <button class="btn btn-secondary btn-icon" onclick="previewDataset('${ds.dataset_id}')">👁</button>
+                                        <button class="btn btn-danger btn-icon" onclick="deleteDataset('${ds.dataset_id}')">🗑</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                container.innerHTML = `<div class="alert alert-error">${error.message}</div>`;
+            }
+        }
+        
+        async function loadExperiments() {
+            const container = document.getElementById('experiments-list');
+            try {
+                const data = await API.Experiments.list();
+                if (data.experiments.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">🧪</div>
+                            <div class="empty-state-title">暂无实验</div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = `
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>实验 ID</th>
+                                <th>名称</th>
+                                <th>状态</th>
+                                <th>数据集</th>
+                                <th>模型</th>
+                                <th>进度</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.experiments.map(exp => `
+                                <tr>
+                                    <td>${exp.experiment_id}</td>
+                                    <td>${exp.name}</td>
+                                    <td><span class="badge badge-${getStatusBadge(exp.status)}">${exp.status}</span></td>
+                                    <td>${exp.dataset_id}</td>
+                                    <td>${exp.model_id}</td>
+                                    <td>${exp.completed}/${exp.total_samples}</td>
+                                    <td>
+                                        <button class="btn btn-secondary btn-icon" onclick="viewExperiment('${exp.experiment_id}')">👁</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                container.innerHTML = `<div class="alert alert-error">${error.message}</div>`;
+            }
+        }
+        
+        async function loadKnowledgeBases() {
+            const container = document.getElementById('kb-list');
+            const select = document.getElementById('search-kb');
+            const chatKb = document.getElementById('chat-kb');
+            
+            try {
+                const data = await API.RAG.list();
+                
+                // Update select options
+                const options = data.kbs.map(kb => `<option value="${kb.kb_name}">${kb.kb_name}</option>`).join('');
+                select.innerHTML = '<option value="">选择知识库</option>' + options;
+                chatKb.innerHTML = '<option value="">不使用 RAG</option>' + options;
+                
+                if (data.kbs.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">🔍</div>
+                            <div class="empty-state-title">暂无知识库</div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = `
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>知识库名称</th>
+                                <th>Chunk 数量</th>
+                                <th>嵌入模型</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.kbs.map(kb => `
+                                <tr>
+                                    <td>${kb.kb_name}</td>
+                                    <td>${kb.total_chunks}</td>
+                                    <td>${kb.embedder}</td>
+                                    <td>
+                                        <button class="btn btn-danger btn-icon" onclick="deleteKB('${kb.kb_name}')">🗑</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (error) {
+                container.innerHTML = `<div class="alert alert-error">${error.message}</div>`;
+            }
+        }
+        
+        // =============================================================================
+        // Actions
+        // =============================================================================
+        
+        function showUploadModal() {
+            document.getElementById('upload-modal').classList.remove('hidden');
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+        
+        async function uploadDataset() {
+            const file = document.getElementById('upload-file').files[0];
+            const name = document.getElementById('upload-name').value;
+            const taskType = document.getElementById('upload-task-type').value;
+            const version = document.getElementById('upload-version').value;
+            
+            if (!file || !name) {
+                showAlert('error', '请填写所有必填字段');
+                return;
+            }
+            
+            try {
+                const result = await API.Datasets.upload(file, {
+                    dataset_name: name,
+                    task_type: taskType,
+                    version: version,
+                });
+                
+                showAlert('success', `数据集上传成功: ${result.dataset_id}`);
+                closeModal('upload-modal');
+                loadDatasets();
+            } catch (error) {
+                showAlert('error', error.message);
+            }
+        }
+        
+        async function deleteDataset(datasetId) {
+            if (!confirm(`确定要删除数据集 ${datasetId} 吗？`)) return;
+            
+            try {
+                await API.Datasets.delete(datasetId);
+                showAlert('success', '数据集已删除');
+                loadDatasets();
+            } catch (error) {
+                showAlert('error', error.message);
+            }
+        }
+        
+        async function searchRAG() {
+            const kbName = document.getElementById('search-kb').value;
+            const query = document.getElementById('search-query').value;
+            const container = document.getElementById('search-results');
+            
+            if (!kbName || !query) {
+                showAlert('warning', '请选择知识库并输入查询');
+                return;
+            }
+            
+            try {
+                const data = await API.RAG.search(kbName, query);
+                
+                container.innerHTML = data.results.map(chunk => `
+                    <div class="card mb-sm">
+                        <div class="card-body">
+                            <div class="flex justify-between items-center mb-sm">
+                                <span class="badge badge-info">${chunk.chunk_id}</span>
+                                <span class="text-muted">Score: ${chunk.score.toFixed(3)}</span>
+                            </div>
+                            <p>${chunk.text}</p>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                container.innerHTML = `<div class="alert alert-error">${error.message}</div>`;
+            }
+        }
+        
+        // =============================================================================
+        // Chat
+        // =============================================================================
+        
+        let chatMessages = [];
+        
+        function renderChatMessages() {
+            const container = document.getElementById('chat-messages');
+            if (chatMessages.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-description">开始对话调试</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = chatMessages.map(msg => `
+                <div class="chat-message ${msg.role}">
+                    <div class="role">${msg.role === 'user' ? '用户' : '助手'}</div>
+                    <div class="content">${msg.content}</div>
+                </div>
+            `).join('');
+            
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        async function sendChat() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            if (!message) return;
+            
+            chatMessages.push({ role: 'user', content: message });
+            renderChatMessages();
+            input.value = '';
+            
+            const modelId = document.getElementById('chat-model').value;
+            const strategy = document.getElementById('chat-strategy').value;
+            const kbName = document.getElementById('chat-kb').value;
+            
+            try {
+                const result = await API.Chat.complete({
+                    model_id: modelId,
+                    strategy: strategy,
+                    messages: chatMessages.map(m => ({ role: m.role, content: m.content })),
+                    rag: {
+                        enabled: !!kbName,
+                        kb_name: kbName || null,
+                        top_k: 3,
+                    },
+                });
+                
+                chatMessages.push({ role: 'assistant', content: result.reply });
+                renderChatMessages();
+            } catch (error) {
+                showAlert('error', error.message);
+            }
+        }
+        
+        async function sendChatStream() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            if (!message) return;
+            
+            chatMessages.push({ role: 'user', content: message });
+            chatMessages.push({ role: 'assistant', content: '' });
+            renderChatMessages();
+            input.value = '';
+            
+            const modelId = document.getElementById('chat-model').value;
+            const strategy = document.getElementById('chat-strategy').value;
+            
+            await API.Chat.stream({
+                model_id: modelId,
+                strategy: strategy,
+                messages: chatMessages.slice(0, -1).map(m => ({ role: m.role, content: m.content })),
+                rag: { enabled: false },
+            }, {
+                onToken: (data) => {
+                    chatMessages[chatMessages.length - 1].content += data.token;
+                    renderChatMessages();
+                },
+                onDone: (data) => {
+                    console.log('Stream done:', data);
+                },
+                onError: (data) => {
+                    showAlert('error', data.message);
+                },
+            });
+        }
+        
+        // =============================================================================
+        // Utilities
+        // =============================================================================
+        
+        function getStatusBadge(status) {
+            const map = {
+                'created': 'neutral',
+                'running': 'info',
+                'finished': 'success',
+                'failed': 'error',
+                'stopped': 'warning',
+            };
+            return map[status] || 'neutral';
+        }
+        
+        function showAlert(type, message) {
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 2000; max-width: 400px;';
+            alert.textContent = message;
+            document.body.appendChild(alert);
+            
+            setTimeout(() => alert.remove(), 5000);
+        }
+        
+        // =============================================================================
+        // Initialization
+        // =============================================================================
+        
+        async function init() {
+            try {
+                const health = await API.System.health();
+                document.getElementById('system-status').innerHTML = `
+                    <span class="badge badge-${health.status === 'healthy' ? 'success' : 'warning'}">
+                        ${health.status}
+                    </span>
+                    v${health.version}
+                `;
+            } catch (error) {
+                document.getElementById('system-status').innerHTML = `
+                    <span class="badge badge-error">离线</span>
+                `;
+            }
+            
+            refreshDashboard();
+        }
+        
+        init();
+    </script>
+</body>
+</html>

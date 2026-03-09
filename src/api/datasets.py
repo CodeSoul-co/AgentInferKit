@@ -25,7 +25,7 @@ from .schemas import (
     SamplePreviewResponse,
 )
 
-router = APIRouter(prefix="/datasets", tags=["datasets"])
+router = APIRouter(tags=["datasets"])
 
 DATA_DIR = Path("data/processed")
 VALID_TASK_TYPES = {"qa", "text_exam", "image_mcq", "api_calling"}

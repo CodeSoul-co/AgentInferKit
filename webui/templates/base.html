@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Benchmark Platform{% endblock %}</title>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="/static/css/main.css">
+    {% block extra_css %}{% endblock %}
+    
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">📊 Benchmark Platform</div>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#dashboard" class="nav-item {% if active_tab == 'dashboard' %}active{% endif %}" data-tab="dashboard">
+                    <span class="nav-item-icon">🏠</span>
+                    Dashboard
+                </a>
+                <a href="#datasets" class="nav-item {% if active_tab == 'datasets' %}active{% endif %}" data-tab="datasets">
+                    <span class="nav-item-icon">📁</span>
+                    数据集管理
+                </a>
+                <a href="#experiments" class="nav-item {% if active_tab == 'experiments' %}active{% endif %}" data-tab="experiments">
+                    <span class="nav-item-icon">🧪</span>
+                    实验配置
+                </a>
+                <a href="#results" class="nav-item {% if active_tab == 'results' %}active{% endif %}" data-tab="results">
+                    <span class="nav-item-icon">📈</span>
+                    结果分析
+                </a>
+                <a href="#rag" class="nav-item {% if active_tab == 'rag' %}active{% endif %}" data-tab="rag">
+                    <span class="nav-item-icon">🔍</span>
+                    知识库管理
+                </a>
+                <a href="#chat" class="nav-item {% if active_tab == 'chat' %}active{% endif %}" data-tab="chat">
+                    <span class="nav-item-icon">💬</span>
+                    对话调试
+                </a>
+            </nav>
+            <div class="sidebar-footer" style="padding: 16px; border-top: 1px solid var(--border-color);">
+                <div class="text-muted" style="font-size: 0.75rem;">
+                    <span id="system-status">检查系统状态...</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Notifications Container -->
+            <div id="notifications"></div>
+            
+            {% block content %}
+            <!-- Page content goes here -->
+            {% endblock %}
+        </main>
+    </div>
+
+    <!-- Core Scripts -->
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/upload.js"></script>
+    <script src="/static/js/experiment.js"></script>
+    <script src="/static/js/results.js"></script>
+    
+    <!-- Tab Navigation Script -->
+    <script>
+        // Tab switching functionality
+        function switchTab(tabName) {
+            // Update nav items
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.dataset.tab === tabName) {
+                    item.classList.add('active');
+                }
+            });
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            const targetTab = document.getElementById(`tab-${tabName}`);
+            if (targetTab) {
+                targetTab.classList.add('active');
+            }
+            
+            // Update URL hash
+            window.location.hash = tabName;
+        }
+        
+        // Initialize tab from URL hash
+        document.addEventListener('DOMContentLoaded', () => {
+            const hash = window.location.hash.slice(1) || 'dashboard';
+            switchTab(hash);
+            
+            // Add click handlers to nav items
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    switchTab(item.dataset.tab);
+                });
+            });
+            
+            // Check system status
+            checkSystemStatus();
+        });
+        
+        // System status check
+        async function checkSystemStatus() {
+            try {
+                const health = await API.System.health();
+                const statusEl = document.getElementById('system-status');
+                if (statusEl) {
+                    const statusIcon = health.status === 'healthy' ? '🟢' : health.status === 'degraded' ? '🟡' : '🔴';
+                    statusEl.innerHTML = `${statusIcon} ${health.status} | Milvus: ${health.milvus} | v${health.version}`;
+                }
+            } catch (error) {
+                const statusEl = document.getElementById('system-status');
+                if (statusEl) {
+                    statusEl.innerHTML = '🔴 连接失败';
+                }
+            }
+        }
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

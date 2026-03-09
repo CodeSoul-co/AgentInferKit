@@ -25,7 +25,7 @@ from .schemas import (
     UsageInfo,
 )
 
-router = APIRouter(prefix="/chat", tags=["chat"])
+router = APIRouter(tags=["chat"])
 
 
 async def _mock_model_generate(
@@ -154,39 +154,86 @@ async def chat_stream(
     Stream chat completion tokens via Server-Sent Events.
     
     Events:
-    - token: Individual token
-    - done: Completion with usage stats
-    - error: Error message
+    - data: {"content": "..."} - Streamed content chunk
+    - data: {"done": true, "usage": {...}} - Completion signal with usage stats
+    - data: {"error": "..."} - Error message
+    
+    This is a Mock implementation for WebUI development.
+    In production, this will stream tokens from the actual model adapter.
     """
     
     async def generate_stream():
         try:
             start_time = time.time()
+            total_tokens = 0
             
+            # Extract user query
             user_query = ""
             for msg in reversed(request.messages):
                 if msg.role == "user":
                     user_query = msg.content
                     break
             
+            # Generate mock response chunks based on strategy
             if request.strategy == "cot":
-                response_text = f"Let me think step by step about: {user_query[:30]}... First, I'll analyze the question. Then, I'll consider the context. Finally, here is my answer."
+                chunks = [
+                    "让我一步一步思考这个问题...\n\n",
+                    f"**问题分析**: 您问的是关于「{user_query[:20]}...」\n\n",
+                    "**第一步**: 首先，我需要理解问题的核心。",
+                    "这涉及到几个关键概念。\n\n",
+                    "**第二步**: 接下来，我会分析相关的上下文信息。",
+                    "根据已知条件，我们可以推断出...\n\n",
+                    "**第三步**: 综合以上分析，",
+                    "我的结论是：这是一个很好的问题，",
+                    "答案需要从多个角度来考虑。\n\n",
+                    "**最终答案**: 基于以上推理，我认为...",
+                ]
+            elif request.strategy == "long_cot":
+                chunks = [
+                    "# 深度思考\n\n",
+                    "这是一个需要仔细分析的问题。",
+                    f"您提到了「{user_query[:15]}...」，",
+                    "让我从多个维度来探讨。\n\n",
+                    "## 背景分析\n",
+                    "首先，我们需要了解问题的背景...\n\n",
+                    "## 核心论点\n",
+                    "其次，关键的论点包括以下几点...\n\n",
+                    "## 结论\n",
+                    "综上所述，我的回答是...",
+                ]
             else:
-                response_text = f"Here is my response to your question about: {user_query[:30]}..."
+                # Direct strategy - simple response
+                chunks = [
+                    f"您好！关于您的问题「{user_query[:20]}...」，",
+                    "我来为您解答。\n\n",
+                    "这是一个很有意思的问题。",
+                    "根据我的理解，",
+                    "答案是这样的：\n\n",
+                    "首先，我们需要考虑...",
+                    "其次，还要注意...",
+                    "最后，总结一下...\n\n",
+                    "希望这个回答对您有帮助！",
+                ]
             
-            tokens = response_text.split()
-            total_tokens = len(tokens) + len(user_query.split())
+            # Stream each chunk with delay to simulate token generation
+            for chunk in chunks:
+                total_tokens += len(chunk)
+                yield f"data: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
+                await asyncio.sleep(0.15)  # 150ms delay between chunks
             
-            for token in tokens:
-                yield f"event: token\ndata: {json.dumps({'token': token + ' '})}\n\n"
-                await asyncio.sleep(0.05)
-            
+            # Send completion signal
             latency_ms = int((time.time() - start_time) * 1000)
-            
-            yield f"event: done\ndata: {json.dumps({'usage': {'total_tokens': total_tokens, 'latency_ms': latency_ms}})}\n\n"
+            done_data = {
+                "done": True,
+                "usage": {
+                    "total_tokens": total_tokens,
+                    "latency_ms": latency_ms,
+                },
+            }
+            yield f"data: {json.dumps(done_data, ensure_ascii=False)}\n\n"
             
         except Exception as e:
-            yield f"event: error\ndata: {json.dumps({'message': str(e)})}\n\n"
+            yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
     
     return StreamingResponse(
         generate_stream(),
