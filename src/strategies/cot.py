@@ -7,7 +7,7 @@ from src.strategies.base import BaseStrategy
 class CoTStrategy(BaseStrategy):
     """Chain-of-Thought prompting strategy.
 
-    Loads prompts from configs/prompts/ registry by prompt_id.
+    Loads prompts from src/prompts/ registry by prompt_id.
     Falls back to configs/strategies/cot.yaml if no registry entry.
     """
 

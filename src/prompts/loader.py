@@ -13,7 +13,7 @@ from typing import Any, Dict, Optional
 
 import yaml
 
-_PROMPTS_DIR = Path(__file__).resolve().parent.parent.parent / "configs" / "prompts"
+_PROMPTS_DIR = Path(__file__).resolve().parent
 _REGISTRY_PATH = _PROMPTS_DIR / "registry.yaml"
 
 _registry_cache: Optional[Dict[str, str]] = None

@@ -1,4 +1,4 @@
-"""Prompt management module — loads prompt configs from configs/prompts/."""
+"""Prompt management module — loads prompt configs from src/prompts/."""
 
 from src.prompts.loader import (
     get_instruction_template,

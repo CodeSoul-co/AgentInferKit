@@ -1,6 +1,6 @@
 # Prompt Registry
 # Key: {task_type}.{strategy}
-# Value: path relative to configs/prompts/
+# Value: path relative to src/prompts/
 
 text_exam.direct: text_exam/direct.yaml
 text_exam.cot: text_exam/cot.yaml
