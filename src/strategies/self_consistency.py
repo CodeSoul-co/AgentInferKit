@@ -1,16 +1,27 @@
+"""
+Self-Consistency strategy — sample N CoT paths and majority vote.
+
+Reference: CoT paper (Wang et al., 2022) — Self-Consistency Improves CoT Reasoning.
+LangChain integration: uses ChatOpenAI with temperature>0 for diverse sampling.
+"""
+
 from collections import Counter
 from typing import Any, Dict, List, Optional, Union
 
+from loguru import logger
+
 from src.api.schemas import Message
+from src.langchain_bridge import TokenUsageTracker, make_langchain_llm
 from src.strategies.base import BaseStrategy
 
 
 class SelfConsistencyStrategy(BaseStrategy):
-    """Self-Consistency strategy using LangChain LLMChain for multi-sampling.
+    """Self-Consistency strategy with LangChain-backed multi-sampling.
+
+    Samples N diverse CoT reasoning paths (with temperature > 0) using
+    LangChain ChatOpenAI, then takes a majority vote over extracted answers.
 
     Reads config from configs/strategies/self_consistency.yaml.
-    Samples N diverse CoT reasoning paths (with temperature > 0), then
-    takes a majority vote over the extracted answers.
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
@@ -26,6 +37,56 @@ class SelfConsistencyStrategy(BaseStrategy):
     @property
     def temperature(self) -> float:
         return self._temperature
+
+    # ------------------------------------------------------------------
+    # LangChain-based consistency voting
+    # ------------------------------------------------------------------
+
+    def run_consistency_vote(
+        self,
+        sample: Dict[str, Any],
+        model_config: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Sample N diverse CoT paths via LangChain and majority-vote.
+
+        Args:
+            sample: The input sample dict.
+            model_config: Model config dict for make_langchain_llm.
+
+        Returns:
+            Dict with parsed_answer, reasoning_trace, vote_distribution, all_answers, usage.
+        """
+        from langchain_core.messages import HumanMessage, SystemMessage
+
+        # Override temperature for diverse sampling
+        sc_config = dict(model_config)
+        sc_config["temperature"] = self._temperature
+        llm = make_langchain_llm(sc_config)
+        tracker = TokenUsageTracker()
+
+        # Build the prompt once (same for all N paths)
+        gen_messages = self.build_prompt(sample)
+        lc_messages = []
+        for m in gen_messages:
+            if m.role == "system":
+                lc_messages.append(SystemMessage(content=m.content))
+            else:
+                lc_messages.append(HumanMessage(content=m.content))
+
+        # Sample N paths
+        all_outputs: List[str] = []
+        for i in range(self._num_samples):
+            response = llm.invoke(lc_messages, config={"callbacks": [tracker]})
+            text = response.content if hasattr(response, "content") else str(response)
+            all_outputs.append(text)
+
+        parsed = self.parse_output(all_outputs, sample)
+        parsed["usage"] = tracker.to_usage_dict()
+        return parsed
+
+    # ------------------------------------------------------------------
+    # Prompt building
+    # ------------------------------------------------------------------
 
     def build_prompt(self, sample: Dict[str, Any], **kwargs: Any) -> List[Message]:
         """Build a CoT-style prompt (same for each sample path)."""
@@ -52,6 +113,10 @@ class SelfConsistencyStrategy(BaseStrategy):
 
         messages.append(Message(role="user", content=user_content.strip()))
         return messages
+
+    # ------------------------------------------------------------------
+    # Output parsing
+    # ------------------------------------------------------------------
 
     def parse_output(
         self, raw_output: Union[str, List[str]], sample: Dict[str, Any]

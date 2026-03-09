@@ -1,6 +1,8 @@
+from collections import Counter
 from typing import Any, Callable, Dict, List
 
 from src.evaluators import text_metrics, choice_metrics, rag_metrics, efficiency
+from src.evaluators import agent_metrics
 
 
 # ---------------------------------------------------------------------------
@@ -41,16 +43,93 @@ def _wrap_f1_score(predictions: List[Dict[str, Any]], **kw) -> Dict[str, Any]:
     return {"metric": "f1_score", "avg_f1": round(avg, 4), "total": len(scores)}
 
 
+def _wrap_bleu(predictions: List[Dict[str, Any]], **kw) -> Dict[str, Any]:
+    preds = [p.get("parsed_answer", "") for p in predictions]
+    refs = [p.get("answer", p.get("reference_answer", "")) for p in predictions]
+    scores = [text_metrics.bleu(p, r) for p, r in zip(preds, refs)]
+    avg = sum(scores) / len(scores) if scores else 0.0
+    return {"metric": "bleu", "avg_bleu": round(avg, 4), "total": len(scores)}
+
+
+def _wrap_rouge_l(predictions: List[Dict[str, Any]], **kw) -> Dict[str, Any]:
+    preds = [p.get("parsed_answer", "") for p in predictions]
+    refs = [p.get("answer", p.get("reference_answer", "")) for p in predictions]
+    scores = [text_metrics.rouge_l_f1(p, r) for p, r in zip(preds, refs)]
+    avg = sum(scores) / len(scores) if scores else 0.0
+    return {"metric": "rouge_l", "avg_rouge_l_f1": round(avg, 4), "total": len(scores)}
+
+
+def _wrap_option_bias(predictions: List[Dict[str, Any]], **kw) -> Dict[str, Any]:
+    preds = [p.get("parsed_answer", "") for p in predictions]
+    counts: Counter = Counter()
+    for p in preds:
+        extracted = choice_metrics.extract_choice(p)
+        counts[extracted or "INVALID"] += 1
+    total = sum(counts.values())
+    dist = {k: round(v / total, 4) for k, v in sorted(counts.items())} if total else {}
+    return {"metric": "option_bias", "distribution": dist, "total": total}
+
+
+def _wrap_win_rate(predictions: List[Dict[str, Any]], **kw) -> Dict[str, Any]:
+    """Win rate: requires 'baseline_correct' field (bool) merged into predictions."""
+    wins = 0
+    comparable = 0
+    for pred in predictions:
+        baseline_correct = pred.get("baseline_correct")
+        if baseline_correct is None:
+            continue
+        comparable += 1
+        parsed = str(pred.get("parsed_answer", "")).strip().upper()
+        ref = str(pred.get("answer", pred.get("reference_answer", ""))).strip().upper()
+        target_correct = parsed == ref
+        if target_correct and not baseline_correct:
+            wins += 1
+    rate = wins / comparable if comparable else 0.0
+    return {"metric": "win_rate", "win_rate": round(rate, 4), "wins": wins, "comparable": comparable}
+
+
+def _wrap_avg_trace_tokens(predictions: List[Dict[str, Any]], **kw) -> Dict[str, Any]:
+    counts = []
+    for pred in predictions:
+        trace = pred.get("reasoning_trace")
+        if isinstance(trace, str) and trace:
+            counts.append(len(trace.split()))
+        elif isinstance(trace, list) and trace:
+            text = " ".join(str(s.get("thought", "")) for s in trace if isinstance(s, dict))
+            counts.append(len(text.split()))
+        else:
+            counts.append(0)
+    avg = sum(counts) / len(counts) if counts else 0.0
+    return {"metric": "avg_trace_tokens", "avg": round(avg, 1), "total": len(counts)}
+
+
 # Metric name -> callable mapping
 _METRIC_MAP: Dict[str, Callable] = {
+    # Text metrics
     "exact_match": _wrap_exact_match,
     "f1_score": _wrap_f1_score,
+    "bleu": _wrap_bleu,
+    "rouge_l": _wrap_rouge_l,
+    # Choice metrics
     "choice_accuracy": _wrap_choice_accuracy,
+    "option_bias": _wrap_option_bias,
+    # Comparison metrics
+    "win_rate": _wrap_win_rate,
+    # RAG metrics
     "retrieval_hit_rate": rag_metrics.retrieval_hit_rate,
     "context_relevance": rag_metrics.context_relevance,
+    # Efficiency metrics
     "latency_stats": efficiency.latency_stats,
     "token_stats": efficiency.token_stats,
     "cost_estimate": efficiency.cost_estimate,
+    "avg_trace_tokens": _wrap_avg_trace_tokens,
+    # Agent metrics
+    "tool_selection_accuracy": agent_metrics.tool_selection_accuracy,
+    "parameter_accuracy": agent_metrics.parameter_accuracy,
+    "end_to_end_success_rate": agent_metrics.end_to_end_success_rate,
+    "invalid_call_rate": agent_metrics.invalid_call_rate,
+    "avg_tool_calls": agent_metrics.avg_tool_calls,
+    "avg_reasoning_steps": agent_metrics.avg_reasoning_steps,
 }
 
 

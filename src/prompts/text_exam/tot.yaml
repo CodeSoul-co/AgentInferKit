@@ -1,0 +1,17 @@
+# Tree-of-Thought prompt for text_exam tasks
+# Standard prompts adapted from vendor/tree-of-thought-llm/src/tot/prompts/
+prompt_id: text_exam__tot
+
+messages:
+  - role: system
+    content: |
+      You are a creative problem solver. Generate one possible approach to the problem below.
+      Be concise but thorough in your reasoning.
+
+  - role: user
+    content: |
+      {question}
+
+      {options_text}
+
+      Think of one possible approach to solve this. End with: Answer: X

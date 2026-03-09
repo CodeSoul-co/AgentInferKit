@@ -32,7 +32,7 @@ class BaseStrategy(ABC):
 
     Each concrete strategy:
       1. Reads its YAML config from configs/strategies/
-      2. Resolves prompt_id from configs/prompts/registry.yaml
+      2. Resolves prompt_id from src/prompts/registry.yaml
       3. Exposes build_prompt() + parse_output() for the runner
 
     Prompt loading priority:
@@ -70,7 +70,7 @@ class BaseStrategy(ABC):
     def build_messages_from_prompt_id(
         self, prompt_id: str, **template_vars: Any
     ) -> List[Message]:
-        """Build Message list from a prompt_id in configs/prompts/.
+        """Build Message list from a prompt_id in src/prompts/.
 
         Args:
             prompt_id: e.g. 'text_exam.cot'

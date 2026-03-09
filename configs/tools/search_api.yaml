@@ -1,0 +1,15 @@
+tool_id: search_api
+version: "1.0.0"
+
+# Execution behavior
+mock_enabled: true
+timeout_s: 5
+retry_times: 2
+retry_delay_s: 1
+
+# Parameter validation
+strict_type_check: true
+allow_extra_params: false
+
+# Logging
+log_calls: true

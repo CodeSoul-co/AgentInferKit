@@ -1,0 +1,23 @@
+# ReAct prompt for api_calling tasks
+# Standard prompts adapted from vendor/ReAct/hotpotqa.ipynb
+prompt_id: api_calling__react
+
+messages:
+  - role: system
+    content: |
+      Solve a task with interleaving Thought, Action, Observation steps.
+      Thought can reason about the current situation.
+      Action can be one of the available tool calls or Finish[answer].
+
+  - role: user
+    content: |
+      {question}
+
+      {tool_desc}
+
+      Use the format:
+      Thought i: <your reasoning>
+      Action i: ToolName[input]
+      Observation i: <result>
+      ...
+      When you know the answer, use: Finish[answer]
