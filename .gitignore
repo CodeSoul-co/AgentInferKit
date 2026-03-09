@@ -5,6 +5,11 @@ SCHEMA.md
 TASKS.md
 rule
 
+# Test/demo data and experiment outputs (do not push)
+data/raw/demo_*.jsonl
+outputs/
+configs/experiments/demo_*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
