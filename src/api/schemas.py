@@ -12,6 +12,25 @@ from pydantic import BaseModel, Field
 
 
 # =============================================================================
+# Core Data Structures (used by adapters, strategies, runners)
+# =============================================================================
+
+class Message(BaseModel):
+    """Chat message used throughout the inference pipeline."""
+    role: str = Field(..., description="Message role: system, user, or assistant")
+    content: str = Field(..., description="Message content")
+
+
+class GenerateResult(BaseModel):
+    """Result from a model adapter generate() call."""
+    content: str = Field(default="", description="Generated text content")
+    prompt_tokens: Optional[int] = Field(default=0, description="Number of prompt tokens")
+    completion_tokens: Optional[int] = Field(default=0, description="Number of completion tokens")
+    latency_ms: Optional[float] = Field(default=0.0, description="Latency in milliseconds")
+    error: Optional[str] = Field(default=None, description="Error message if generation failed")
+
+
+# =============================================================================
 # Generic Response Envelope
 # =============================================================================
 

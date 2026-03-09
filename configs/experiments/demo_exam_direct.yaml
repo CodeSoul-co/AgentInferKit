@@ -1,0 +1,16 @@
+experiment_id: demo_exam_direct_001
+
+model:
+  provider: deepseek
+  model: deepseek-chat
+
+strategy: direct
+
+dataset_path: data/raw/demo_exam.jsonl
+
+concurrency: 3
+
+evaluators:
+  - choice_accuracy
+  - latency_stats
+  - token_stats

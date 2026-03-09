@@ -14,6 +14,10 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+from src.adapters.registry import load_adapter
+from src.api.schemas import Message as InternalMessage
+from src.strategies.registry import load_strategy
+
 from .schemas import (
     ChatCompleteRequest,
     ChatCompleteResponse,
@@ -28,66 +32,83 @@ from .schemas import (
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
-async def _mock_model_generate(
+async def _real_model_generate(
     messages: List[ChatMessage],
     model_id: str,
     strategy: str,
 ) -> Dict[str, Any]:
     """
-    Mock model generation for development.
-    
-    In production, this will call the actual model adapter.
+    Real model generation using adapter + strategy.
     """
-    await asyncio.sleep(0.5)
-    
+    # Determine provider from model_id (e.g. "deepseek-chat" -> "deepseek")
+    provider = model_id.split("-")[0] if "-" in model_id else model_id
+    adapter = load_adapter({"provider": provider, "model": model_id})
+
+    # Build a pseudo-sample from chat messages for strategy prompt building
     user_message = ""
     for msg in reversed(messages):
         if msg.role == "user":
             user_message = msg.content
             break
-    
-    if strategy == "cot":
-        reasoning = f"Let me think about this step by step...\n1. First, I analyze the question: '{user_message[:50]}...'\n2. Then, I consider the relevant information.\n3. Finally, I formulate my answer."
-        reply = f"Based on my analysis, here is my response to your question."
-    elif strategy == "long_cot":
-        reasoning = f"This requires deep thinking...\n\n## Step 1: Understanding\n{user_message[:100]}\n\n## Step 2: Analysis\nLet me break this down...\n\n## Step 3: Synthesis\nCombining all factors..."
-        reply = "After careful consideration, here is my comprehensive answer."
-    else:
-        reasoning = None
-        reply = f"Here is my response to: {user_message[:50]}..."
-    
+
+    # Use strategy to build prompt if applicable
+    try:
+        strat = load_strategy(strategy)
+        sample = {"task_type": "text_qa", "question": user_message}
+        built_msgs = strat.build_prompt(sample)
+    except Exception:
+        # Fallback: pass messages through directly
+        built_msgs = [InternalMessage(role=m.role, content=m.content) for m in messages]
+
+    result = await adapter.generate(built_msgs)
+
+    reasoning_trace = None
+    reply = result.content
+    if strategy in ("cot", "long_cot"):
+        # Try to split reasoning from answer
+        try:
+            strat = load_strategy(strategy)
+            parsed = strat.parse_output(result.content, {"task_type": "text_qa", "question": user_message})
+            reasoning_trace = parsed.get("reasoning_trace")
+            if parsed.get("parsed_answer"):
+                reply = result.content
+        except Exception:
+            pass
+
     return {
         "reply": reply,
-        "reasoning_trace": reasoning,
+        "reasoning_trace": reasoning_trace,
         "usage": {
-            "total_tokens": len(user_message.split()) * 2 + 100,
-            "latency_ms": 500,
+            "total_tokens": (result.prompt_tokens or 0) + (result.completion_tokens or 0),
+            "latency_ms": int(result.latency_ms),
         }
     }
 
 
-async def _mock_rag_retrieve(
+async def _rag_retrieve(
     query: str,
     kb_name: str,
     top_k: int,
 ) -> List[ChunkResult]:
     """
-    Mock RAG retrieval for development.
-    
-    In production, this will call the actual RAG retriever.
+    RAG retrieval using the real retriever.
+    Falls back to empty list if Milvus is unavailable.
     """
-    await asyncio.sleep(0.2)
-    
-    return [
-        ChunkResult(
-            chunk_id=f"chunk_{i:03d}",
-            score=0.9 - i * 0.1,
-            text=f"This is relevant context chunk {i + 1} for query: {query[:30]}...",
-            topic="general",
-            source_qa_ids=[f"qa_{i:03d}"],
-        )
-        for i in range(min(top_k, 3))
-    ]
+    try:
+        from src.rag.retriever import retrieve
+        results = retrieve(query, collection_name=kb_name, top_k=top_k)
+        return [
+            ChunkResult(
+                chunk_id=r.get("chunk_id", f"chunk_{i:03d}"),
+                score=r.get("score", 0.0),
+                text=r.get("text", ""),
+                topic=r.get("topic"),
+                source_qa_ids=r.get("source_qa_ids", []),
+            )
+            for i, r in enumerate(results)
+        ]
+    except Exception:
+        return []
 
 
 @router.post(
@@ -113,14 +134,14 @@ async def chat_complete(
                 user_query = msg.content
                 break
         
-        chunks = await _mock_rag_retrieve(
+        chunks = await _rag_retrieve(
             query=user_query,
             kb_name=request.rag.kb_name,
             top_k=request.rag.top_k,
         )
         rag_context = ChatRAGContext(retrieved_chunks=chunks)
     
-    result = await _mock_model_generate(
+    result = await _real_model_generate(
         messages=request.messages,
         model_id=request.model_id,
         strategy=request.strategy,
@@ -169,21 +190,22 @@ async def chat_stream(
                     user_query = msg.content
                     break
             
-            if request.strategy == "cot":
-                response_text = f"Let me think step by step about: {user_query[:30]}... First, I'll analyze the question. Then, I'll consider the context. Finally, here is my answer."
-            else:
-                response_text = f"Here is my response to your question about: {user_query[:30]}..."
-            
-            tokens = response_text.split()
-            total_tokens = len(tokens) + len(user_query.split())
-            
+            result = await _real_model_generate(
+                messages=request.messages,
+                model_id=request.model_id,
+                strategy=request.strategy,
+            )
+
+            reply = result["reply"]
+            tokens = reply.split()
+
             for token in tokens:
                 yield f"event: token\ndata: {json.dumps({'token': token + ' '})}\n\n"
-                await asyncio.sleep(0.05)
-            
+                await asyncio.sleep(0.02)
+
             latency_ms = int((time.time() - start_time) * 1000)
-            
-            yield f"event: done\ndata: {json.dumps({'usage': {'total_tokens': total_tokens, 'latency_ms': latency_ms}})}\n\n"
+
+            yield f"event: done\ndata: {json.dumps({'usage': {'total_tokens': result['usage']['total_tokens'], 'latency_ms': latency_ms}})}\n\n"
             
         except Exception as e:
             yield f"event: error\ndata: {json.dumps({'message': str(e)})}\n\n"
