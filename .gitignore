@@ -8,6 +8,9 @@ rule
 # Experiment outputs (do not push)
 outputs/
 
+# Milvus Docker volumes (runtime data)
+volumes/
+
 # Vendor repos (cloned references, do not push)
 vendor/
 
