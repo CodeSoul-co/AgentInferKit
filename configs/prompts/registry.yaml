@@ -5,6 +5,7 @@
 text_exam.direct: text_exam/direct.yaml
 text_exam.cot: text_exam/cot.yaml
 text_exam.long_cot: text_exam/long_cot.yaml
+text_exam.tot: text_exam/tot.yaml
 
 image_mcq.direct: image_mcq/direct.yaml
 
@@ -12,3 +13,4 @@ api_calling.direct: api_calling/direct.yaml
 api_calling.cot: api_calling/cot.yaml
 api_calling.long_cot: api_calling/long_cot.yaml
 api_calling.tot: api_calling/tot.yaml
+api_calling.react: api_calling/react.yaml

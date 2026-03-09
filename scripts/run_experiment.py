@@ -21,6 +21,7 @@ from src.adapters.registry import load_adapter
 from src.config import OUTPUTS_METRICS_DIR, OUTPUTS_PREDICTIONS_DIR
 from src.evaluators.registry import evaluate_all
 from src.evaluators.group_stats import multi_group_stats
+from src.runners.agent_runner import AgentRunner
 from src.runners.batch_runner import BatchRunner
 from src.runners.exam_runner import ExamRunner
 from src.runners.qa_runner import QARunner
@@ -87,7 +88,9 @@ async def run(config: Dict[str, Any]) -> None:
     task_type = samples[0].get("task_type", "text_qa") if samples else "text_qa"
     rag_config = config.get("rag", {})
 
-    if task_type in ("text_exam", "image_mcq"):
+    if task_type == "api_calling":
+        runner = AgentRunner(adapter, strategy, model_config=model_config, rag_config=rag_config)
+    elif task_type in ("text_exam", "image_mcq"):
         runner = ExamRunner(adapter, strategy, rag_config=rag_config)
     else:
         runner = QARunner(adapter, strategy, rag_config=rag_config)
