@@ -2,6 +2,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 from src.api.schemas import Message
+from src.prompts import get_prompt
 from src.strategies.base import BaseStrategy
 
 
@@ -14,17 +15,6 @@ class ToTStrategy(BaseStrategy):
     is orchestrated by the runner or caller.
     """
 
-    GENERATION_SYSTEM = (
-        "You are a creative problem solver. Generate one possible approach "
-        "to the problem below. Be concise but thorough in your reasoning."
-    )
-
-    EVAL_SYSTEM = (
-        "You are a critical evaluator. Given a problem and several candidate "
-        "solutions, rank them from best to worst. Output the ranking as a "
-        "numbered list, e.g.:\n1. Candidate 2 (best)\n2. Candidate 1\n..."
-    )
-
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         self._config = config or {}
         self._num_candidates = self._config.get("num_candidates", 3)
@@ -35,24 +25,17 @@ class ToTStrategy(BaseStrategy):
         task_type = sample.get("task_type", "text_qa")
         question = sample.get("question", "")
 
-        messages = [Message(role="system", content=self.GENERATION_SYSTEM)]
+        system_content = get_prompt("tot", "generation_system")
+        messages = [Message(role="system", content=system_content.strip())]
 
         if task_type in ("text_exam", "image_mcq"):
             options = sample.get("options", {})
             options_text = "\n".join(f"{k}. {v}" for k, v in sorted(options.items()))
-            user_content = (
-                f"{question}\n\n{options_text}\n\n"
-                "Think of one possible approach to solve this. "
-                "End with: Answer: X"
-            )
+            user_content = get_prompt("tot", "user_exam", question=question, options_text=options_text)
         else:
-            user_content = (
-                f"{question}\n\n"
-                "Think of one possible approach to solve this. "
-                "End with: Answer: <your answer>"
-            )
+            user_content = get_prompt("tot", "user_qa", question=question)
 
-        messages.append(Message(role="user", content=user_content))
+        messages.append(Message(role="user", content=user_content.strip()))
         return messages
 
     def build_eval_prompt(self, candidates: List[str], sample: Dict[str, Any]) -> List[Message]:
@@ -70,15 +53,11 @@ class ToTStrategy(BaseStrategy):
         for i, c in enumerate(candidates, 1):
             candidate_text += f"\n--- Candidate {i} ---\n{c}\n"
 
-        user_content = (
-            f"Problem: {question}\n\n"
-            f"Candidates:{candidate_text}\n"
-            "Rank the candidates from best to worst. Then state the best "
-            "candidate's final answer on the last line as: Answer: <answer>"
-        )
+        eval_system = get_prompt("tot", "eval_system")
+        user_content = get_prompt("tot", "eval_user", question=question, candidate_text=candidate_text)
         return [
-            Message(role="system", content=self.EVAL_SYSTEM),
-            Message(role="user", content=user_content),
+            Message(role="system", content=eval_system.strip()),
+            Message(role="user", content=user_content.strip()),
         ]
 
     def parse_output(self, raw_output: str, sample: Dict[str, Any]) -> Dict[str, Any]:

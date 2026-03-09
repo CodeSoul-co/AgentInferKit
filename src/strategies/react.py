@@ -2,6 +2,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 from src.api.schemas import Message
+from src.prompts import get_prompt
 from src.strategies.base import BaseStrategy
 
 
@@ -13,15 +14,6 @@ class ReActStrategy(BaseStrategy):
     decide when to call a tool (Action) and when to give a final answer.
     The actual tool execution loop is driven by the runner.
     """
-
-    SYSTEM_PROMPT = (
-        "You are a helpful assistant that solves problems by interleaving "
-        "reasoning and actions. At each step, output exactly ONE of:\n"
-        "  Thought: <your reasoning>\n"
-        "  Action: <tool_name>(<json_params>)\n"
-        "  Answer: <final answer>\n"
-        "After receiving an Observation from a tool, continue reasoning."
-    )
 
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         self._config = config or {}
@@ -43,8 +35,9 @@ class ReActStrategy(BaseStrategy):
         question = sample.get("question", sample.get("user_goal", ""))
         available_tools = sample.get("available_tools", [])
 
+        system_content = get_prompt("react", "system")
         messages: List[Message] = [
-            Message(role="system", content=self.SYSTEM_PROMPT),
+            Message(role="system", content=system_content.strip()),
         ]
 
         # Include tool descriptions if available
@@ -57,8 +50,8 @@ class ReActStrategy(BaseStrategy):
                 else:
                     tool_desc += f"- {t}\n"
 
-        user_content = f"{question}{tool_desc}"
-        messages.append(Message(role="user", content=user_content))
+        user_content = get_prompt("react", "user", question=question, tool_desc=tool_desc)
+        messages.append(Message(role="user", content=user_content.strip()))
 
         # Append history turns
         if history:

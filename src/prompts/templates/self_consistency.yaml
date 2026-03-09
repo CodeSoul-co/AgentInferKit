@@ -1,0 +1,16 @@
+name: self_consistency
+description: Self-Consistency — sample N diverse CoT paths and majority-vote the answer.
+version: "1.0"
+
+prompts:
+  user_exam: |
+    {question}
+
+    {options_text}
+
+    Please think step by step, then provide your final answer on the last line in the format: Answer: X
+
+  user_qa: |
+    {question}
+
+    Please think step by step, then provide your final answer on the last line in the format: Answer: <your answer>

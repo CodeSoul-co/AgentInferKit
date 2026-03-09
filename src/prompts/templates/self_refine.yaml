@@ -1,0 +1,46 @@
+name: self_refine
+description: Self-Refine — iterative generate, critique, and refine loop.
+version: "1.0"
+
+prompts:
+  user_exam: |
+    {question}
+
+    {options_text}
+
+    Please think step by step and provide your answer on the last line as: Answer: X
+
+  user_qa: |
+    {question}
+
+    Please provide a thorough answer. Put your final answer on the last line as: Answer: <your answer>
+
+  feedback: |
+    Question: {question}
+
+    Previous answer:
+    {previous_answer}
+
+    Please critique this answer. Identify any errors, gaps, or areas for improvement. Be specific and constructive.
+
+  refine_exam: |
+    Question: {question}
+
+    Previous answer:
+    {previous_answer}
+
+    Feedback:
+    {feedback}
+
+    Based on the feedback, provide an improved answer. Put your final answer on the last line as: Answer: X
+
+  refine_qa: |
+    Question: {question}
+
+    Previous answer:
+    {previous_answer}
+
+    Feedback:
+    {feedback}
+
+    Based on the feedback, provide an improved answer. Put your final answer on the last line as: Answer: <your answer>

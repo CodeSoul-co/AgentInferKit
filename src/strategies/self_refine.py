@@ -2,6 +2,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 from src.api.schemas import Message
+from src.prompts import get_prompt
 from src.strategies.base import BaseStrategy
 
 
@@ -28,19 +29,11 @@ class SelfRefineStrategy(BaseStrategy):
         if task_type in ("text_exam", "image_mcq"):
             options = sample.get("options", {})
             options_text = "\n".join(f"{k}. {v}" for k, v in sorted(options.items()))
-            user_content = (
-                f"{question}\n\n{options_text}\n\n"
-                "Please think step by step and provide your answer "
-                "on the last line as: Answer: X"
-            )
+            user_content = get_prompt("self_refine", "user_exam", question=question, options_text=options_text)
         else:
-            user_content = (
-                f"{question}\n\n"
-                "Please provide a thorough answer. "
-                "Put your final answer on the last line as: Answer: <your answer>"
-            )
+            user_content = get_prompt("self_refine", "user_qa", question=question)
 
-        return [Message(role="user", content=user_content)]
+        return [Message(role="user", content=user_content.strip())]
 
     def build_feedback_prompt(
         self, sample: Dict[str, Any], previous_answer: str
@@ -55,17 +48,8 @@ class SelfRefineStrategy(BaseStrategy):
             Messages asking the model to critique the answer.
         """
         question = sample.get("question", "")
-        return [
-            Message(
-                role="user",
-                content=(
-                    f"Question: {question}\n\n"
-                    f"Previous answer:\n{previous_answer}\n\n"
-                    "Please critique this answer. Identify any errors, gaps, "
-                    "or areas for improvement. Be specific and constructive."
-                ),
-            )
-        ]
+        content = get_prompt("self_refine", "feedback", question=question, previous_answer=previous_answer)
+        return [Message(role="user", content=content.strip())]
 
     def build_refine_prompt(
         self, sample: Dict[str, Any], previous_answer: str, feedback: str
@@ -83,20 +67,12 @@ class SelfRefineStrategy(BaseStrategy):
         task_type = sample.get("task_type", "text_qa")
         question = sample.get("question", "")
 
-        suffix = "Answer: X" if task_type in ("text_exam", "image_mcq") else "Answer: <your answer>"
+        if task_type in ("text_exam", "image_mcq"):
+            content = get_prompt("self_refine", "refine_exam", question=question, previous_answer=previous_answer, feedback=feedback)
+        else:
+            content = get_prompt("self_refine", "refine_qa", question=question, previous_answer=previous_answer, feedback=feedback)
 
-        return [
-            Message(
-                role="user",
-                content=(
-                    f"Question: {question}\n\n"
-                    f"Previous answer:\n{previous_answer}\n\n"
-                    f"Feedback:\n{feedback}\n\n"
-                    f"Based on the feedback, provide an improved answer. "
-                    f"Put your final answer on the last line as: {suffix}"
-                ),
-            )
-        ]
+        return [Message(role="user", content=content.strip())]
 
     def parse_output(self, raw_output: str, sample: Dict[str, Any]) -> Dict[str, Any]:
         task_type = sample.get("task_type", "text_qa")

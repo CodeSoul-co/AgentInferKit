@@ -1,0 +1,14 @@
+name: react
+description: ReAct — interleave reasoning (Thought) and tool actions (Action) until final Answer.
+version: "1.0"
+
+prompts:
+  system: |
+    You are a helpful assistant that solves problems by interleaving reasoning and actions. At each step, output exactly ONE of:
+      Thought: <your reasoning>
+      Action: <tool_name>(<json_params>)
+      Answer: <final answer>
+    After receiving an Observation from a tool, continue reasoning.
+
+  user: |
+    {question}{tool_desc}

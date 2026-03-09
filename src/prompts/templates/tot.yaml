@@ -1,0 +1,32 @@
+name: tot
+description: Tree-of-Thought — generate multiple candidate paths, evaluate and select the best.
+version: "1.0"
+
+prompts:
+  generation_system: |
+    You are a creative problem solver. Generate one possible approach to the problem below. Be concise but thorough in your reasoning.
+
+  eval_system: |
+    You are a critical evaluator. Given a problem and several candidate solutions, rank them from best to worst. Output the ranking as a numbered list, e.g.:
+    1. Candidate 2 (best)
+    2. Candidate 1
+    ...
+
+  user_exam: |
+    {question}
+
+    {options_text}
+
+    Think of one possible approach to solve this. End with: Answer: X
+
+  user_qa: |
+    {question}
+
+    Think of one possible approach to solve this. End with: Answer: <your answer>
+
+  eval_user: |
+    Problem: {question}
+
+    Candidates:{candidate_text}
+
+    Rank the candidates from best to worst. Then state the best candidate's final answer on the last line as: Answer: <answer>

@@ -2,6 +2,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 from src.api.schemas import Message
+from src.prompts import get_prompt
 from src.strategies.base import BaseStrategy
 
 
@@ -21,17 +22,14 @@ class DirectStrategy(BaseStrategy):
             options_text = "\n".join(
                 f"{k}. {v}" for k, v in sorted(options.items())
             )
-            user_content = (
-                f"{question}\n\n"
-                f"{options_text}\n\n"
-                "Please provide only the letter of the correct answer."
-            )
+            user_content = get_prompt("direct", "user_exam", question=question, options_text=options_text)
         elif task_type == "text_qa":
-            user_content = question
+            user_content = get_prompt("direct", "user_qa", question=question)
         else:
-            user_content = sample.get("user_goal", question)
+            user_goal = sample.get("user_goal", question)
+            user_content = get_prompt("direct", "user_default", user_goal=user_goal)
 
-        return [Message(role="user", content=user_content)]
+        return [Message(role="user", content=user_content.strip())]
 
     def parse_output(self, raw_output: str, sample: Dict[str, Any]) -> Dict[str, Any]:
         """Extract the answer from the model's raw output.

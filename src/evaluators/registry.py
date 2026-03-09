@@ -3,13 +3,49 @@ from typing import Any, Callable, Dict, List
 from src.evaluators import text_metrics, choice_metrics, rag_metrics, efficiency
 
 
+# ---------------------------------------------------------------------------
+# Wrapper functions: accept List[Dict] (our pipeline format) and delegate
+# to friend B's evaluator functions which expect List[str] + List[str].
+# ---------------------------------------------------------------------------
+
+def _wrap_choice_accuracy(predictions: List[Dict[str, Any]], **kw) -> Dict[str, Any]:
+    preds = [p.get("parsed_answer", "") for p in predictions]
+    refs = [p.get("answer", p.get("reference_answer", "")) for p in predictions]
+    acc = choice_metrics.choice_accuracy(preds, refs)
+    correct = sum(1 for p, r in zip(preds, refs) if choice_metrics.extract_choice(p) == r.strip().upper())
+    per_option: Dict[str, Dict[str, Any]] = {}
+    for p, r in zip(preds, refs):
+        r_norm = r.strip().upper()
+        if r_norm not in per_option:
+            per_option[r_norm] = {"correct": 0, "total": 0}
+        per_option[r_norm]["total"] += 1
+        if choice_metrics.extract_choice(p) == r_norm:
+            per_option[r_norm]["correct"] += 1
+    for v in per_option.values():
+        v["accuracy"] = round(v["correct"] / v["total"], 4) if v["total"] else 0.0
+    return {"metric": "choice_accuracy", "accuracy": acc, "correct": correct, "total": len(preds), "per_option": per_option}
+
+
+def _wrap_exact_match(predictions: List[Dict[str, Any]], **kw) -> Dict[str, Any]:
+    preds = [p.get("parsed_answer", "") for p in predictions]
+    refs = [p.get("answer", p.get("reference_answer", "")) for p in predictions]
+    matches = [text_metrics.exact_match(p, r) for p, r in zip(preds, refs)]
+    return {"metric": "exact_match", "accuracy": sum(matches) / len(matches) if matches else 0.0, "total": len(matches)}
+
+
+def _wrap_f1_score(predictions: List[Dict[str, Any]], **kw) -> Dict[str, Any]:
+    preds = [p.get("parsed_answer", "") for p in predictions]
+    refs = [p.get("answer", p.get("reference_answer", "")) for p in predictions]
+    scores = [text_metrics.f1_score(p, r) for p, r in zip(preds, refs)]
+    avg = sum(scores) / len(scores) if scores else 0.0
+    return {"metric": "f1_score", "avg_f1": round(avg, 4), "total": len(scores)}
+
+
 # Metric name -> callable mapping
 _METRIC_MAP: Dict[str, Callable] = {
-    "exact_match": text_metrics.exact_match,
-    "contains_match": text_metrics.contains_match,
-    "f1_score": text_metrics.f1_score,
-    "choice_accuracy": choice_metrics.choice_accuracy,
-    "confusion_matrix": choice_metrics.confusion_matrix,
+    "exact_match": _wrap_exact_match,
+    "f1_score": _wrap_f1_score,
+    "choice_accuracy": _wrap_choice_accuracy,
     "retrieval_hit_rate": rag_metrics.retrieval_hit_rate,
     "context_relevance": rag_metrics.context_relevance,
     "latency_stats": efficiency.latency_stats,

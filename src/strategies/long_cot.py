@@ -2,6 +2,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 from src.api.schemas import Message
+from src.prompts import get_prompt
 from src.strategies.base import BaseStrategy
 
 
@@ -13,14 +14,6 @@ class LongCoTStrategy(BaseStrategy):
     final answer. Suitable for complex math, logic, and multi-hop QA.
     """
 
-    SYSTEM_PROMPT = (
-        "You are an expert problem solver. When given a question, think through "
-        "it very carefully and thoroughly. Break the problem into sub-problems, "
-        "solve each one step by step, verify your intermediate results, and only "
-        "then state your final answer on the last line in the format:\n"
-        "Answer: <your answer>"
-    )
-
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         self._config = config or {}
 
@@ -28,26 +21,19 @@ class LongCoTStrategy(BaseStrategy):
         task_type = sample.get("task_type", "text_qa")
         question = sample.get("question", "")
 
+        system_content = get_prompt("long_cot", "system")
         messages: List[Message] = [
-            Message(role="system", content=self.SYSTEM_PROMPT),
+            Message(role="system", content=system_content.strip()),
         ]
 
         if task_type in ("text_exam", "image_mcq"):
             options = sample.get("options", {})
             options_text = "\n".join(f"{k}. {v}" for k, v in sorted(options.items()))
-            user_content = (
-                f"{question}\n\n{options_text}\n\n"
-                "Reason through each option carefully before selecting the correct one. "
-                "Put your final answer on the last line as: Answer: X"
-            )
+            user_content = get_prompt("long_cot", "user_exam", question=question, options_text=options_text)
         else:
-            user_content = (
-                f"{question}\n\n"
-                "Think step by step, verifying each intermediate result. "
-                "Put your final answer on the last line as: Answer: <your answer>"
-            )
+            user_content = get_prompt("long_cot", "user_qa", question=question)
 
-        messages.append(Message(role="user", content=user_content))
+        messages.append(Message(role="user", content=user_content.strip()))
         return messages
 
     def parse_output(self, raw_output: str, sample: Dict[str, Any]) -> Dict[str, Any]:

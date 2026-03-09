@@ -14,10 +14,6 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from src.adapters.registry import load_adapter
-from src.api.schemas import Message as InternalMessage
-from src.strategies.registry import load_strategy
-
 from .schemas import (
     ChatCompleteRequest,
     ChatCompleteResponse,
@@ -40,6 +36,10 @@ async def _real_model_generate(
     """
     Real model generation using adapter + strategy.
     """
+    from src.adapters.registry import load_adapter
+    from src.api.schemas import Message as InternalMessage
+    from src.strategies.registry import load_strategy
+
     # Determine provider from model_id (e.g. "deepseek-chat" -> "deepseek")
     provider = model_id.split("-")[0] if "-" in model_id else model_id
     adapter = load_adapter({"provider": provider, "model": model_id})
@@ -57,7 +57,6 @@ async def _real_model_generate(
         sample = {"task_type": "text_qa", "question": user_message}
         built_msgs = strat.build_prompt(sample)
     except Exception:
-        # Fallback: pass messages through directly
         built_msgs = [InternalMessage(role=m.role, content=m.content) for m in messages]
 
     result = await adapter.generate(built_msgs)
@@ -65,7 +64,6 @@ async def _real_model_generate(
     reasoning_trace = None
     reply = result.content
     if strategy in ("cot", "long_cot"):
-        # Try to split reasoning from answer
         try:
             strat = load_strategy(strategy)
             parsed = strat.parse_output(result.content, {"task_type": "text_qa", "question": user_message})

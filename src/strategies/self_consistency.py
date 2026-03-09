@@ -3,6 +3,7 @@ from collections import Counter
 from typing import Any, Dict, List, Optional, Union
 
 from src.api.schemas import Message
+from src.prompts import get_prompt
 from src.strategies.base import BaseStrategy
 
 
@@ -28,19 +29,11 @@ class SelfConsistencyStrategy(BaseStrategy):
         if task_type in ("text_exam", "image_mcq"):
             options = sample.get("options", {})
             options_text = "\n".join(f"{k}. {v}" for k, v in sorted(options.items()))
-            user_content = (
-                f"{question}\n\n{options_text}\n\n"
-                "Please think step by step, then provide your final answer "
-                "on the last line in the format: Answer: X"
-            )
+            user_content = get_prompt("self_consistency", "user_exam", question=question, options_text=options_text)
         else:
-            user_content = (
-                f"{question}\n\n"
-                "Please think step by step, then provide your final answer "
-                "on the last line in the format: Answer: <your answer>"
-            )
+            user_content = get_prompt("self_consistency", "user_qa", question=question)
 
-        return [Message(role="user", content=user_content)]
+        return [Message(role="user", content=user_content.strip())]
 
     def parse_output(
         self, raw_output: Union[str, List[str]], sample: Dict[str, Any]
