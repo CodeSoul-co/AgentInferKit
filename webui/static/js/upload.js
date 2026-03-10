@@ -96,10 +96,11 @@ class DatasetUploader {
         
         this.showStatus('info', `
             <div class="file-info">
-                <div class="file-name">📄 ${file.name}</div>
+                <div class="file-name"><i data-lucide="file-text" style="width:16px;height:16px;display:inline;vertical-align:middle;margin-right:4px;"></i>${file.name}</div>
                 <div class="file-size">${sizeStr}</div>
             </div>
         `);
+        if (window.lucide) lucide.createIcons();
     }
     
     showStatus(type, message) {
@@ -125,16 +126,20 @@ class DatasetUploader {
         
         this.statusContainer.innerHTML = `
             <div class="upload-progress">
-                <div class="progress-label">上传中... ${percent}%</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <span class="progress-label" style="margin-bottom:0;">上传中...</span>
+                    <span style="font-size:0.8rem;font-weight:700;color:var(--primary-color);">${percent}%</span>
+                </div>
                 <div class="progress-bar">
                     <div class="progress-fill" style="width: ${percent}%"></div>
                 </div>
             </div>
         `;
+        this.statusContainer.classList.remove('hidden');
     }
     
     showUploadResult(result) {
-        const validatedIcon = result.validated ? '✅' : '⚠️';
+        const validatedIcon = result.validated ? '<i data-lucide="check-circle" style="width:20px;height:20px;color:var(--success-color);"></i>' : '<i data-lucide="alert-triangle" style="width:20px;height:20px;color:var(--warning-color);"></i>';
         const validatedText = result.validated ? '验证通过' : '验证有警告';
         
         let warningsHtml = '';
@@ -212,6 +217,7 @@ class DatasetUploader {
             
             this.currentFile = null;
             this.isUploading = false;
+            if (window.lucide) lucide.createIcons();
             
             return result;
             

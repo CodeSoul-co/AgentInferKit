@@ -1,48 +1,83 @@
 {% extends "base.html" %}
 
-{% block title %}Benchmark Platform - Dashboard{% endblock %}
+{% block title %}AgentInferKit - Benchmark Platform{% endblock %}
 
 {% block content %}
-<!-- Dashboard Tab -->
+<!-- ================================================================
+     Dashboard Tab
+     ================================================================ -->
 <div id="tab-dashboard" class="tab-content active">
     <div class="page-header">
-        <h1 class="page-title">Dashboard</h1>
-        <button class="btn btn-primary" onclick="refreshDashboard()">
-            🔄 刷新
-        </button>
+        <div class="page-header-left">
+            <h1 class="page-title">Dashboard</h1>
+            <span class="page-subtitle" id="dashboard-time"></span>
+        </div>
+        <div class="page-actions">
+            <button class="btn btn-secondary" onclick="refreshDashboard()">
+                <i data-lucide="refresh-cw"></i> 刷新
+            </button>
+        </div>
     </div>
 
     <!-- Stats Grid -->
     <div class="stats-grid">
         <div class="stat-card">
-            <div class="stat-label">数据集数量</div>
-            <div class="stat-value" id="stat-datasets">-</div>
+            <div class="stat-icon indigo"><i data-lucide="database"></i></div>
+            <div class="stat-info">
+                <div class="stat-label">数据集数量</div>
+                <div class="stat-value" id="stat-datasets">-</div>
+            </div>
         </div>
         <div class="stat-card">
-            <div class="stat-label">实验数量</div>
-            <div class="stat-value" id="stat-experiments">-</div>
+            <div class="stat-icon green"><i data-lucide="flask-conical"></i></div>
+            <div class="stat-info">
+                <div class="stat-label">实验数量</div>
+                <div class="stat-value" id="stat-experiments">-</div>
+            </div>
         </div>
         <div class="stat-card">
-            <div class="stat-label">知识库数量</div>
-            <div class="stat-value" id="stat-kbs">-</div>
+            <div class="stat-icon amber"><i data-lucide="book-open"></i></div>
+            <div class="stat-info">
+                <div class="stat-label">知识库数量</div>
+                <div class="stat-value" id="stat-kbs">-</div>
+            </div>
         </div>
         <div class="stat-card">
-            <div class="stat-label">可用模型</div>
-            <div class="stat-value" id="stat-models">-</div>
+            <div class="stat-icon blue"><i data-lucide="cpu"></i></div>
+            <div class="stat-info">
+                <div class="stat-label">可用模型</div>
+                <div class="stat-value" id="stat-models">-</div>
+            </div>
         </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+        <button class="quick-action-btn" onclick="switchTab('datasets')">
+            <i data-lucide="upload"></i> 上传数据集
+        </button>
+        <button class="quick-action-btn" onclick="switchTab('experiments'); setTimeout(showCreateExperimentForm, 100);">
+            <i data-lucide="plus"></i> 新建实验
+        </button>
+        <button class="quick-action-btn" onclick="switchTab('results')">
+            <i data-lucide="bar-chart-3"></i> 查看结果
+        </button>
+        <button class="quick-action-btn" onclick="switchTab('chat')">
+            <i data-lucide="message-square"></i> 对话调试
+        </button>
     </div>
 
     <!-- Recent Experiments -->
     <div class="card">
-        <div class="card-header">最近实验</div>
+        <div class="card-header"><i data-lucide="clock"></i> 最近实验</div>
         <div class="card-body">
             <div id="recent-experiments" class="table-container">
                 <div class="empty-state">
-                    <div class="empty-state-icon">🧪</div>
+                    <div class="empty-state-icon"><i data-lucide="flask-conical"></i></div>
                     <div class="empty-state-title">暂无实验</div>
-                    <div class="empty-state-description">创建您的第一个实验开始评测</div>
+                    <div class="empty-state-description">上传数据集并创建您的第一个评测实验</div>
                     <button class="btn btn-primary" onclick="switchTab('experiments')">
-                        创建实验
+                        <i data-lucide="plus"></i> 创建实验
                     </button>
                 </div>
             </div>
@@ -50,62 +85,80 @@
     </div>
 </div>
 
-<!-- Datasets Tab -->
+<!-- ================================================================
+     Datasets Tab
+     ================================================================ -->
 <div id="tab-datasets" class="tab-content">
     <div class="page-header">
-        <h1 class="page-title">数据集管理</h1>
+        <div class="page-header-left">
+            <h1 class="page-title">数据集管理</h1>
+            <span class="page-subtitle">上传 JSONL 数据集文件并管理评测数据</span>
+        </div>
     </div>
 
     <div class="card mb-lg">
-        <div class="card-header">上传数据集</div>
+        <div class="card-header"><i data-lucide="upload"></i> 上传数据集</div>
         <div class="card-body">
-            <div class="form-group">
-                <label class="form-label">任务类型</label>
-                <select id="task-type" class="form-select">
-                    <option value="qa">问答 (QA)</option>
-                    <option value="text_exam">文本选择题</option>
-                    <option value="image_mcq">图片选择题</option>
-                    <option value="api_calling">API 调用</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label class="form-label">数据集名称</label>
-                <input type="text" id="dataset-name" class="form-input" placeholder="留空则使用文件名">
+            <div class="flex gap-md">
+                <div class="form-group flex-1">
+                    <label class="form-label">任务类型</label>
+                    <select id="task-type" class="form-select">
+                        <option value="qa">问答 (QA)</option>
+                        <option value="text_exam">文本选择题</option>
+                        <option value="image_mcq">图片选择题</option>
+                        <option value="api_calling">API 调用</option>
+                    </select>
+                </div>
+                <div class="form-group flex-1">
+                    <label class="form-label">数据集名称</label>
+                    <input type="text" id="dataset-name" class="form-input" placeholder="留空则使用文件名">
+                </div>
             </div>
             <div class="form-group">
                 <label class="form-label">上传文件</label>
                 <div id="drop-zone" class="drop-zone">
                     <div class="drop-zone-content">
-                        <div class="drop-zone-icon">📁</div>
-                        <div class="drop-zone-text">拖拽 JSONL 文件到此处，或点击选择</div>
+                        <div class="drop-zone-icon"><i data-lucide="upload-cloud"></i></div>
+                        <div class="drop-zone-text">拖拽 JSONL 文件到此处，或 <strong>点击选择文件</strong></div>
                     </div>
                     <input type="file" id="file-input" accept=".jsonl,.json" style="display: none;">
                 </div>
             </div>
             <div id="upload-status" class="hidden"></div>
             <button class="btn btn-primary" onclick="datasetUploader && datasetUploader.upload()">
-                📤 上传
+                <i data-lucide="upload"></i> 上传
             </button>
         </div>
     </div>
 
     <div class="card">
-        <div class="card-header">数据集列表</div>
+        <div class="card-header"><i data-lucide="list"></i> 数据集列表</div>
         <div class="card-body">
             <div id="datasets-list" class="table-container">
-                <div class="loading-spinner"></div>
+                <div class="empty-state">
+                    <div class="empty-state-icon"><i data-lucide="database"></i></div>
+                    <div class="empty-state-title">暂无数据集</div>
+                    <div class="empty-state-description">上传您的第一个 JSONL 数据集</div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Experiments Tab -->
+<!-- ================================================================
+     Experiments Tab
+     ================================================================ -->
 <div id="tab-experiments" class="tab-content">
     <div class="page-header">
-        <h1 class="page-title">实验配置</h1>
-        <button class="btn btn-primary" onclick="showCreateExperimentForm()">
-            ➕ 新建实验
-        </button>
+        <div class="page-header-left">
+            <h1 class="page-title">实验配置</h1>
+            <span class="page-subtitle">创建和管理模型评测实验</span>
+        </div>
+        <div class="page-actions">
+            <button class="btn btn-primary" onclick="showCreateExperimentForm()">
+                <i data-lucide="plus"></i> 新建实验
+            </button>
+        </div>
     </div>
 
     <!-- Experiment Progress -->
@@ -113,15 +166,30 @@
 
     <!-- Create Experiment Form (hidden by default) -->
     <div id="create-experiment-form" class="card mb-lg hidden">
-        <div class="card-header">创建新实验</div>
+        <div class="card-header"><i data-lucide="settings"></i> 创建新实验</div>
         <div class="card-body" id="experiment-form">
+            <!-- Step indicator -->
+            <div class="step-indicator mb-lg">
+                <div class="step-item active" data-step="1">
+                    <span class="step-number">1</span> 基本信息
+                </div>
+                <div class="step-divider"></div>
+                <div class="step-item" data-step="2">
+                    <span class="step-number">2</span> 模型与策略
+                </div>
+                <div class="step-divider"></div>
+                <div class="step-item" data-step="3">
+                    <span class="step-number">3</span> 运行参数
+                </div>
+            </div>
+
             <div class="form-group">
                 <label class="form-label">实验名称 *</label>
                 <input type="text" name="name" class="form-input" placeholder="例如: GPT-4 MMLU 测试">
             </div>
             <div class="form-group">
                 <label class="form-label">描述</label>
-                <textarea name="description" class="form-textarea" placeholder="实验描述（可选）"></textarea>
+                <textarea name="description" class="form-textarea" placeholder="实验描述（可选）" style="min-height: 60px;"></textarea>
             </div>
             <div class="flex gap-md">
                 <div class="form-group flex-1">
@@ -143,89 +211,141 @@
                     <input type="number" name="max_samples" class="form-input" placeholder="全部">
                 </div>
             </div>
-            <div class="flex gap-md">
-                <div class="form-group flex-1">
-                    <label class="form-label">模型 *</label>
-                    <select name="model_id" class="form-select" id="exp-model-select">
-                        <option value="">选择模型...</option>
-                    </select>
-                </div>
-                <div class="form-group flex-1">
-                    <label class="form-label">推理策略</label>
-                    <select name="strategy" class="form-select">
-                        <option value="direct">Direct</option>
-                        <option value="cot">Chain-of-Thought</option>
-                        <option value="long_cot">Long CoT</option>
-                        <option value="tot">Tree-of-Thought</option>
-                    </select>
-                </div>
+
+            <div class="form-group">
+                <label class="form-label">模型 *</label>
+                <select name="model_id" class="form-select" id="exp-model-select">
+                    <option value="">选择模型...</option>
+                </select>
             </div>
+
+            <div class="form-group">
+                <label class="form-label">推理策略</label>
+                <div class="strategy-grid" id="strategy-grid">
+                    <div class="strategy-card selected" data-strategy="direct" onclick="selectStrategy(this)">
+                        <div class="strategy-card-title">Direct</div>
+                        <div class="strategy-card-desc">直接推理，速度最快</div>
+                    </div>
+                    <div class="strategy-card" data-strategy="cot" onclick="selectStrategy(this)">
+                        <div class="strategy-card-title">CoT</div>
+                        <div class="strategy-card-desc">链式思维，逐步推理</div>
+                    </div>
+                    <div class="strategy-card" data-strategy="long_cot" onclick="selectStrategy(this)">
+                        <div class="strategy-card-title">Long CoT</div>
+                        <div class="strategy-card-desc">深度思考，复杂问题</div>
+                    </div>
+                    <div class="strategy-card" data-strategy="tot" onclick="selectStrategy(this)">
+                        <div class="strategy-card-title">ToT</div>
+                        <div class="strategy-card-desc">思维树，多路径探索</div>
+                    </div>
+                </div>
+                <select name="strategy" class="form-select hidden" id="strategy-hidden-select">
+                    <option value="direct" selected>Direct</option>
+                    <option value="cot">Chain-of-Thought</option>
+                    <option value="long_cot">Long CoT</option>
+                    <option value="tot">Tree-of-Thought</option>
+                </select>
+            </div>
+
             <div class="flex gap-md">
-                <div class="form-group">
+                <div class="form-group flex-1">
                     <label class="form-label">并发数</label>
                     <input type="number" name="concurrency" class="form-input" value="5" min="1" max="50">
                 </div>
-                <div class="form-group">
+                <div class="form-group flex-1">
                     <label class="form-label">重试次数</label>
                     <input type="number" name="retry_times" class="form-input" value="3" min="0" max="10">
                 </div>
-                <div class="form-group">
+                <div class="form-group flex-1">
                     <label class="form-label">评估指标</label>
                     <input type="text" name="metrics" class="form-input" value="accuracy" placeholder="逗号分隔">
                 </div>
             </div>
         </div>
         <div class="card-footer flex justify-between">
-            <button class="btn btn-secondary" onclick="hideCreateExperimentForm()">取消</button>
-            <button class="btn btn-primary" onclick="experimentManager && experimentManager.submitForm()">创建实验</button>
+            <button class="btn btn-secondary" onclick="hideCreateExperimentForm()">
+                <i data-lucide="x"></i> 取消
+            </button>
+            <button class="btn btn-primary" onclick="experimentManager && experimentManager.submitForm()">
+                <i data-lucide="play"></i> 创建实验
+            </button>
         </div>
     </div>
 
     <!-- Experiment List -->
     <div class="card">
-        <div class="card-header">实验列表</div>
+        <div class="card-header"><i data-lucide="list"></i> 实验列表</div>
         <div class="card-body">
             <div id="experiment-list" class="table-container">
-                <div class="loading-spinner"></div>
+                <div class="empty-state">
+                    <div class="empty-state-icon"><i data-lucide="flask-conical"></i></div>
+                    <div class="empty-state-title">暂无实验</div>
+                    <div class="empty-state-description">点击上方按钮创建第一个实验</div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Results Tab -->
+<!-- ================================================================
+     Results Tab
+     ================================================================ -->
 <div id="tab-results" class="tab-content">
     <div class="page-header">
-        <h1 class="page-title">结果分析</h1>
+        <div class="page-header-left">
+            <h1 class="page-title">结果分析</h1>
+            <span class="page-subtitle">查看实验评测指标与可视化图表</span>
+        </div>
     </div>
 
-    <div id="results-container">
-        <!-- Metrics Cards -->
-        <div id="metrics-container" class="mb-lg"></div>
-        
-        <!-- Charts -->
-        <div id="charts-container" class="flex gap-md" style="flex-wrap: wrap;"></div>
-    </div>
-
-    <div class="card mt-lg">
-        <div class="card-header">选择实验查看结果</div>
-        <div class="card-body">
-            <div class="form-group">
-                <select id="results-experiment-select" class="form-select" onchange="loadSelectedResults()">
-                    <option value="">选择实验...</option>
+    <!-- Experiment selector at top -->
+    <div class="card mb-lg">
+        <div class="card-body" style="padding: var(--spacing-md) var(--spacing-lg);">
+            <div class="flex items-center gap-md">
+                <i data-lucide="search" style="width:18px;height:18px;color:var(--text-muted);flex-shrink:0;"></i>
+                <select id="results-experiment-select" class="form-select" onchange="loadSelectedResults()" style="margin-bottom:0;">
+                    <option value="">选择实验查看结果...</option>
                 </select>
             </div>
         </div>
     </div>
+
+    <!-- Metrics skeleton / cards -->
+    <div id="metrics-container" class="mb-lg">
+        <div class="stats-grid">
+            <div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-card"></div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div id="charts-container" class="flex gap-md flex-wrap">
+        <div class="chart-card">
+            <div class="chart-title">准确率分布</div>
+            <canvas id="chart-accuracy" height="240"></canvas>
+        </div>
+        <div class="chart-card">
+            <div class="chart-title">延迟分布</div>
+            <canvas id="chart-latency" height="240"></canvas>
+        </div>
+    </div>
 </div>
 
-<!-- RAG Tab -->
+<!-- ================================================================
+     RAG Tab
+     ================================================================ -->
 <div id="tab-rag" class="tab-content">
     <div class="page-header">
-        <h1 class="page-title">知识库管理</h1>
+        <div class="page-header-left">
+            <h1 class="page-title">知识库管理</h1>
+            <span class="page-subtitle">构建和管理 RAG 检索知识库</span>
+        </div>
     </div>
 
     <div class="card mb-lg">
-        <div class="card-header">构建知识库</div>
+        <div class="card-header"><i data-lucide="hammer"></i> 构建知识库</div>
         <div class="card-body">
             <div class="form-group">
                 <label class="form-label">知识库名称</label>
@@ -251,58 +371,70 @@
             </div>
             <div id="rag-build-progress" class="hidden mb-md"></div>
             <button class="btn btn-primary" onclick="buildKnowledgeBase()">
-                🔨 构建
+                <i data-lucide="hammer"></i> 构建
             </button>
         </div>
     </div>
 
     <div class="card">
-        <div class="card-header">知识库列表</div>
+        <div class="card-header"><i data-lucide="library"></i> 知识库列表</div>
         <div class="card-body">
             <div id="kb-list" class="table-container">
-                <div class="loading-spinner"></div>
+                <div class="empty-state">
+                    <div class="empty-state-icon"><i data-lucide="book-open"></i></div>
+                    <div class="empty-state-title">暂无知识库</div>
+                    <div class="empty-state-description">上传文档并构建您的第一个知识库</div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Chat Tab -->
+<!-- ================================================================
+     Chat Tab
+     ================================================================ -->
 <div id="tab-chat" class="tab-content">
     <div class="page-header">
-        <h1 class="page-title">对话调试</h1>
+        <div class="page-header-left">
+            <h1 class="page-title">对话调试</h1>
+            <span class="page-subtitle">与模型实时对话测试推理效果</span>
+        </div>
     </div>
 
     <div class="card">
-        <div class="card-body">
-            <div class="flex gap-md mb-md">
-                <div class="form-group flex-1">
-                    <label class="form-label">模型</label>
-                    <select id="chat-model" class="form-select">
-                        <option value="deepseek-chat">DeepSeek Chat</option>
-                    </select>
-                </div>
-                <div class="form-group flex-1">
-                    <label class="form-label">策略</label>
-                    <select id="chat-strategy" class="form-select">
-                        <option value="direct">Direct</option>
-                        <option value="cot">Chain-of-Thought</option>
-                    </select>
-                </div>
-            </div>
-            
-            <div id="chat-messages" class="chat-messages" style="height: 400px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: var(--spacing-md); margin-bottom: var(--spacing-md); background: var(--bg-secondary);">
-                <div class="empty-state">
-                    <div class="empty-state-icon">💬</div>
-                    <div class="empty-state-title">开始对话</div>
-                    <div class="empty-state-description">在下方输入消息开始调试</div>
+        <div class="card-body" style="padding: 0;">
+            <div style="padding: var(--spacing-md) var(--spacing-lg); border-bottom: 1px solid var(--border-light);">
+                <div class="flex gap-md">
+                    <div class="form-group flex-1" style="margin-bottom:0;">
+                        <label class="form-label">模型</label>
+                        <select id="chat-model" class="form-select">
+                            <option value="deepseek-chat">DeepSeek Chat</option>
+                        </select>
+                    </div>
+                    <div class="form-group flex-1" style="margin-bottom:0;">
+                        <label class="form-label">策略</label>
+                        <select id="chat-strategy" class="form-select">
+                            <option value="direct">Direct</option>
+                            <option value="cot">Chain-of-Thought</option>
+                        </select>
+                    </div>
                 </div>
             </div>
-            
-            <div class="flex gap-md">
-                <textarea id="chat-input" class="form-textarea flex-1" placeholder="输入消息..." style="min-height: 60px; resize: none;"></textarea>
-                <button class="btn btn-primary" onclick="sendChatMessage()" style="align-self: flex-end;">
-                    发送
-                </button>
+
+            <div class="chat-container">
+                <div id="chat-messages" class="chat-messages">
+                    <div class="empty-state">
+                        <div class="empty-state-icon"><i data-lucide="message-square"></i></div>
+                        <div class="empty-state-title">开始对话</div>
+                        <div class="empty-state-description">在下方输入消息开始调试模型</div>
+                    </div>
+                </div>
+                <div class="chat-input-area">
+                    <textarea id="chat-input" placeholder="输入消息... (Ctrl+Enter 发送)" onkeydown="if(event.ctrlKey && event.key==='Enter'){sendChatMessage();event.preventDefault();}"></textarea>
+                    <button class="btn btn-primary send-btn" onclick="sendChatMessage()">
+                        <i data-lucide="send"></i>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -311,30 +443,36 @@
 
 {% block extra_js %}
 <script>
+    // Strategy card selection
+    function selectStrategy(card) {
+        document.querySelectorAll('.strategy-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        const val = card.dataset.strategy;
+        document.getElementById('strategy-hidden-select').value = val;
+    }
+
     // Dashboard functions
     async function refreshDashboard() {
+        document.getElementById('dashboard-time').textContent =
+            '更新于 ' + new Date().toLocaleString('zh-CN');
         try {
             const config = await API.System.config();
             document.getElementById('stat-datasets').textContent = config.dataset_count || 0;
             document.getElementById('stat-kbs').textContent = config.kb_count || 0;
             document.getElementById('stat-models').textContent = config.models?.length || 0;
-            
+
             const experiments = await API.fetchExperiments();
             document.getElementById('stat-experiments').textContent = experiments.length;
-            
-            // Update recent experiments
             updateRecentExperiments(experiments.slice(0, 5));
         } catch (error) {
             console.error('Dashboard refresh failed:', error);
         }
     }
-    
+
     function updateRecentExperiments(experiments) {
         const container = document.getElementById('recent-experiments');
-        if (experiments.length === 0) {
-            return;
-        }
-        
+        if (experiments.length === 0) return;
+
         container.innerHTML = `
             <table class="table">
                 <thead>
@@ -346,38 +484,43 @@
                     </tr>
                 </thead>
                 <tbody>
-                    ${experiments.map(exp => `
+                    ${experiments.map(exp => {
+                        const pct = exp.total_samples ? Math.round(exp.completed / exp.total_samples * 100) : 0;
+                        return `
                         <tr>
-                            <td>${exp.name}</td>
+                            <td style="font-weight:600;">${exp.name}</td>
                             <td><span class="badge badge-${exp.status === 'finished' ? 'success' : exp.status === 'running' ? 'info' : 'neutral'}">${exp.status}</span></td>
-                            <td>${exp.completed}/${exp.total_samples}</td>
-                            <td>${new Date(exp.created_at).toLocaleString()}</td>
-                        </tr>
-                    `).join('')}
+                            <td>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <div class="progress-bar" style="width:80px;"><div class="progress-fill" style="width:${pct}%"></div></div>
+                                    <span style="font-size:0.8rem;color:var(--text-secondary);">${exp.completed}/${exp.total_samples}</span>
+                                </div>
+                            </td>
+                            <td style="color:var(--text-muted);font-size:0.8rem;">${new Date(exp.created_at).toLocaleString('zh-CN')}</td>
+                        </tr>`;
+                    }).join('')}
                 </tbody>
             </table>
         `;
     }
-    
+
     // Experiment form functions
     function showCreateExperimentForm() {
         document.getElementById('create-experiment-form').classList.remove('hidden');
         loadFormOptions();
     }
-    
+
     function hideCreateExperimentForm() {
         document.getElementById('create-experiment-form').classList.add('hidden');
     }
-    
+
     async function loadFormOptions() {
         try {
-            // Load datasets
             const datasets = await API.Datasets.list();
             const datasetSelect = document.getElementById('exp-dataset-select');
             datasetSelect.innerHTML = '<option value="">选择数据集...</option>' +
                 (datasets.datasets || []).map(d => `<option value="${d.dataset_id}">${d.dataset_id}</option>`).join('');
-            
-            // Load models
+
             const models = await API.Models.list();
             const modelSelect = document.getElementById('exp-model-select');
             modelSelect.innerHTML = '<option value="">选择模型...</option>' +
@@ -386,7 +529,7 @@
             console.error('Failed to load form options:', error);
         }
     }
-    
+
     // Results functions
     async function loadSelectedResults() {
         const select = document.getElementById('results-experiment-select');
@@ -395,48 +538,43 @@
             await resultsVisualizer.loadMetrics(experimentId);
         }
     }
-    
+
     // Chat functions
     async function sendChatMessage() {
         const input = document.getElementById('chat-input');
         const message = input.value.trim();
         if (!message) return;
-        
+
         const messagesContainer = document.getElementById('chat-messages');
-        
+
         // Clear empty state
         if (messagesContainer.querySelector('.empty-state')) {
             messagesContainer.innerHTML = '';
         }
-        
-        // Add user message
+
+        // User message with avatar
         messagesContainer.innerHTML += `
-            <div class="chat-message user" style="text-align: right; margin-bottom: 12px;">
-                <div style="display: inline-block; background: var(--primary-color); color: white; padding: 8px 12px; border-radius: 12px; max-width: 80%;">
-                    ${message}
-                </div>
+            <div class="chat-message user">
+                <div class="chat-bubble">${message}</div>
+                <div class="chat-avatar user-avatar">U</div>
             </div>
         `;
-        
         input.value = '';
-        
-        // Add assistant message placeholder
+
+        // Assistant placeholder with avatar
         const assistantId = 'assistant-' + Date.now();
         messagesContainer.innerHTML += `
-            <div id="${assistantId}" class="chat-message assistant" style="margin-bottom: 12px;">
-                <div style="display: inline-block; background: var(--bg-tertiary); padding: 8px 12px; border-radius: 12px; max-width: 80%;">
-                    <span class="typing">思考中...</span>
-                </div>
+            <div id="${assistantId}" class="chat-message assistant">
+                <div class="chat-avatar ai-avatar">AI</div>
+                <div class="chat-bubble"><span class="typing">思考中</span></div>
             </div>
         `;
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        
-        // Send to API with streaming
+
         const modelId = document.getElementById('chat-model').value;
         const strategy = document.getElementById('chat-strategy').value;
-        
         let fullResponse = '';
-        
+
         await API.Chat.stream({
             model_id: modelId,
             strategy: strategy,
@@ -446,7 +584,7 @@
                 fullResponse += data.content;
                 const el = document.getElementById(assistantId);
                 if (el) {
-                    el.querySelector('div').innerHTML = fullResponse.replace(/\n/g, '<br>');
+                    el.querySelector('.chat-bubble').innerHTML = fullResponse.replace(/\n/g, '<br>');
                 }
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
             },
@@ -456,127 +594,30 @@
             onError: (error) => {
                 const el = document.getElementById(assistantId);
                 if (el) {
-                    el.querySelector('div').innerHTML = `<span class="text-error">错误: ${error.message || error}</span>`;
+                    el.querySelector('.chat-bubble').innerHTML = `<span class="text-error">错误: ${error.message || error}</span>`;
                 }
             }
         });
     }
-    
+
     // Initialize on load
     document.addEventListener('DOMContentLoaded', () => {
         refreshDashboard();
-        
-        // Initialize modules
+
         if (typeof initUploader === 'function') initUploader();
         if (typeof initExperimentManager === 'function') initExperimentManager();
         if (typeof initResultsVisualizer === 'function') initResultsVisualizer();
-        
-        // Load results experiment select
+
         API.fetchExperiments({ status: 'finished' }).then(experiments => {
             const select = document.getElementById('results-experiment-select');
             if (select) {
-                select.innerHTML = '<option value="">选择实验...</option>' +
+                select.innerHTML = '<option value="">选择实验查看结果...</option>' +
                     experiments.map(e => `<option value="${e.experiment_id}">${e.name}</option>`).join('');
             }
         });
+
+        // Re-init Lucide icons for dynamically rendered content
+        setTimeout(() => { if (window.lucide) lucide.createIcons(); }, 100);
     });
 </script>
-
-<style>
-    /* Drop zone styles */
-    .drop-zone {
-        border: 2px dashed var(--border-color);
-        border-radius: var(--border-radius);
-        padding: var(--spacing-xl);
-        text-align: center;
-        cursor: pointer;
-        transition: all var(--transition-fast);
-    }
-    
-    .drop-zone:hover,
-    .drop-zone.drag-over {
-        border-color: var(--primary-color);
-        background-color: rgba(59, 130, 246, 0.05);
-    }
-    
-    .drop-zone-icon {
-        font-size: 2rem;
-        margin-bottom: var(--spacing-sm);
-    }
-    
-    .drop-zone-text {
-        color: var(--text-secondary);
-    }
-    
-    /* Chart container */
-    .chart-container {
-        flex: 1;
-        min-width: 400px;
-        margin-bottom: var(--spacing-md);
-    }
-    
-    /* Notification animation */
-    @keyframes slideIn {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-    }
-    
-    @keyframes slideOut {
-        from { transform: translateX(0); opacity: 1; }
-        to { transform: translateX(100%); opacity: 0; }
-    }
-    
-    /* File info */
-    .file-info {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    
-    .file-name {
-        font-weight: 500;
-    }
-    
-    .file-size {
-        color: var(--text-secondary);
-    }
-    
-    /* Upload result */
-    .upload-result .result-header {
-        display: flex;
-        align-items: center;
-        gap: var(--spacing-sm);
-        margin-bottom: var(--spacing-md);
-    }
-    
-    .upload-result .result-icon {
-        font-size: 1.5rem;
-    }
-    
-    .upload-result .result-title {
-        font-weight: 600;
-        font-size: 1.1rem;
-    }
-    
-    .upload-result .detail-item {
-        display: flex;
-        justify-content: space-between;
-        padding: var(--spacing-xs) 0;
-        border-bottom: 1px solid var(--border-color);
-    }
-    
-    .upload-result .detail-label {
-        color: var(--text-secondary);
-    }
-    
-    .upload-result .detail-value {
-        font-weight: 500;
-    }
-    
-    /* Button small variant */
-    .btn-sm {
-        padding: 4px 8px;
-        font-size: 0.75rem;
-    }
-</style>
 {% endblock %}

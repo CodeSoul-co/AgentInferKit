@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Benchmark Platform{% endblock %}</title>
+    <title>{% block title %}AgentInferKit - Benchmark Platform{% endblock %}</title>
+    
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Styles -->
     <link rel="stylesheet" href="/static/css/main.css">
@@ -11,42 +16,51 @@
     
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@0.344.0/dist/umd/lucide.min.js"></script>
 </head>
 <body>
     <div class="app-container">
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <div class="sidebar-logo">📊 Benchmark Platform</div>
+                <div class="sidebar-logo">
+                    <div class="logo-icon"><i data-lucide="brain-circuit"></i></div>
+                    <div class="logo-text">
+                        AgentInferKit
+                        <span class="logo-version">v1.0.0</span>
+                    </div>
+                </div>
             </div>
             <nav class="sidebar-nav">
                 <a href="#dashboard" class="nav-item {% if active_tab == 'dashboard' %}active{% endif %}" data-tab="dashboard">
-                    <span class="nav-item-icon">🏠</span>
+                    <span class="nav-item-icon"><i data-lucide="layout-dashboard"></i></span>
                     Dashboard
                 </a>
                 <a href="#datasets" class="nav-item {% if active_tab == 'datasets' %}active{% endif %}" data-tab="datasets">
-                    <span class="nav-item-icon">📁</span>
+                    <span class="nav-item-icon"><i data-lucide="database"></i></span>
                     数据集管理
                 </a>
                 <a href="#experiments" class="nav-item {% if active_tab == 'experiments' %}active{% endif %}" data-tab="experiments">
-                    <span class="nav-item-icon">🧪</span>
+                    <span class="nav-item-icon"><i data-lucide="flask-conical"></i></span>
                     实验配置
                 </a>
                 <a href="#results" class="nav-item {% if active_tab == 'results' %}active{% endif %}" data-tab="results">
-                    <span class="nav-item-icon">📈</span>
+                    <span class="nav-item-icon"><i data-lucide="bar-chart-3"></i></span>
                     结果分析
                 </a>
                 <a href="#rag" class="nav-item {% if active_tab == 'rag' %}active{% endif %}" data-tab="rag">
-                    <span class="nav-item-icon">🔍</span>
+                    <span class="nav-item-icon"><i data-lucide="book-open"></i></span>
                     知识库管理
                 </a>
                 <a href="#chat" class="nav-item {% if active_tab == 'chat' %}active{% endif %}" data-tab="chat">
-                    <span class="nav-item-icon">💬</span>
+                    <span class="nav-item-icon"><i data-lucide="message-square"></i></span>
                     对话调试
                 </a>
             </nav>
-            <div class="sidebar-footer" style="padding: 16px; border-top: 1px solid var(--border-color);">
-                <div class="text-muted" style="font-size: 0.75rem;">
+            <div class="sidebar-footer">
+                <div class="status-row">
+                    <span class="status-dot" id="status-dot"></span>
                     <span id="system-status">检查系统状态...</span>
                 </div>
             </div>
@@ -69,11 +83,10 @@
     <script src="/static/js/experiment.js"></script>
     <script src="/static/js/results.js"></script>
     
-    <!-- Tab Navigation Script -->
+    <!-- Tab Navigation & System Status -->
     <script>
         // Tab switching functionality
         function switchTab(tabName) {
-            // Update nav items
             document.querySelectorAll('.nav-item').forEach(item => {
                 item.classList.remove('active');
                 if (item.dataset.tab === tabName) {
@@ -81,7 +94,6 @@
                 }
             });
             
-            // Update tab content
             document.querySelectorAll('.tab-content').forEach(content => {
                 content.classList.remove('active');
             });
@@ -90,16 +102,19 @@
                 targetTab.classList.add('active');
             }
             
-            // Update URL hash
             window.location.hash = tabName;
         }
         
         // Initialize tab from URL hash
         document.addEventListener('DOMContentLoaded', () => {
+            // Initialize Lucide icons
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+
             const hash = window.location.hash.slice(1) || 'dashboard';
             switchTab(hash);
             
-            // Add click handlers to nav items
             document.querySelectorAll('.nav-item').forEach(item => {
                 item.addEventListener('click', (e) => {
                     e.preventDefault();
@@ -107,24 +122,24 @@
                 });
             });
             
-            // Check system status
             checkSystemStatus();
         });
         
         // System status check
         async function checkSystemStatus() {
+            const dot = document.getElementById('status-dot');
+            const statusEl = document.getElementById('system-status');
             try {
                 const health = await API.System.health();
-                const statusEl = document.getElementById('system-status');
+                if (dot) {
+                    dot.className = 'status-dot ' + (health.status === 'healthy' ? 'green' : health.status === 'degraded' ? 'yellow' : 'red');
+                }
                 if (statusEl) {
-                    const statusIcon = health.status === 'healthy' ? '🟢' : health.status === 'degraded' ? '🟡' : '🔴';
-                    statusEl.innerHTML = `${statusIcon} ${health.status} | Milvus: ${health.milvus} | v${health.version}`;
+                    statusEl.textContent = `${health.status} | Milvus: ${health.milvus} | v${health.version}`;
                 }
             } catch (error) {
-                const statusEl = document.getElementById('system-status');
-                if (statusEl) {
-                    statusEl.innerHTML = '🔴 连接失败';
-                }
+                if (dot) dot.className = 'status-dot red';
+                if (statusEl) statusEl.textContent = '连接失败';
             }
         }
     </script>
