@@ -18,6 +18,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@0.344.0/dist/umd/lucide.min.js"></script>
+    <!-- i18n -->
+    <script src="/static/js/i18n.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -35,33 +37,36 @@
             <nav class="sidebar-nav">
                 <a href="#dashboard" class="nav-item {% if active_tab == 'dashboard' %}active{% endif %}" data-tab="dashboard">
                     <span class="nav-item-icon"><i data-lucide="layout-dashboard"></i></span>
-                    Dashboard
+                    <span data-i18n="nav.dashboard">Dashboard</span>
                 </a>
                 <a href="#datasets" class="nav-item {% if active_tab == 'datasets' %}active{% endif %}" data-tab="datasets">
                     <span class="nav-item-icon"><i data-lucide="database"></i></span>
-                    数据集管理
+                    <span data-i18n="nav.datasets">数据集管理</span>
                 </a>
                 <a href="#experiments" class="nav-item {% if active_tab == 'experiments' %}active{% endif %}" data-tab="experiments">
                     <span class="nav-item-icon"><i data-lucide="flask-conical"></i></span>
-                    实验配置
+                    <span data-i18n="nav.experiments">实验配置</span>
                 </a>
                 <a href="#results" class="nav-item {% if active_tab == 'results' %}active{% endif %}" data-tab="results">
                     <span class="nav-item-icon"><i data-lucide="bar-chart-3"></i></span>
-                    结果分析
+                    <span data-i18n="nav.results">结果分析</span>
                 </a>
                 <a href="#rag" class="nav-item {% if active_tab == 'rag' %}active{% endif %}" data-tab="rag">
                     <span class="nav-item-icon"><i data-lucide="book-open"></i></span>
-                    知识库管理
+                    <span data-i18n="nav.rag">知识库管理</span>
                 </a>
                 <a href="#chat" class="nav-item {% if active_tab == 'chat' %}active{% endif %}" data-tab="chat">
                     <span class="nav-item-icon"><i data-lucide="message-square"></i></span>
-                    对话调试
+                    <span data-i18n="nav.chat">对话调试</span>
                 </a>
             </nav>
             <div class="sidebar-footer">
-                <div class="status-row">
-                    <span class="status-dot" id="status-dot"></span>
-                    <span id="system-status">检查系统状态...</span>
+                <div class="status-row" style="justify-content:space-between;">
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <span class="status-dot" id="status-dot"></span>
+                        <span id="system-status" data-i18n="sidebar.status.checking">检查系统状态...</span>
+                    </div>
+                    <button id="lang-toggle" onclick="I18N.toggle()" style="background:var(--sidebar-hover);border:1px solid var(--sidebar-border);color:var(--sidebar-text-active);border-radius:4px;padding:2px 8px;font-size:0.68rem;font-weight:700;cursor:pointer;font-family:inherit;">EN</button>
                 </div>
             </div>
         </aside>
@@ -112,6 +117,11 @@
                 lucide.createIcons();
             }
 
+            // Apply i18n
+            if (window.I18N) {
+                I18N.applyAll();
+            }
+
             const hash = window.location.hash.slice(1) || 'dashboard';
             switchTab(hash);
             
@@ -139,7 +149,7 @@
                 }
             } catch (error) {
                 if (dot) dot.className = 'status-dot red';
-                if (statusEl) statusEl.textContent = '连接失败';
+                if (statusEl) statusEl.textContent = I18N ? I18N.t('sidebar.status.failed') : '连接失败';
             }
         }
     </script>

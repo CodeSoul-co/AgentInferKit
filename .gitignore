@@ -11,6 +11,9 @@ outputs/
 # Runtime experiment state (API-created sessions)
 data/experiments/
 
+# Uploaded dataset files and metadata
+data/processed/
+
 # Milvus Docker volumes (runtime data)
 volumes/
 

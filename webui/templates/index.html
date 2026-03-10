@@ -9,12 +9,12 @@
 <div id="tab-dashboard" class="tab-content active">
     <div class="page-header">
         <div class="page-header-left">
-            <h1 class="page-title">Dashboard</h1>
+            <h1 class="page-title" data-i18n="dashboard.title">Dashboard</h1>
             <span class="page-subtitle" id="dashboard-time"></span>
         </div>
         <div class="page-actions">
             <button class="btn btn-secondary" onclick="refreshDashboard()">
-                <i data-lucide="refresh-cw"></i> 刷新
+                <i data-lucide="refresh-cw"></i> <span data-i18n="dashboard.refresh">刷新</span>
             </button>
         </div>
     </div>
@@ -24,28 +24,28 @@
         <div class="stat-card">
             <div class="stat-icon indigo"><i data-lucide="database"></i></div>
             <div class="stat-info">
-                <div class="stat-label">数据集数量</div>
+                <div class="stat-label" data-i18n="dashboard.stat.datasets">数据集数量</div>
                 <div class="stat-value" id="stat-datasets">-</div>
             </div>
         </div>
         <div class="stat-card">
             <div class="stat-icon green"><i data-lucide="flask-conical"></i></div>
             <div class="stat-info">
-                <div class="stat-label">实验数量</div>
+                <div class="stat-label" data-i18n="dashboard.stat.experiments">实验数量</div>
                 <div class="stat-value" id="stat-experiments">-</div>
             </div>
         </div>
         <div class="stat-card">
             <div class="stat-icon amber"><i data-lucide="book-open"></i></div>
             <div class="stat-info">
-                <div class="stat-label">知识库数量</div>
+                <div class="stat-label" data-i18n="dashboard.stat.kbs">知识库数量</div>
                 <div class="stat-value" id="stat-kbs">-</div>
             </div>
         </div>
         <div class="stat-card">
             <div class="stat-icon blue"><i data-lucide="cpu"></i></div>
             <div class="stat-info">
-                <div class="stat-label">可用模型</div>
+                <div class="stat-label" data-i18n="dashboard.stat.models">可用模型</div>
                 <div class="stat-value" id="stat-models">-</div>
             </div>
         </div>
@@ -54,30 +54,30 @@
     <!-- Quick Actions -->
     <div class="quick-actions">
         <button class="quick-action-btn" onclick="switchTab('datasets')">
-            <i data-lucide="upload"></i> 上传数据集
+            <i data-lucide="upload"></i> <span data-i18n="dashboard.quick.upload">上传数据集</span>
         </button>
         <button class="quick-action-btn" onclick="switchTab('experiments'); setTimeout(showCreateExperimentForm, 100);">
-            <i data-lucide="plus"></i> 新建实验
+            <i data-lucide="plus"></i> <span data-i18n="dashboard.quick.new_exp">新建实验</span>
         </button>
         <button class="quick-action-btn" onclick="switchTab('results')">
-            <i data-lucide="bar-chart-3"></i> 查看结果
+            <i data-lucide="bar-chart-3"></i> <span data-i18n="dashboard.quick.results">查看结果</span>
         </button>
         <button class="quick-action-btn" onclick="switchTab('chat')">
-            <i data-lucide="message-square"></i> 对话调试
+            <i data-lucide="message-square"></i> <span data-i18n="dashboard.quick.chat">对话调试</span>
         </button>
     </div>
 
     <!-- Recent Experiments -->
     <div class="card">
-        <div class="card-header"><i data-lucide="clock"></i> 最近实验</div>
+        <div class="card-header"><i data-lucide="clock"></i> <span data-i18n="dashboard.recent">最近实验</span></div>
         <div class="card-body">
             <div id="recent-experiments" class="table-container">
                 <div class="empty-state">
                     <div class="empty-state-icon"><i data-lucide="flask-conical"></i></div>
-                    <div class="empty-state-title">暂无实验</div>
-                    <div class="empty-state-description">上传数据集并创建您的第一个评测实验</div>
+                    <div class="empty-state-title" data-i18n="dashboard.no_exp">暂无实验</div>
+                    <div class="empty-state-description" data-i18n="dashboard.no_exp_desc">上传数据集并创建您的第一个评测实验</div>
                     <button class="btn btn-primary" onclick="switchTab('experiments')">
-                        <i data-lucide="plus"></i> 创建实验
+                        <i data-lucide="plus"></i> <span data-i18n="dashboard.create_exp">创建实验</span>
                     </button>
                 </div>
             </div>
@@ -91,54 +91,54 @@
 <div id="tab-datasets" class="tab-content">
     <div class="page-header">
         <div class="page-header-left">
-            <h1 class="page-title">数据集管理</h1>
-            <span class="page-subtitle">上传 JSONL 数据集文件并管理评测数据</span>
+            <h1 class="page-title" data-i18n="datasets.title">数据集管理</h1>
+            <span class="page-subtitle" data-i18n="datasets.subtitle">上传 JSONL 数据集文件并管理评测数据</span>
         </div>
     </div>
 
     <div class="card mb-lg">
-        <div class="card-header"><i data-lucide="upload"></i> 上传数据集</div>
+        <div class="card-header"><i data-lucide="upload"></i> <span data-i18n="datasets.upload">上传数据集</span></div>
         <div class="card-body">
             <div class="flex gap-md">
                 <div class="form-group flex-1">
-                    <label class="form-label">任务类型</label>
+                    <label class="form-label" data-i18n="datasets.task_type">任务类型</label>
                     <select id="task-type" class="form-select">
-                        <option value="qa">问答 (QA)</option>
-                        <option value="text_exam">文本选择题</option>
-                        <option value="image_mcq">图片选择题</option>
-                        <option value="api_calling">API 调用</option>
+                        <option value="qa" data-i18n="datasets.task_type.qa">问答 (QA)</option>
+                        <option value="text_exam" data-i18n="datasets.task_type.text_exam">文本选择题</option>
+                        <option value="image_mcq" data-i18n="datasets.task_type.image_mcq">图片选择题</option>
+                        <option value="api_calling" data-i18n="datasets.task_type.api_calling">API 调用</option>
                     </select>
                 </div>
                 <div class="form-group flex-1">
-                    <label class="form-label">数据集名称</label>
-                    <input type="text" id="dataset-name" class="form-input" placeholder="留空则使用文件名">
+                    <label class="form-label" data-i18n="datasets.name">数据集名称</label>
+                    <input type="text" id="dataset-name" class="form-input" placeholder="留空则使用文件名" data-i18n-placeholder="datasets.name_placeholder">
                 </div>
             </div>
             <div class="form-group">
-                <label class="form-label">上传文件</label>
+                <label class="form-label" data-i18n="datasets.upload_file">上传文件</label>
                 <div id="drop-zone" class="drop-zone">
                     <div class="drop-zone-content">
                         <div class="drop-zone-icon"><i data-lucide="upload-cloud"></i></div>
-                        <div class="drop-zone-text">拖拽 JSONL 文件到此处，或 <strong>点击选择文件</strong></div>
+                        <div class="drop-zone-text"><span data-i18n="datasets.drop_text">拖拽 JSONL 文件到此处，或</span> <strong data-i18n="datasets.drop_click">点击选择文件</strong></div>
                     </div>
                     <input type="file" id="file-input" accept=".jsonl,.json" style="display: none;">
                 </div>
             </div>
             <div id="upload-status" class="hidden"></div>
             <button class="btn btn-primary" onclick="datasetUploader && datasetUploader.upload()">
-                <i data-lucide="upload"></i> 上传
+                <i data-lucide="upload"></i> <span data-i18n="datasets.upload_btn">上传</span>
             </button>
         </div>
     </div>
 
     <div class="card">
-        <div class="card-header"><i data-lucide="list"></i> 数据集列表</div>
+        <div class="card-header"><i data-lucide="list"></i> <span data-i18n="datasets.list">数据集列表</span></div>
         <div class="card-body">
             <div id="datasets-list" class="table-container">
                 <div class="empty-state">
                     <div class="empty-state-icon"><i data-lucide="database"></i></div>
-                    <div class="empty-state-title">暂无数据集</div>
-                    <div class="empty-state-description">上传您的第一个 JSONL 数据集</div>
+                    <div class="empty-state-title" data-i18n="datasets.no_data">暂无数据集</div>
+                    <div class="empty-state-description" data-i18n="datasets.no_data_desc">上传您的第一个 JSONL 数据集</div>
                 </div>
             </div>
         </div>
@@ -151,12 +151,12 @@
 <div id="tab-experiments" class="tab-content">
     <div class="page-header">
         <div class="page-header-left">
-            <h1 class="page-title">实验配置</h1>
-            <span class="page-subtitle">创建和管理模型评测实验</span>
+            <h1 class="page-title" data-i18n="experiments.title">实验配置</h1>
+            <span class="page-subtitle" data-i18n="experiments.subtitle">创建和管理模型评测实验</span>
         </div>
         <div class="page-actions">
             <button class="btn btn-primary" onclick="showCreateExperimentForm()">
-                <i data-lucide="plus"></i> 新建实验
+                <i data-lucide="plus"></i> <span data-i18n="experiments.new">新建实验</span>
             </button>
         </div>
     </div>
@@ -166,40 +166,40 @@
 
     <!-- Create Experiment Form (hidden by default) -->
     <div id="create-experiment-form" class="card mb-lg hidden">
-        <div class="card-header"><i data-lucide="settings"></i> 创建新实验</div>
+        <div class="card-header"><i data-lucide="settings"></i> <span data-i18n="experiments.create">创建新实验</span></div>
         <div class="card-body" id="experiment-form">
             <!-- Step indicator -->
             <div class="step-indicator mb-lg">
                 <div class="step-item active" data-step="1">
-                    <span class="step-number">1</span> 基本信息
+                    <span class="step-number">1</span> <span data-i18n="experiments.step1">基本信息</span>
                 </div>
                 <div class="step-divider"></div>
                 <div class="step-item" data-step="2">
-                    <span class="step-number">2</span> 模型与策略
+                    <span class="step-number">2</span> <span data-i18n="experiments.step2">模型与策略</span>
                 </div>
                 <div class="step-divider"></div>
                 <div class="step-item" data-step="3">
-                    <span class="step-number">3</span> 运行参数
+                    <span class="step-number">3</span> <span data-i18n="experiments.step3">运行参数</span>
                 </div>
             </div>
 
             <div class="form-group">
-                <label class="form-label">实验名称 *</label>
-                <input type="text" name="name" class="form-input" placeholder="例如: GPT-4 MMLU 测试">
+                <label class="form-label" data-i18n="experiments.exp_name">实验名称 *</label>
+                <input type="text" name="name" class="form-input" placeholder="例如: GPT-4 MMLU 测试" data-i18n-placeholder="experiments.exp_name_placeholder">
             </div>
             <div class="form-group">
-                <label class="form-label">描述</label>
-                <textarea name="description" class="form-textarea" placeholder="实验描述（可选）" style="min-height: 60px;"></textarea>
+                <label class="form-label" data-i18n="experiments.description">描述</label>
+                <textarea name="description" class="form-textarea" placeholder="实验描述（可选）" data-i18n-placeholder="experiments.desc_placeholder" style="min-height: 60px;"></textarea>
             </div>
             <div class="flex gap-md">
                 <div class="form-group flex-1">
-                    <label class="form-label">数据集 *</label>
+                    <label class="form-label" data-i18n="experiments.dataset">数据集 *</label>
                     <select name="dataset_id" class="form-select" id="exp-dataset-select">
-                        <option value="">选择数据集...</option>
+                        <option value="" data-i18n="experiments.select_dataset">选择数据集...</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">数据分割</label>
+                    <label class="form-label" data-i18n="experiments.split">数据分割</label>
                     <select name="split" class="form-select">
                         <option value="test">test</option>
                         <option value="dev">dev</option>
@@ -207,36 +207,36 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">最大样本数</label>
-                    <input type="number" name="max_samples" class="form-input" placeholder="全部">
+                    <label class="form-label" data-i18n="experiments.max_samples">最大样本数</label>
+                    <input type="number" name="max_samples" class="form-input" placeholder="全部" data-i18n-placeholder="experiments.max_samples_placeholder">
                 </div>
             </div>
 
             <div class="form-group">
-                <label class="form-label">模型 *</label>
+                <label class="form-label" data-i18n="experiments.model">模型 *</label>
                 <select name="model_id" class="form-select" id="exp-model-select">
-                    <option value="">选择模型...</option>
+                    <option value="" data-i18n="experiments.select_model">选择模型...</option>
                 </select>
             </div>
 
             <div class="form-group">
-                <label class="form-label">推理策略</label>
+                <label class="form-label" data-i18n="experiments.strategy">推理策略</label>
                 <div class="strategy-grid" id="strategy-grid">
                     <div class="strategy-card selected" data-strategy="direct" onclick="selectStrategy(this)">
-                        <div class="strategy-card-title">Direct</div>
-                        <div class="strategy-card-desc">直接推理，速度最快</div>
+                        <div class="strategy-card-title" data-i18n="experiments.strategy.direct">Direct</div>
+                        <div class="strategy-card-desc" data-i18n="experiments.strategy.direct_desc">直接推理，速度最快</div>
                     </div>
                     <div class="strategy-card" data-strategy="cot" onclick="selectStrategy(this)">
-                        <div class="strategy-card-title">CoT</div>
-                        <div class="strategy-card-desc">链式思维，逐步推理</div>
+                        <div class="strategy-card-title" data-i18n="experiments.strategy.cot">CoT</div>
+                        <div class="strategy-card-desc" data-i18n="experiments.strategy.cot_desc">链式思维，逐步推理</div>
                     </div>
                     <div class="strategy-card" data-strategy="long_cot" onclick="selectStrategy(this)">
-                        <div class="strategy-card-title">Long CoT</div>
-                        <div class="strategy-card-desc">深度思考，复杂问题</div>
+                        <div class="strategy-card-title" data-i18n="experiments.strategy.long_cot">Long CoT</div>
+                        <div class="strategy-card-desc" data-i18n="experiments.strategy.long_cot_desc">深度思考，复杂问题</div>
                     </div>
                     <div class="strategy-card" data-strategy="tot" onclick="selectStrategy(this)">
-                        <div class="strategy-card-title">ToT</div>
-                        <div class="strategy-card-desc">思维树，多路径探索</div>
+                        <div class="strategy-card-title" data-i18n="experiments.strategy.tot">ToT</div>
+                        <div class="strategy-card-desc" data-i18n="experiments.strategy.tot_desc">思维树，多路径探索</div>
                     </div>
                 </div>
                 <select name="strategy" class="form-select hidden" id="strategy-hidden-select">
@@ -249,38 +249,38 @@
 
             <div class="flex gap-md">
                 <div class="form-group flex-1">
-                    <label class="form-label">并发数</label>
+                    <label class="form-label" data-i18n="experiments.concurrency">并发数</label>
                     <input type="number" name="concurrency" class="form-input" value="5" min="1" max="50">
                 </div>
                 <div class="form-group flex-1">
-                    <label class="form-label">重试次数</label>
+                    <label class="form-label" data-i18n="experiments.retry">重试次数</label>
                     <input type="number" name="retry_times" class="form-input" value="3" min="0" max="10">
                 </div>
                 <div class="form-group flex-1">
-                    <label class="form-label">评估指标</label>
+                    <label class="form-label" data-i18n="experiments.metrics">评估指标</label>
                     <input type="text" name="metrics" class="form-input" value="accuracy" placeholder="逗号分隔">
                 </div>
             </div>
         </div>
         <div class="card-footer flex justify-between">
             <button class="btn btn-secondary" onclick="hideCreateExperimentForm()">
-                <i data-lucide="x"></i> 取消
+                <i data-lucide="x"></i> <span data-i18n="experiments.cancel">取消</span>
             </button>
             <button class="btn btn-primary" onclick="experimentManager && experimentManager.submitForm()">
-                <i data-lucide="play"></i> 创建实验
+                <i data-lucide="play"></i> <span data-i18n="experiments.create_btn">创建实验</span>
             </button>
         </div>
     </div>
 
     <!-- Experiment List -->
     <div class="card">
-        <div class="card-header"><i data-lucide="list"></i> 实验列表</div>
+        <div class="card-header"><i data-lucide="list"></i> <span data-i18n="experiments.list">实验列表</span></div>
         <div class="card-body">
             <div id="experiment-list" class="table-container">
                 <div class="empty-state">
                     <div class="empty-state-icon"><i data-lucide="flask-conical"></i></div>
-                    <div class="empty-state-title">暂无实验</div>
-                    <div class="empty-state-description">点击上方按钮创建第一个实验</div>
+                    <div class="empty-state-title" data-i18n="experiments.no_exp">暂无实验</div>
+                    <div class="empty-state-description" data-i18n="experiments.no_exp_desc">点击上方按钮创建第一个实验</div>
                 </div>
             </div>
         </div>
@@ -293,8 +293,8 @@
 <div id="tab-results" class="tab-content">
     <div class="page-header">
         <div class="page-header-left">
-            <h1 class="page-title">结果分析</h1>
-            <span class="page-subtitle">查看实验评测指标与可视化图表</span>
+            <h1 class="page-title" data-i18n="results.title">结果分析</h1>
+            <span class="page-subtitle" data-i18n="results.subtitle">查看实验评测指标与可视化图表</span>
         </div>
     </div>
 
@@ -304,7 +304,7 @@
             <div class="flex items-center gap-md">
                 <i data-lucide="search" style="width:18px;height:18px;color:var(--text-muted);flex-shrink:0;"></i>
                 <select id="results-experiment-select" class="form-select" onchange="loadSelectedResults()" style="margin-bottom:0;">
-                    <option value="">选择实验查看结果...</option>
+                    <option value="" data-i18n="results.select_exp">选择实验查看结果...</option>
                 </select>
             </div>
         </div>
@@ -323,11 +323,11 @@
     <!-- Charts -->
     <div id="charts-container" class="flex gap-md flex-wrap">
         <div class="chart-card">
-            <div class="chart-title">准确率分布</div>
+            <div class="chart-title" data-i18n="results.chart.accuracy">准确率分布</div>
             <canvas id="chart-accuracy" height="240"></canvas>
         </div>
         <div class="chart-card">
-            <div class="chart-title">延迟分布</div>
+            <div class="chart-title" data-i18n="results.chart.latency">延迟分布</div>
             <canvas id="chart-latency" height="240"></canvas>
         </div>
     </div>
@@ -339,51 +339,51 @@
 <div id="tab-rag" class="tab-content">
     <div class="page-header">
         <div class="page-header-left">
-            <h1 class="page-title">知识库管理</h1>
-            <span class="page-subtitle">构建和管理 RAG 检索知识库</span>
+            <h1 class="page-title" data-i18n="rag.title">知识库管理</h1>
+            <span class="page-subtitle" data-i18n="rag.subtitle">构建和管理 RAG 检索知识库</span>
         </div>
     </div>
 
     <div class="card mb-lg">
-        <div class="card-header"><i data-lucide="hammer"></i> 构建知识库</div>
+        <div class="card-header"><i data-lucide="hammer"></i> <span data-i18n="rag.build">构建知识库</span></div>
         <div class="card-body">
             <div class="form-group">
-                <label class="form-label">知识库名称</label>
-                <input type="text" id="kb-name" class="form-input" placeholder="例如: medical_kb">
+                <label class="form-label" data-i18n="rag.kb_name">知识库名称</label>
+                <input type="text" id="kb-name" class="form-input" placeholder="例如: medical_kb" data-i18n-placeholder="rag.kb_name_placeholder">
             </div>
             <div class="flex gap-md">
                 <div class="form-group flex-1">
-                    <label class="form-label">分块策略</label>
+                    <label class="form-label" data-i18n="rag.chunk_strategy">分块策略</label>
                     <select id="chunk-strategy" class="form-select">
-                        <option value="by_topic">按主题</option>
-                        <option value="by_sentence">按句子</option>
-                        <option value="by_token">按 Token</option>
+                        <option value="by_topic" data-i18n="rag.chunk_strategy.topic">按主题</option>
+                        <option value="by_sentence" data-i18n="rag.chunk_strategy.sentence">按句子</option>
+                        <option value="by_token" data-i18n="rag.chunk_strategy.token">按 Token</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">分块大小</label>
+                    <label class="form-label" data-i18n="rag.chunk_size">分块大小</label>
                     <input type="number" id="chunk-size" class="form-input" value="256" min="64" max="2048">
                 </div>
             </div>
             <div class="form-group">
-                <label class="form-label">上传文档 (JSONL)</label>
+                <label class="form-label" data-i18n="rag.upload_doc">上传文档 (JSONL)</label>
                 <input type="file" id="rag-file-input" class="form-input" accept=".jsonl,.json">
             </div>
             <div id="rag-build-progress" class="hidden mb-md"></div>
             <button class="btn btn-primary" onclick="buildKnowledgeBase()">
-                <i data-lucide="hammer"></i> 构建
+                <i data-lucide="hammer"></i> <span data-i18n="rag.build_btn">构建</span>
             </button>
         </div>
     </div>
 
     <div class="card">
-        <div class="card-header"><i data-lucide="library"></i> 知识库列表</div>
+        <div class="card-header"><i data-lucide="library"></i> <span data-i18n="rag.list">知识库列表</span></div>
         <div class="card-body">
             <div id="kb-list" class="table-container">
                 <div class="empty-state">
                     <div class="empty-state-icon"><i data-lucide="book-open"></i></div>
-                    <div class="empty-state-title">暂无知识库</div>
-                    <div class="empty-state-description">上传文档并构建您的第一个知识库</div>
+                    <div class="empty-state-title" data-i18n="rag.no_kb">暂无知识库</div>
+                    <div class="empty-state-description" data-i18n="rag.no_kb_desc">上传文档并构建您的第一个知识库</div>
                 </div>
             </div>
         </div>
@@ -396,8 +396,8 @@
 <div id="tab-chat" class="tab-content">
     <div class="page-header">
         <div class="page-header-left">
-            <h1 class="page-title">对话调试</h1>
-            <span class="page-subtitle">与模型实时对话测试推理效果</span>
+            <h1 class="page-title" data-i18n="chat.title">对话调试</h1>
+            <span class="page-subtitle" data-i18n="chat.subtitle">与模型实时对话测试推理效果</span>
         </div>
     </div>
 
@@ -406,13 +406,13 @@
             <div style="padding: var(--spacing-md) var(--spacing-lg); border-bottom: 1px solid var(--border-light);">
                 <div class="flex gap-md">
                     <div class="form-group flex-1" style="margin-bottom:0;">
-                        <label class="form-label">模型</label>
+                        <label class="form-label" data-i18n="chat.model">模型</label>
                         <select id="chat-model" class="form-select">
                             <option value="deepseek-chat">DeepSeek Chat</option>
                         </select>
                     </div>
                     <div class="form-group flex-1" style="margin-bottom:0;">
-                        <label class="form-label">策略</label>
+                        <label class="form-label" data-i18n="chat.strategy">策略</label>
                         <select id="chat-strategy" class="form-select">
                             <option value="direct">Direct</option>
                             <option value="cot">Chain-of-Thought</option>
@@ -425,12 +425,12 @@
                 <div id="chat-messages" class="chat-messages">
                     <div class="empty-state">
                         <div class="empty-state-icon"><i data-lucide="message-square"></i></div>
-                        <div class="empty-state-title">开始对话</div>
-                        <div class="empty-state-description">在下方输入消息开始调试模型</div>
+                        <div class="empty-state-title" data-i18n="chat.start">开始对话</div>
+                        <div class="empty-state-description" data-i18n="chat.start_desc">在下方输入消息开始调试模型</div>
                     </div>
                 </div>
                 <div class="chat-input-area">
-                    <textarea id="chat-input" placeholder="输入消息... (Ctrl+Enter 发送)" onkeydown="if(event.ctrlKey && event.key==='Enter'){sendChatMessage();event.preventDefault();}"></textarea>
+                    <textarea id="chat-input" placeholder="输入消息... (Ctrl+Enter 发送)" data-i18n-placeholder="chat.input_placeholder" onkeydown="if(event.ctrlKey && event.key==='Enter'){sendChatMessage();event.preventDefault();}"></textarea>
                     <button class="btn btn-primary send-btn" onclick="sendChatMessage()">
                         <i data-lucide="send"></i>
                     </button>
@@ -453,8 +453,9 @@
 
     // Dashboard functions
     async function refreshDashboard() {
+        const prefix = (window.I18N ? I18N.t('dashboard.updated_at') : '更新于');
         document.getElementById('dashboard-time').textContent =
-            '更新于 ' + new Date().toLocaleString('zh-CN');
+            prefix + ' ' + new Date().toLocaleString(I18N && I18N.currentLang === 'en' ? 'en-US' : 'zh-CN');
         try {
             const config = await API.System.config();
             document.getElementById('stat-datasets').textContent = config.dataset_count || 0;
@@ -477,10 +478,10 @@
             <table class="table">
                 <thead>
                     <tr>
-                        <th>名称</th>
-                        <th>状态</th>
-                        <th>进度</th>
-                        <th>创建时间</th>
+                        <th>${I18N ? I18N.t('dashboard.table.name') : '名称'}</th>
+                        <th>${I18N ? I18N.t('dashboard.table.status') : '状态'}</th>
+                        <th>${I18N ? I18N.t('dashboard.table.progress') : '进度'}</th>
+                        <th>${I18N ? I18N.t('dashboard.table.created') : '创建时间'}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -496,7 +497,7 @@
                                     <span style="font-size:0.8rem;color:var(--text-secondary);">${exp.completed}/${exp.total_samples}</span>
                                 </div>
                             </td>
-                            <td style="color:var(--text-muted);font-size:0.8rem;">${new Date(exp.created_at).toLocaleString('zh-CN')}</td>
+                            <td style="color:var(--text-muted);font-size:0.8rem;">${new Date(exp.created_at).toLocaleString(I18N && I18N.currentLang === 'en' ? 'en-US' : 'zh-CN')}</td>
                         </tr>`;
                     }).join('')}
                 </tbody>
@@ -518,12 +519,12 @@
         try {
             const datasets = await API.Datasets.list();
             const datasetSelect = document.getElementById('exp-dataset-select');
-            datasetSelect.innerHTML = '<option value="">选择数据集...</option>' +
+            datasetSelect.innerHTML = `<option value="">${I18N ? I18N.t('experiments.select_dataset') : '选择数据集...'}</option>` +
                 (datasets.datasets || []).map(d => `<option value="${d.dataset_id}">${d.dataset_id}</option>`).join('');
 
             const models = await API.Models.list();
             const modelSelect = document.getElementById('exp-model-select');
-            modelSelect.innerHTML = '<option value="">选择模型...</option>' +
+            modelSelect.innerHTML = `<option value="">${I18N ? I18N.t('experiments.select_model') : '选择模型...'}</option>` +
                 (models.models || []).map(m => `<option value="${m.model_id}">${m.model_id} (${m.provider})</option>`).join('');
         } catch (error) {
             console.error('Failed to load form options:', error);
@@ -566,7 +567,7 @@
         messagesContainer.innerHTML += `
             <div id="${assistantId}" class="chat-message assistant">
                 <div class="chat-avatar ai-avatar">AI</div>
-                <div class="chat-bubble"><span class="typing">思考中</span></div>
+                <div class="chat-bubble"><span class="typing">${I18N ? I18N.t('chat.thinking') : '思考中'}</span></div>
             </div>
         `;
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -611,7 +612,7 @@
         API.fetchExperiments({ status: 'finished' }).then(experiments => {
             const select = document.getElementById('results-experiment-select');
             if (select) {
-                select.innerHTML = '<option value="">选择实验查看结果...</option>' +
+                select.innerHTML = `<option value="">${I18N ? I18N.t('results.select_exp') : '选择实验查看结果...'}</option>` +
                     experiments.map(e => `<option value="${e.experiment_id}">${e.name}</option>`).join('');
             }
         });

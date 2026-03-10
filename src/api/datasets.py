@@ -34,6 +34,45 @@ MAX_FILE_SIZE = 500 * 1024 * 1024  # 500MB
 
 datasets_store: Dict[str, Dict[str, Any]] = {}
 
+META_SUFFIX = ".meta.json"
+
+
+def _save_meta(dataset_id: str, meta: Dict[str, Any]) -> None:
+    """Persist dataset metadata to a JSON sidecar file."""
+    file_path = Path(meta["file_path"])
+    meta_path = file_path.with_suffix(".meta.json")
+    with open(meta_path, "w", encoding="utf-8") as f:
+        json.dump(meta, f, ensure_ascii=False, indent=2)
+
+
+def _delete_meta(meta: Dict[str, Any]) -> None:
+    """Delete the metadata sidecar file."""
+    file_path = Path(meta["file_path"])
+    meta_path = file_path.with_suffix(".meta.json")
+    if meta_path.exists():
+        meta_path.unlink()
+
+
+def _scan_existing_datasets() -> None:
+    """Scan data/processed/ on startup to rebuild datasets_store from disk."""
+    if not DATA_DIR.exists():
+        return
+    for meta_path in DATA_DIR.rglob("*" + META_SUFFIX):
+        try:
+            with open(meta_path, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+            dataset_id = meta.get("dataset_id")
+            if dataset_id and dataset_id not in datasets_store:
+                # Verify the JSONL file still exists
+                if Path(meta["file_path"]).exists():
+                    datasets_store[dataset_id] = meta
+        except Exception:
+            continue
+
+
+# Rebuild store from disk on module load
+_scan_existing_datasets()
+
 
 def _load_jsonl(file_path: Path) -> List[Dict[str, Any]]:
     """Load JSONL file and return list of records."""
@@ -128,7 +167,7 @@ async def upload_dataset(
         for sample in samples:
             f.write(json.dumps(sample, ensure_ascii=False) + "\n")
     
-    datasets_store[dataset_id] = {
+    meta = {
         "dataset_id": dataset_id,
         "task_type": task_type,
         "total_samples": len(samples),
@@ -138,6 +177,8 @@ async def upload_dataset(
         "file_path": str(file_path),
         "created_at": datetime.utcnow().isoformat() + "Z",
     }
+    datasets_store[dataset_id] = meta
+    _save_meta(dataset_id, meta)
     
     return ResponseEnvelope(
         code=0,
@@ -299,6 +340,7 @@ async def delete_dataset(
     ds_info = datasets_store[dataset_id]
     file_path = Path(ds_info["file_path"])
     
+    _delete_meta(ds_info)
     if file_path.exists():
         file_path.unlink()
     
