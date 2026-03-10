@@ -888,7 +888,7 @@ class ResultsVisualizer {
 }
 
 // Global instance
-let resultsVisualizer = null;
+var resultsVisualizer = null;
 
 function initResultsVisualizer() {
     resultsVisualizer = new ResultsVisualizer();

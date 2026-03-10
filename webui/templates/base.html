@@ -90,6 +90,15 @@
     
     <!-- Tab Navigation & System Status -->
     <script>
+        // Experiment sub-tab switching
+        function switchExpSubTab(panelId, btn) {
+            document.querySelectorAll('.exp-sub-tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.exp-sub-tab-panel').forEach(p => p.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            var panel = document.getElementById(panelId);
+            if (panel) panel.classList.add('active');
+        }
+
         // Tab switching functionality
         function switchTab(tabName) {
             document.querySelectorAll('.nav-item').forEach(item => {

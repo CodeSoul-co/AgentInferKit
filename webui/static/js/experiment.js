@@ -75,22 +75,6 @@ class ExperimentManager {
     
     init() {
         this.loadExperiments();
-        this.setupSubTabs();
-    }
-    
-    // =====================================================================
-    // Sub-tab switching (Inference / Evaluation)
-    // =====================================================================
-    setupSubTabs() {
-        document.querySelectorAll('.exp-sub-tab-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.exp-sub-tab-btn').forEach(b => b.classList.remove('active'));
-                document.querySelectorAll('.exp-sub-tab-panel').forEach(p => p.classList.remove('active'));
-                btn.classList.add('active');
-                const panel = document.getElementById(btn.dataset.panel);
-                if (panel) panel.classList.add('active');
-            });
-        });
     }
     
     // =====================================================================
@@ -220,6 +204,13 @@ class ExperimentManager {
             ]);
             this.datasetsCache = datasetsResp.datasets || [];
             this.modelsCache = modelsResp.models || [];
+            
+            // Populate model select dropdown
+            const modelSelect = document.getElementById('exp-model-select');
+            if (modelSelect) {
+                modelSelect.innerHTML = '<option value="">选择模型...</option>' +
+                    this.modelsCache.map(m => `<option value="${m.model_id}">${m.model_id} (${m.provider})</option>`).join('');
+            }
         } catch (error) {
             console.error('Failed to load form options:', error);
         }
@@ -316,7 +307,12 @@ class ExperimentManager {
         
         // Update visual selection
         document.querySelectorAll('.dataset-select-card').forEach(c => c.classList.remove('selected'));
-        event.currentTarget.classList.add('selected');
+        // Find the clicked card by dataset_id and mark it selected
+        document.querySelectorAll('.dataset-select-card').forEach(c => {
+            if (c.querySelector('.dataset-select-name')?.textContent === datasetId) {
+                c.classList.add('selected');
+            }
+        });
         
         // Update hidden select
         const hiddenSelect = document.querySelector('#step-panel-1 [name="dataset_id"]');
@@ -825,16 +821,16 @@ function selectStrategy(el) {
 // =========================================================================
 // Global instance
 // =========================================================================
-let experimentManager = null;
+var experimentManager = null;
 
 function initExperimentManager() {
     experimentManager = new ExperimentManager();
     window.experimentManager = experimentManager;
 }
 
-// Auto-init
+// Auto-init (only once)
 document.addEventListener('DOMContentLoaded', () => {
-    if (document.getElementById('experiment-list') || document.getElementById('experiment-form')) {
+    if (!window.experimentManager && (document.getElementById('experiment-list') || document.getElementById('experiment-form'))) {
         initExperimentManager();
     }
 });

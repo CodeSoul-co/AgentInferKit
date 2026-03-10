@@ -166,10 +166,10 @@
 
     <!-- Sub-tabs: Inference / Evaluation -->
     <div class="exp-sub-tabs mb-md">
-        <button class="exp-sub-tab-btn active" data-panel="exp-infer-panel">
+        <button class="exp-sub-tab-btn active" data-panel="exp-infer-panel" onclick="switchExpSubTab('exp-infer-panel', this)">
             <i data-lucide="play" style="width:15px;height:15px;"></i> 推理任务
         </button>
-        <button class="exp-sub-tab-btn" data-panel="exp-eval-panel" onclick="experimentManager && experimentManager.loadEvalExperiments()">
+        <button class="exp-sub-tab-btn" data-panel="exp-eval-panel" onclick="switchExpSubTab('exp-eval-panel', this); experimentManager && experimentManager.loadEvalExperiments()">
             <i data-lucide="bar-chart-2" style="width:15px;height:15px;"></i> 评估任务
         </button>
     </div>
@@ -694,13 +694,19 @@
 
     // Results functions
     async function loadSelectedResults() {
-        const select = document.getElementById('results-experiment-select');
-        const experimentId = select.value;
-        if (!experimentId) return;
-        if (!window.resultsVisualizer) {
-            initResultsVisualizer();
+        try {
+            const select = document.getElementById('results-experiment-select');
+            const experimentId = select.value;
+            if (!experimentId) return;
+            if (!window.resultsVisualizer) {
+                initResultsVisualizer();
+            }
+            await window.resultsVisualizer.loadMetrics(experimentId);
+        } catch (error) {
+            console.error('loadSelectedResults failed:', error);
+            const meta = document.getElementById('results-meta');
+            if (meta) meta.innerHTML = '<div class="alert alert-error">加载结果失败: ' + error.message + '</div>';
         }
-        await window.resultsVisualizer.loadMetrics(experimentId);
     }
 
     // Chat functions
@@ -777,8 +783,8 @@
             window.datasetUploader = new DatasetUploader();
         }
         
-        if (typeof initExperimentManager === 'function') initExperimentManager();
-        if (typeof initResultsVisualizer === 'function') initResultsVisualizer();
+        if (typeof initExperimentManager === 'function' && !window.experimentManager) initExperimentManager();
+        if (typeof initResultsVisualizer === 'function' && !window.resultsVisualizer) initResultsVisualizer();
         
         // Bind upload button
         const uploadBtn = document.getElementById('upload-btn');
