@@ -242,18 +242,35 @@ class GroupMetrics(BaseModel):
 class MetricsResponse(BaseModel):
     """Response data for experiment metrics."""
     experiment_id: str = Field(..., description="Experiment ID")
+    model: Optional[str] = Field(default=None, description="Model used")
+    strategy: Optional[str] = Field(default=None, description="Strategy used")
+    dataset: Optional[str] = Field(default=None, description="Dataset path")
+    total_samples: Optional[int] = Field(default=None, description="Total samples")
+    valid_samples: Optional[int] = Field(default=None, description="Valid samples")
+    evaluated_at: Optional[str] = Field(default=None, description="Evaluation timestamp")
     overall: Dict[str, Any] = Field(
         default_factory=dict,
         description="Overall metrics (accuracy, avg_latency_ms, avg_tokens, etc.)"
     )
-    by_difficulty: Optional[List[GroupMetrics]] = Field(
+    by_difficulty: Optional[Any] = Field(
         default=None,
         description="Metrics grouped by difficulty"
     )
-    by_topic: Optional[List[GroupMetrics]] = Field(
+    by_topic: Optional[Any] = Field(
         default=None,
         description="Metrics grouped by topic"
     )
+    by_category: Optional[Any] = Field(default=None, description="Metrics grouped by category")
+    by_call_type: Optional[Any] = Field(default=None, description="Metrics grouped by call type")
+    by_question_type: Optional[Any] = Field(default=None, description="Metrics grouped by question type")
+    latency_stats: Optional[Dict[str, Any]] = Field(default=None, description="Latency statistics")
+    token_stats: Optional[Dict[str, Any]] = Field(default=None, description="Token statistics")
+    cost_estimate: Optional[Dict[str, Any]] = Field(default=None, description="Cost estimate")
+    option_bias: Optional[Dict[str, Any]] = Field(default=None, description="Option bias distribution")
+    exact_match: Optional[Dict[str, Any]] = Field(default=None, description="Exact match details")
+    f1_score: Optional[Dict[str, Any]] = Field(default=None, description="F1 score details")
+    bleu: Optional[Dict[str, Any]] = Field(default=None, description="BLEU details")
+    rouge_l: Optional[Dict[str, Any]] = Field(default=None, description="ROUGE-L details")
 
 
 class CompareRequest(BaseModel):

@@ -100,9 +100,26 @@ async def get_metrics(
         message="ok",
         data=MetricsResponse(
             experiment_id=experiment_id,
+            model=metrics.get("model"),
+            strategy=metrics.get("strategy"),
+            dataset=metrics.get("dataset"),
+            total_samples=metrics.get("total_samples"),
+            valid_samples=metrics.get("valid_samples"),
+            evaluated_at=metrics.get("evaluated_at"),
             overall=metrics.get("overall", {}),
             by_difficulty=metrics.get("by_difficulty"),
             by_topic=metrics.get("by_topic"),
+            by_category=metrics.get("by_category"),
+            by_call_type=metrics.get("by_call_type"),
+            by_question_type=metrics.get("by_question_type"),
+            latency_stats=metrics.get("latency_stats"),
+            token_stats=metrics.get("token_stats"),
+            cost_estimate=metrics.get("cost_estimate"),
+            option_bias=metrics.get("option_bias"),
+            exact_match=metrics.get("exact_match"),
+            f1_score=metrics.get("f1_score"),
+            bleu=metrics.get("bleu"),
+            rouge_l=metrics.get("rouge_l"),
         )
     )
 
