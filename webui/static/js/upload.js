@@ -73,7 +73,7 @@ class DatasetUploader {
         });
     }
     
-    handleFile(file) {
+    async handleFile(file) {
         // Validate file type
         if (!file.name.endsWith('.jsonl') && !file.name.endsWith('.json')) {
             this.showStatus('error', '请上传 JSONL 或 JSON 格式的文件');
@@ -81,23 +81,59 @@ class DatasetUploader {
         }
         
         this.currentFile = file;
-        this.showFileInfo(file);
         
         // Auto-fill dataset name if empty
         if (this.datasetNameInput && !this.datasetNameInput.value) {
             this.datasetNameInput.value = file.name.replace(/\.jsonl?$/, '');
         }
+        
+        // Prevalidate JSONL format
+        const validation = await this.prevalidateJsonl(file);
+        this.showFileInfo(file, validation);
     }
     
-    showFileInfo(file) {
+    async prevalidateJsonl(file) {
+        try {
+            const text = await file.slice(0, 50000).text();
+            const lines = text.split('\n').filter(l => l.trim());
+            let errors = 0;
+            let firstError = null;
+            
+            lines.forEach((line, i) => {
+                try {
+                    JSON.parse(line);
+                } catch {
+                    errors++;
+                    if (!firstError) firstError = i + 1;
+                }
+            });
+            
+            return { total: lines.length, errors, firstError };
+        } catch (error) {
+            return { total: 0, errors: 1, firstError: 1 };
+        }
+    }
+    
+    showFileInfo(file, validation = null) {
         const sizeKB = (file.size / 1024).toFixed(2);
         const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
         const sizeStr = file.size > 1024 * 1024 ? `${sizeMB} MB` : `${sizeKB} KB`;
         
+        const validationHtml = validation ? `
+            <div class="file-validation" style="color:${validation.errors === 0 ? 'var(--success-color)' : 'var(--warning-color)'}">
+                <i data-lucide="${validation.errors === 0 ? 'check-circle' : 'alert-triangle'}" style="width:14px;height:14px;"></i>
+                ${validation.errors === 0 ? `JSONL 格式正确 · 预检 ${validation.total} 条` : `发现 ${validation.errors} 个错误 · 第 ${validation.firstError} 行`}
+            </div>
+        ` : '';
+        
         this.showStatus('info', `
-            <div class="file-info">
-                <div class="file-name"><i data-lucide="file-text" style="width:16px;height:16px;display:inline;vertical-align:middle;margin-right:4px;"></i>${file.name}</div>
-                <div class="file-size">${sizeStr}</div>
+            <div class="file-info-card ${validation && validation.errors === 0 ? 'success' : ''}">
+                <div class="file-info">
+                    <div class="file-name"><i data-lucide="file-text" style="width:16px;height:16px;display:inline;vertical-align:middle;margin-right:4px;"></i>${file.name}</div>
+                    <div class="file-size">${sizeStr}</div>
+                    ${validationHtml}
+                </div>
+            </div>
             </div>
         `);
         if (window.lucide) lucide.createIcons();
@@ -121,17 +157,16 @@ class DatasetUploader {
         this.statusContainer.classList.remove('hidden');
     }
     
-    showUploadProgress(percent) {
-        if (!this.statusContainer) return;
-        
+    updateProgress(percent, loaded, total) {
+        const processedText = total > 0 ? ` · 已处理 ${Math.round(loaded / total * 100)}%` : '';
         this.statusContainer.innerHTML = `
             <div class="upload-progress">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                    <span class="progress-label" style="margin-bottom:0;">上传中...</span>
+                    <span class="progress-label" style="margin-bottom:0;">${I18N ? I18N.t('common.upload_progress') : '上传中...'}${processedText}</span>
                     <span style="font-size:0.8rem;font-weight:700;color:var(--primary-color);">${percent}%</span>
                 </div>
                 <div class="progress-bar">
-                    <div class="progress-fill" style="width: ${percent}%"></div>
+                    <div class="progress-fill running" style="width: ${percent}%"></div>
                 </div>
             </div>
         `;
@@ -140,7 +175,7 @@ class DatasetUploader {
     
     showUploadResult(result) {
         const validatedIcon = result.validated ? '<i data-lucide="check-circle" style="width:20px;height:20px;color:var(--success-color);"></i>' : '<i data-lucide="alert-triangle" style="width:20px;height:20px;color:var(--warning-color);"></i>';
-        const validatedText = result.validated ? '验证通过' : '验证有警告';
+        const validatedText = result.validated ? (I18N ? I18N.t('common.validated') : '验证通过') : (I18N ? I18N.t('common.validated_warn') : '验证有警告');
         
         let warningsHtml = '';
         if (result.warnings && result.warnings.length > 0) {
@@ -155,28 +190,26 @@ class DatasetUploader {
         }
         
         this.showStatus('success', `
-            <div class="upload-result">
-                <div class="result-header">
-                    <span class="result-icon">${validatedIcon}</span>
-                    <span class="result-title">上传成功</span>
-                </div>
-                <div class="result-details">
-                    <div class="detail-item">
-                        <span class="detail-label">数据集 ID:</span>
-                        <span class="detail-value">${result.dataset_id}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">样本数量:</span>
-                        <span class="detail-value">${result.total_samples}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">验证状态:</span>
-                        <span class="detail-value">${validatedText}</span>
+            <div class="file-info-card success">
+                <div style="display:flex;align-items:flex-start;gap:12px;">
+                    ${validatedIcon}
+                    <div style="flex:1;">
+                        <div style="font-weight:600;margin-bottom:4px;">${validatedText}</div>
+                        <div style="font-size:0.9rem;color:var(--text-secondary);margin-bottom:8px;">
+                            ${result.dataset_id} · ${result.total_samples} 条 · task_type: ${this.taskTypeSelect?.value || 'unknown'}
+                        </div>
+                        ${warningsHtml}
                     </div>
                 </div>
-                ${warningsHtml}
             </div>
         `);
+        
+        // Refresh datasets list if available
+        setTimeout(() => {
+            if (typeof refreshDatasetsList === 'function') {
+                refreshDatasetsList();
+            }
+        }, 500);
     }
     
     async upload() {

@@ -119,7 +119,10 @@
                 <div id="drop-zone" class="drop-zone">
                     <div class="drop-zone-content">
                         <div class="drop-zone-icon"><i data-lucide="upload-cloud"></i></div>
-                        <div class="drop-zone-text"><span data-i18n="datasets.drop_text">拖拽 JSONL 文件到此处，或</span> <strong data-i18n="datasets.drop_click">点击选择文件</strong></div>
+                        <div class="drop-zone-text">
+                            <span data-i18n="datasets.drop_text">拖拽 JSONL 文件到此处，或</span> 
+                            <strong data-i18n="datasets.drop_click">点击选择文件</strong>
+                        </div>
                     </div>
                     <input type="file" id="file-input" accept=".jsonl,.json" style="display: none;">
                 </div>
@@ -468,6 +471,9 @@
         } catch (error) {
             console.error('Dashboard refresh failed:', error);
         }
+        
+        // Re-init Lucide icons after DOM update
+        if (window.lucide) lucide.createIcons();
     }
 
     function updateRecentExperiments(experiments) {
@@ -487,13 +493,16 @@
                 <tbody>
                     ${experiments.map(exp => {
                         const pct = exp.total_samples ? Math.round(exp.completed / exp.total_samples * 100) : 0;
+                        const isRunning = exp.status === 'running';
                         return `
                         <tr>
                             <td style="font-weight:600;">${exp.name}</td>
                             <td><span class="badge badge-${exp.status === 'finished' ? 'success' : exp.status === 'running' ? 'info' : 'neutral'}">${exp.status}</span></td>
                             <td>
                                 <div style="display:flex;align-items:center;gap:8px;">
-                                    <div class="progress-bar" style="width:80px;"><div class="progress-fill" style="width:${pct}%"></div></div>
+                                    <div class="progress-bar" style="width:80px;">
+                                        <div class="progress-fill ${isRunning ? 'running' : ''}" style="width:${pct}%"></div>
+                                    </div>
                                     <span style="font-size:0.8rem;color:var(--text-secondary);">${exp.completed}/${exp.total_samples}</span>
                                 </div>
                             </td>
@@ -509,6 +518,7 @@
     function showCreateExperimentForm() {
         document.getElementById('create-experiment-form').classList.remove('hidden');
         loadFormOptions();
+        if (window.lucide) lucide.createIcons();
     }
 
     function hideCreateExperimentForm() {
