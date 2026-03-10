@@ -173,6 +173,10 @@ class DatasetUploader {
         this.statusContainer.classList.remove('hidden');
     }
     
+    showUploadProgress(percent) {
+        this.updateProgress(percent, 0, 0);
+    }
+    
     showUploadResult(result) {
         const validatedIcon = result.validated ? '<i data-lucide="check-circle" style="width:20px;height:20px;color:var(--success-color);"></i>' : '<i data-lucide="alert-triangle" style="width:20px;height:20px;color:var(--warning-color);"></i>';
         const validatedText = result.validated ? (I18N ? I18N.t('common.validated') : '验证通过') : (I18N ? I18N.t('common.validated_warn') : '验证有警告');
@@ -221,17 +225,23 @@ class DatasetUploader {
     }
     
     async upload() {
+        console.log('Upload button clicked, currentFile:', this.currentFile);
+        
         if (!this.currentFile) {
+            console.warn('No file selected');
             this.showStatus('error', '请先选择文件');
             return null;
         }
         
         if (this.isUploading) {
+            console.warn('Upload already in progress');
             return null;
         }
         
         const taskType = this.taskTypeSelect?.value || 'qa';
         const datasetName = this.datasetNameInput?.value || this.currentFile.name.replace(/\.jsonl?$/, '');
+        
+        console.log('Starting upload:', { taskType, datasetName, fileSize: this.currentFile.size });
         
         this.isUploading = true;
         this.showUploadProgress(0);
