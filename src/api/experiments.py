@@ -14,6 +14,7 @@ from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
+from loguru import logger
 
 from .schemas import (
     ExperimentCreateRequest,
@@ -24,6 +25,14 @@ from .schemas import (
     ExperimentStopResponse,
     ResponseEnvelope,
 )
+from ..runners.batch_runner import BatchRunner
+from ..runners.qa_runner import QARunner
+from ..runners.exam_runner import ExamRunner
+from ..runners.image_runner import ImageRunner
+from ..runners.agent_runner import AgentRunner
+from ..adapters import get_adapter
+from ..strategies import get_strategy
+from ..utils.file_io import read_jsonl
 
 
 router = APIRouter(tags=["experiments"])
@@ -72,6 +81,96 @@ _experiments: Dict[str, Dict[str, Any]] = _load_experiments()
 def _generate_experiment_id() -> str:
     """Generate a unique experiment ID."""
     return f"exp_{uuid.uuid4().hex[:12]}"
+
+
+async def _run_experiment_task(experiment_id: str, exp: Dict[str, Any]):
+    """Background task to run experiment inference."""
+    try:
+        logger.info(f"Starting experiment {experiment_id}")
+        
+        # Load dataset
+        from .datasets import DATA_DIR
+        dataset_path = DATA_DIR / f"{exp['dataset_id']}.jsonl"
+        if not dataset_path.exists():
+            logger.error(f"Dataset file not found: {dataset_path}")
+            exp["status"] = "failed"
+            _save_experiments()
+            return
+        
+        samples = read_jsonl(dataset_path)
+        max_samples = exp.get("max_samples")
+        if max_samples and max_samples > 0:
+            samples = samples[:max_samples]
+        
+        # Update total_samples
+        exp["total_samples"] = len(samples)
+        exp["completed"] = 0
+        _save_experiments()
+        
+        logger.info(f"Loaded {len(samples)} samples for experiment {experiment_id}")
+        
+        # Get adapter and strategy
+        adapter = get_adapter(exp["model_id"])
+        strategy = get_strategy(exp["strategy"])
+        
+        # Determine runner based on dataset task_type
+        from .datasets import datasets_store
+        dataset_meta = datasets_store.get(exp["dataset_id"])
+        if not dataset_meta:
+            logger.error(f"Dataset metadata not found: {exp['dataset_id']}")
+            exp["status"] = "failed"
+            _save_experiments()
+            return
+        
+        task_type = dataset_meta.get("task_type", "qa")
+        
+        # Create appropriate runner
+        if task_type == "qa":
+            runner = QARunner(adapter, strategy)
+        elif task_type == "text_exam":
+            runner = ExamRunner(adapter, strategy)
+        elif task_type == "image_mcq":
+            runner = ImageRunner(adapter, strategy)
+        elif task_type == "api_calling":
+            runner = AgentRunner(adapter, strategy)
+        else:
+            logger.error(f"Unknown task type: {task_type}")
+            exp["status"] = "failed"
+            _save_experiments()
+            return
+        
+        # Run batch inference
+        batch_runner = BatchRunner(
+            experiment_id=experiment_id,
+            model_name=exp["model_id"],
+            strategy_name=exp["strategy"]
+        )
+        
+        def on_progress(completed: int, total: int, failed: int):
+            exp["completed"] = completed
+            _save_experiments()
+            logger.info(f"Progress: {completed}/{total} (failed: {failed})")
+        
+        concurrency = exp.get("runner", {}).get("concurrency", 5)
+        predictions_path = await batch_runner.run(
+            runner=runner,
+            samples=samples,
+            experiment_id=experiment_id,
+            concurrency=concurrency,
+            on_progress=on_progress
+        )
+        
+        # Mark as finished
+        exp["status"] = "finished"
+        exp["finished_at"] = datetime.now()
+        _save_experiments()
+        
+        logger.info(f"Experiment {experiment_id} completed successfully")
+        
+    except Exception as e:
+        logger.error(f"Experiment {experiment_id} failed: {e}")
+        exp["status"] = "failed"
+        _save_experiments()
 
 
 def _get_experiment_or_404(experiment_id: str) -> Dict[str, Any]:
@@ -239,11 +338,10 @@ async def run_experiment(experiment_id: str):
     exp["status"] = "running"
     _save_experiments()
     
-    # TODO: Integrate with A组's Runner module
-    # runner = get_runner(exp["dataset_id"], exp["model_id"], exp["strategy"])
-    # asyncio.create_task(runner.run(experiment_id, exp))
+    # Start experiment execution in background
+    asyncio.create_task(_run_experiment_task(experiment_id, exp))
     
-    stream_url = f"/{experiment_id}/progress"
+    stream_url = f"/api/v1/experiments/{experiment_id}/stream"
     
     return ResponseEnvelope(
         data=ExperimentRunResponse(

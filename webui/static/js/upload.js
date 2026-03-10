@@ -296,10 +296,9 @@ class DatasetUploader {
 }
 
 // Initialize uploader when DOM is ready
-let datasetUploader = null;
-
 function initUploader() {
-    datasetUploader = new DatasetUploader();
+    window.datasetUploader = new DatasetUploader();
+    console.log('DatasetUploader initialized:', window.datasetUploader);
 }
 
 // Auto-init if elements exist

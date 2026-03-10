@@ -128,7 +128,7 @@
                 </div>
             </div>
             <div id="upload-status" class="hidden"></div>
-            <button class="btn btn-primary" onclick="datasetUploader && datasetUploader.upload()">
+            <button id="upload-btn" class="btn btn-primary">
                 <i data-lucide="upload"></i> <span data-i18n="datasets.upload_btn">上传</span>
             </button>
         </div>
@@ -711,9 +711,37 @@
         refreshDashboard();
         refreshDatasetsList();
 
-        if (typeof initUploader === 'function') initUploader();
+        // Initialize uploader manually if not already initialized
+        if (typeof initUploader === 'function') {
+            initUploader();
+        } else if (typeof DatasetUploader !== 'undefined' && !window.datasetUploader) {
+            console.log('Manually initializing DatasetUploader');
+            window.datasetUploader = new DatasetUploader();
+        }
+        
         if (typeof initExperimentManager === 'function') initExperimentManager();
         if (typeof initResultsVisualizer === 'function') initResultsVisualizer();
+        
+        // Bind upload button
+        const uploadBtn = document.getElementById('upload-btn');
+        if (uploadBtn) {
+            uploadBtn.addEventListener('click', () => {
+                console.log('Upload button clicked, datasetUploader:', window.datasetUploader);
+                if (window.datasetUploader) {
+                    window.datasetUploader.upload();
+                } else {
+                    console.error('datasetUploader not initialized, DatasetUploader class:', typeof DatasetUploader);
+                    // Try to initialize now
+                    if (typeof DatasetUploader !== 'undefined') {
+                        console.log('Attempting emergency initialization');
+                        window.datasetUploader = new DatasetUploader();
+                        window.datasetUploader.upload();
+                    } else {
+                        alert('上传功能未初始化，请刷新页面重试');
+                    }
+                }
+            });
+        }
 
         API.fetchExperiments({ status: 'finished' }).then(experiments => {
             const select = document.getElementById('results-experiment-select');
