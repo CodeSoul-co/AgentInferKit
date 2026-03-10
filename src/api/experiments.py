@@ -179,8 +179,14 @@ async def _run_experiment_task(experiment_id: str, exp: Dict[str, Any]):
                 pred.setdefault("metadata", orig.get("metadata", {}))
         
         # Determine evaluators based on task type
+        from ..evaluators.registry import list_metrics
+        available_metrics = set(list_metrics())
+        
         eval_config = exp.get("eval", {})
         evaluator_names = eval_config.get("metrics", [])
+        # Filter out invalid metric names
+        evaluator_names = [m for m in evaluator_names if m in available_metrics]
+        
         if not evaluator_names:
             if task_type in ("text_exam", "image_mcq"):
                 evaluator_names = ["choice_accuracy", "option_bias"]
@@ -189,6 +195,7 @@ async def _run_experiment_task(experiment_id: str, exp: Dict[str, Any]):
             else:
                 evaluator_names = ["exact_match", "f1_score"]
         
+        logger.info(f"Using evaluators: {evaluator_names}")
         metric_results = evaluate_all(pred_results, evaluator_names, {})
         
         # Build overall summary
