@@ -587,9 +587,34 @@
     
     async function viewDataset(datasetId) {
         try {
-            const preview = await API.Datasets.preview(datasetId, 10);
+            const preview = await API.Datasets.preview(datasetId, 0, 20);
             console.log('Dataset preview:', preview);
-            alert(`数据集 ${datasetId} 预览:\n${JSON.stringify(preview.samples.slice(0, 3), null, 2)}`);
+            
+            // Show in a modal-like overlay
+            const samples = preview.samples || [];
+            const html = samples.map((s, i) => 
+                `<div style="margin-bottom:12px;padding:10px;background:var(--bg-secondary);border-radius:6px;font-size:13px;">
+                    <div style="font-weight:600;margin-bottom:4px;color:var(--text-secondary);">#${i + 1}</div>
+                    <pre style="white-space:pre-wrap;word-break:break-all;margin:0;font-size:12px;">${JSON.stringify(s, null, 2)}</pre>
+                </div>`
+            ).join('');
+            
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+            overlay.innerHTML = `
+                <div style="background:var(--bg-primary);border-radius:12px;width:700px;max-height:80vh;display:flex;flex-direction:column;box-shadow:var(--shadow-xl);">
+                    <div style="padding:16px 20px;border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
+                        <div style="font-weight:600;font-size:16px;">数据集预览: ${datasetId}</div>
+                        <button onclick="this.closest('div[style*=fixed]').remove()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text-muted);">✕</button>
+                    </div>
+                    <div style="padding:20px;overflow-y:auto;flex:1;">
+                        <div style="margin-bottom:8px;color:var(--text-secondary);font-size:13px;">共 ${preview.total || samples.length} 条样本，显示前 ${samples.length} 条</div>
+                        ${samples.length > 0 ? html : '<div style="color:var(--text-muted);">暂无数据</div>'}
+                    </div>
+                </div>
+            `;
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+            document.body.appendChild(overlay);
         } catch (error) {
             alert(`查看失败: ${error.message}`);
         }

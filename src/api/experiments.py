@@ -88,9 +88,16 @@ async def _run_experiment_task(experiment_id: str, exp: Dict[str, Any]):
     try:
         logger.info(f"Starting experiment {experiment_id}")
         
-        # Load dataset
-        from .datasets import DATA_DIR
-        dataset_path = DATA_DIR / f"{exp['dataset_id']}.jsonl"
+        # Load dataset - get file_path from datasets_store
+        from .datasets import datasets_store
+        dataset_meta = datasets_store.get(exp['dataset_id'])
+        if not dataset_meta:
+            logger.error(f"Dataset metadata not found: {exp['dataset_id']}")
+            exp["status"] = "failed"
+            _save_experiments()
+            return
+        
+        dataset_path = Path(dataset_meta['file_path'])
         if not dataset_path.exists():
             logger.error(f"Dataset file not found: {dataset_path}")
             exp["status"] = "failed"
@@ -109,8 +116,8 @@ async def _run_experiment_task(experiment_id: str, exp: Dict[str, Any]):
         
         logger.info(f"Loaded {len(samples)} samples for experiment {experiment_id}")
         
-        # Determine task type from first sample
-        task_type = samples[0].get("task_type", "text_qa") if samples else "text_qa"
+        # Determine task type from dataset metadata or first sample
+        task_type = dataset_meta.get("task_type") or (samples[0].get("task_type", "text_qa") if samples else "text_qa")
         
         # Load model adapter
         model_config = {
@@ -327,6 +334,12 @@ async def run_experiment(experiment_id: str):
     if exp["status"] == "finished":
         raise HTTPException(status_code=409, detail="Experiment has already finished")
     
+    # Allow re-running failed experiments
+    if exp["status"] == "failed":
+        exp["completed"] = 0
+        exp["total_samples"] = 0
+        exp["finished_at"] = None
+    
     # Update status to running
     exp["status"] = "running"
     _save_experiments()
@@ -334,7 +347,7 @@ async def run_experiment(experiment_id: str):
     # Start experiment execution in background
     asyncio.create_task(_run_experiment_task(experiment_id, exp))
     
-    stream_url = f"/api/v1/experiments/{experiment_id}/stream"
+    stream_url = f"/{experiment_id}/progress"
     
     return ResponseEnvelope(
         data=ExperimentRunResponse(
