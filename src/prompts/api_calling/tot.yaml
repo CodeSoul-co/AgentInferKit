@@ -13,7 +13,7 @@ instruction_template: |
   {tools_text}
 
   Propose one approach to accomplish this goal. For each tool call, output:
-  Action: tool_name({"param": "value"})
+  Action: tool_name({{"param": "value"}})
   End with: Answer: <your final answer>
 
 output_format: json_tool_call

@@ -7,6 +7,7 @@ from .experiments import router as experiments_router
 from .rag import router as rag_router
 from .models import router as models_router
 from .system import router as system_router
+from .custom_agent import router as agent_router
 
 __all__ = [
     "datasets_router",
@@ -16,4 +17,5 @@ __all__ = [
     "rag_router",
     "models_router",
     "system_router",
+    "agent_router",
 ]

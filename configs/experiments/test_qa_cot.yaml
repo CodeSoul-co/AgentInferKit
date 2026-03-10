@@ -1,0 +1,15 @@
+concurrency: 3
+dataset_path: data/benchmark/qa/demo_qa_v1.jsonl
+evaluators:
+- exact_match
+- f1_score
+- latency_stats
+experiment_id: test_qa_cot_001
+group_by:
+- difficulty
+- metadata.topic
+model:
+  model: deepseek-chat
+  provider: deepseek
+prompt_id: text_qa.cot
+strategy: cot

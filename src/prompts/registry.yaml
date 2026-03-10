@@ -7,6 +7,10 @@ text_exam.cot: text_exam/cot.yaml
 text_exam.long_cot: text_exam/long_cot.yaml
 text_exam.tot: text_exam/tot.yaml
 
+text_qa.direct: text_qa/direct.yaml
+text_qa.cot: text_qa/cot.yaml
+text_qa.long_cot: text_qa/long_cot.yaml
+
 image_mcq.direct: image_mcq/direct.yaml
 
 api_calling.direct: api_calling/direct.yaml

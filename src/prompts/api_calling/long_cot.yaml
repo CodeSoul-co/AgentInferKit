@@ -15,7 +15,7 @@ instruction_template: |
   Plan your approach step by step:
   1. Break down the goal into sub-tasks
   2. For each sub-task, decide which tool to use
-  3. Execute tool calls in order: Action: tool_name({"param": "value"})
+  3. Execute tool calls in order: Action: tool_name({{"param": "value"}})
   4. Verify results at each step
   5. Provide final answer as: Answer: <your answer>
 

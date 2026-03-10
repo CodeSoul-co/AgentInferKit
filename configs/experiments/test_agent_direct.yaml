@@ -1,0 +1,14 @@
+concurrency: 2
+dataset_path: data/benchmark/api_calling/demo_agent_v1.jsonl
+evaluators:
+- tool_selection_accuracy
+- parameter_accuracy
+- latency_stats
+experiment_id: test_agent_direct_001
+group_by:
+- metadata.call_steps
+model:
+  model: deepseek-chat
+  provider: deepseek
+prompt_id: api_calling.direct
+strategy: direct

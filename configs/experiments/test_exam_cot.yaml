@@ -1,0 +1,16 @@
+concurrency: 3
+dataset_path: data/benchmark/text_exam/demo_exam_v1.jsonl
+evaluators:
+- choice_accuracy
+- latency_stats
+- token_stats
+- avg_trace_tokens
+experiment_id: test_exam_cot_001
+group_by:
+- difficulty
+- metadata.topic
+model:
+  model: deepseek-chat
+  provider: deepseek
+prompt_id: text_exam.cot
+strategy: cot

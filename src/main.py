@@ -13,6 +13,7 @@ from src.api import (
     rag_router,
     models_router,
     system_router,
+    agent_router,
 )
 from src.utils.logger import setup_logger
 
@@ -41,6 +42,7 @@ app.include_router(results_router, prefix="/api/v1/results", tags=["Results"])
 app.include_router(rag_router, prefix="/api/v1/rag", tags=["RAG"])
 app.include_router(models_router, prefix="/api/v1/models", tags=["Models"])
 app.include_router(chat_router, prefix="/api/v1/chat", tags=["Chat"])
+app.include_router(agent_router, prefix="/api/v1/agent", tags=["Custom Agent"])
 
 # WebUI paths
 WEBUI_DIR = Path("webui")

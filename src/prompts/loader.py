@@ -111,11 +111,17 @@ def render_instruction(prompt_id: str, **kwargs: Any) -> str:
 def resolve_prompt_id(task_type: str, strategy: str) -> str:
     """Resolve a prompt_id from task_type and strategy name.
 
-    Falls back to '{task_type}.direct' if the specific combo is not found,
-    then to 'text_exam.{strategy}' as a last resort.
+    Fallback chain (each step only if previous is not in registry):
+      1. ``{task_type}.{strategy}``  — exact match
+      2. ``{task_type}.direct``      — same task, simpler strategy
+      3. ``text_qa.{strategy}``      — generic QA (no options_text)
+      4. ``text_qa.direct``          — safest generic fallback
+
+    We intentionally avoid falling back to ``text_exam.*`` because those
+    templates contain ``{options_text}`` which non-exam tasks lack.
 
     Args:
-        task_type: e.g. 'text_exam', 'qa', 'api_calling'
+        task_type: e.g. 'text_exam', 'text_qa', 'api_calling'
         strategy: e.g. 'cot', 'direct', 'long_cot'
 
     Returns:
@@ -126,20 +132,15 @@ def resolve_prompt_id(task_type: str, strategy: str) -> str:
     """
     registry = _load_registry()
 
-    # Exact match
-    exact = f"{task_type}.{strategy}"
-    if exact in registry:
-        return exact
-
-    # Fallback: task_type.direct
-    fallback1 = f"{task_type}.direct"
-    if fallback1 in registry:
-        return fallback1
-
-    # Fallback: text_exam.{strategy}
-    fallback2 = f"text_exam.{strategy}"
-    if fallback2 in registry:
-        return fallback2
+    candidates = [
+        f"{task_type}.{strategy}",
+        f"{task_type}.direct",
+        f"text_qa.{strategy}",
+        f"text_qa.direct",
+    ]
+    for cid in candidates:
+        if cid in registry:
+            return cid
 
     available = ", ".join(sorted(registry.keys()))
     raise KeyError(

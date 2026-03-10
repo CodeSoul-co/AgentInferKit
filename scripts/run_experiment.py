@@ -91,9 +91,9 @@ async def run(config: Dict[str, Any]) -> None:
     if task_type == "api_calling":
         runner = AgentRunner(adapter, strategy, model_config=model_config, rag_config=rag_config)
     elif task_type in ("text_exam", "image_mcq"):
-        runner = ExamRunner(adapter, strategy, rag_config=rag_config)
+        runner = ExamRunner(adapter, strategy, model_config=model_config, rag_config=rag_config)
     else:
-        runner = QARunner(adapter, strategy, rag_config=rag_config)
+        runner = QARunner(adapter, strategy, model_config=model_config, rag_config=rag_config)
 
     # Run batch
     concurrency = config.get("concurrency", 5)

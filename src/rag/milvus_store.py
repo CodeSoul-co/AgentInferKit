@@ -15,6 +15,7 @@ from pymilvus import (
 from src.config import settings
 
 _connected = False
+_loaded_collections: set = set()
 
 
 def _ensure_connection() -> None:
@@ -31,13 +32,15 @@ def _ensure_connection() -> None:
     logger.info(f"Connected to Milvus at {settings.milvus_host}:{settings.milvus_port}")
 
 
-def create_collection(kb_name: str, version: str, dim: int) -> str:
+def create_collection(kb_name: str, version: str, dim: int, *, force: bool = False) -> str:
     """Create a Milvus collection for a knowledge base.
 
     Args:
         kb_name: Knowledge base name.
         version: Version string (e.g. 'v1').
         dim: Embedding vector dimension.
+        force: If True, drop and recreate an existing collection.
+               If False (default), return the existing collection name.
 
     Returns:
         The collection name string.
@@ -46,7 +49,10 @@ def create_collection(kb_name: str, version: str, dim: int) -> str:
     collection_name = f"kb_{kb_name}_{version}"
 
     if utility.has_collection(collection_name):
-        logger.info(f"Collection '{collection_name}' already exists, dropping and recreating.")
+        if not force:
+            logger.info(f"Collection '{collection_name}' already exists, reusing.")
+            return collection_name
+        logger.info(f"Collection '{collection_name}' already exists, dropping and recreating (force=True).")
         utility.drop_collection(collection_name)
 
     fields = [
@@ -117,7 +123,9 @@ def search(
     """
     _ensure_connection()
     collection = Collection(name=collection_name)
-    collection.load()
+    if collection_name not in _loaded_collections:
+        collection.load()
+        _loaded_collections.add(collection_name)
 
     search_params = {"metric_type": "IP", "params": {"nprobe": 16}}
     results = collection.search(
@@ -142,6 +150,7 @@ def search(
 def drop_collection(collection_name: str) -> None:
     """Drop a Milvus collection."""
     _ensure_connection()
+    _loaded_collections.discard(collection_name)
     if utility.has_collection(collection_name):
         utility.drop_collection(collection_name)
         logger.info(f"Dropped collection '{collection_name}'")

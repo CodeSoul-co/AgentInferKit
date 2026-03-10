@@ -13,6 +13,6 @@ instruction_template: |
   {tools_text}
 
   Call the appropriate tool(s) to accomplish the goal. Output each tool call as:
-  Action: tool_name({"param": "value"})
+  Action: tool_name({{"param": "value"}})
 
 output_format: json_tool_call

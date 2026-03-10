@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
+from loguru import logger
 
 from .schemas import (
     ChunkResult,
@@ -27,11 +28,40 @@ from .schemas import (
 
 router = APIRouter(tags=["rag"])
 
-# In-memory storage for knowledge bases (will be replaced by database in production)
-_knowledge_bases: Dict[str, Dict[str, Any]] = {}
-
-# Directory for RAG data
+# Directory for RAG data and KB state
 RAG_DATA_DIR = Path("data/rag")
+_KB_STATE_FILE = RAG_DATA_DIR / "_kb_state.json"
+
+
+def _load_knowledge_bases() -> Dict[str, Dict[str, Any]]:
+    """Load KB metadata from persistent JSON state file."""
+    if not _KB_STATE_FILE.exists():
+        return {}
+    try:
+        with open(_KB_STATE_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        for kb in data.values():
+            if isinstance(kb.get("created_at"), str):
+                kb["created_at"] = datetime.fromisoformat(kb["created_at"])
+        return data
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _save_knowledge_bases() -> None:
+    """Persist KB metadata to JSON state file."""
+    RAG_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    serialisable = {}
+    for name, kb in _knowledge_bases.items():
+        row = dict(kb)
+        if isinstance(row.get("created_at"), datetime):
+            row["created_at"] = row["created_at"].isoformat()
+        serialisable[name] = row
+    with open(_KB_STATE_FILE, "w", encoding="utf-8") as f:
+        json.dump(serialisable, f, indent=2, ensure_ascii=False)
+
+
+_knowledge_bases: Dict[str, Dict[str, Any]] = _load_knowledge_bases()
 
 
 def _get_kb_or_404(kb_name: str) -> Dict[str, Any]:
@@ -98,75 +128,56 @@ async def build_knowledge_base(
         raise HTTPException(status_code=400, detail="File contains no valid documents")
     
     async def build_stream():
-        """SSE stream for build progress."""
+        """SSE stream for build progress — delegates to src.rag.pipeline."""
         try:
+            from src.rag.pipeline import build_index
+
             total_docs = len(documents)
-            collection_name = f"kb_{kb_name}_{uuid.uuid4().hex[:8]}"
-            
-            yield f"event: progress\ndata: {json.dumps({'stage': 'chunking', 'progress': 0, 'total': total_docs})}\n\n"
-            
-            # TODO: Integrate with A组's RAG pipeline
-            # from src.rag.pipeline import RAGPipeline
-            # pipeline = RAGPipeline(embedder=embedder)
-            # chunks = pipeline.chunk_documents(documents, strategy=chunk_strategy, chunk_size=chunk_size)
-            
-            # Mock chunking progress
-            chunks = []
-            for i, doc in enumerate(documents):
-                await asyncio.sleep(0.05)  # Simulate processing time
-                
-                # Simple mock chunking
-                text = doc.get("text", "")
-                chunk_id = f"chunk_{uuid.uuid4().hex[:8]}"
-                chunks.append({
-                    "chunk_id": chunk_id,
-                    "text": text[:chunk_size] if len(text) > chunk_size else text,
-                    "topic": doc.get("topic"),
-                    "source_doc_idx": i,
-                })
-                
-                if (i + 1) % 10 == 0 or i == total_docs - 1:
-                    yield f"event: progress\ndata: {json.dumps({'stage': 'chunking', 'progress': i + 1, 'total': total_docs})}\n\n"
-            
-            yield f"event: progress\ndata: {json.dumps({'stage': 'embedding', 'progress': 0, 'total': len(chunks)})}\n\n"
-            
-            # TODO: Integrate with A组's embedder
-            # embeddings = pipeline.embed_chunks(chunks)
-            
-            # Mock embedding progress
-            for i in range(len(chunks)):
-                await asyncio.sleep(0.02)
-                if (i + 1) % 20 == 0 or i == len(chunks) - 1:
-                    yield f"event: progress\ndata: {json.dumps({'stage': 'embedding', 'progress': i + 1, 'total': len(chunks)})}\n\n"
-            
-            yield f"event: progress\ndata: {json.dumps({'stage': 'indexing', 'progress': 0, 'total': len(chunks)})}\n\n"
-            
-            # TODO: Integrate with A组's Milvus store
-            # from src.rag.milvus_store import MilvusStore
-            # store = MilvusStore(collection_name=collection_name)
-            # store.insert(chunks, embeddings)
-            
-            # Mock indexing progress
-            for i in range(len(chunks)):
-                await asyncio.sleep(0.01)
-                if (i + 1) % 50 == 0 or i == len(chunks) - 1:
-                    yield f"event: progress\ndata: {json.dumps({'stage': 'indexing', 'progress': i + 1, 'total': len(chunks)})}\n\n"
-            
-            # Store KB metadata
+            yield f"event: progress\ndata: {json.dumps({'stage': 'starting', 'progress': 0, 'total': total_docs})}\n\n"
+
+            # build_index is synchronous; run in a thread to keep SSE alive
+            loop = asyncio.get_event_loop()
+            progress_events: List[Dict[str, Any]] = []
+
+            def _on_progress(stage: str, done: int, total: int) -> None:
+                progress_events.append({"stage": stage, "progress": done, "total": total})
+
+            stats = await loop.run_in_executor(
+                None,
+                lambda: build_index(
+                    records=documents,
+                    kb_name=kb_name,
+                    strategy=chunk_strategy,
+                    chunk_size=chunk_size,
+                    embedder_name=embedder if embedder != "BAAI/bge-m3" else None,
+                    version="v1",
+                    on_progress=_on_progress,
+                ),
+            )
+
+            # Flush collected progress events
+            for evt in progress_events:
+                yield f"event: progress\ndata: {json.dumps(evt)}\n\n"
+
+            collection_name = stats["collection"]
+
+            # Store KB metadata and persist
             _knowledge_bases[kb_name] = {
                 "kb_name": kb_name,
-                "total_chunks": len(chunks),
+                "total_chunks": stats["total_chunks"],
                 "collection": collection_name,
-                "embedder": embedder,
+                "embedder": stats.get("embedder", embedder),
                 "chunk_strategy": chunk_strategy,
                 "chunk_size": chunk_size,
                 "source_file": str(file_path),
                 "created_at": datetime.now(),
             }
-            
-            yield f"event: done\ndata: {json.dumps({'kb_name': kb_name, 'total_chunks': len(chunks), 'collection': collection_name})}\n\n"
-            
+            _save_knowledge_bases()
+
+            yield f"event: done\ndata: {json.dumps({'kb_name': kb_name, 'total_chunks': stats['total_chunks'], 'collection': collection_name})}\n\n"
+
         except Exception as e:
+            logger.exception(f"RAG build failed for '{kb_name}'")
             yield f"event: error\ndata: {json.dumps({'message': str(e)})}\n\n"
     
     return StreamingResponse(
@@ -242,26 +253,31 @@ async def search_knowledge_base(request: RAGSearchRequest):
     Returns top-k most relevant chunks based on semantic similarity.
     """
     kb = _get_kb_or_404(request.kb_name)
-    
-    # TODO: Integrate with A组's retriever
-    # from src.rag.retriever import Retriever
-    # retriever = Retriever(collection_name=kb["collection"], embedder=kb["embedder"])
-    # results = retriever.search(request.query, top_k=request.top_k)
-    
-    # Mock search results for demonstration
-    mock_results = [
-        ChunkResult(
-            chunk_id=f"chunk_{i}",
-            score=0.95 - i * 0.1,
-            text=f"This is a mock search result {i+1} for query: {request.query[:50]}...",
-            topic=f"topic_{i % 3}",
-            source_qa_ids=[f"qa_{i}"],
+
+    try:
+        from src.rag.retriever import retrieve
+        # Extract kb_name and version from collection name (kb_{name}_{version})
+        raw_results = retrieve(
+            query=request.query,
+            kb_name=request.kb_name,
+            top_k=request.top_k,
         )
-        for i in range(min(request.top_k, 5))
-    ]
-    
+        results = [
+            ChunkResult(
+                chunk_id=r.get("chunk_id", ""),
+                score=r.get("score", 0.0),
+                text=r.get("text", ""),
+                topic=r.get("topic"),
+                source_qa_ids=[],
+            )
+            for r in raw_results
+        ]
+    except Exception as e:
+        logger.warning(f"RAG search failed for '{request.kb_name}': {e}")
+        results = []
+
     return ResponseEnvelope(
-        data=RAGSearchResponse(results=mock_results)
+        data=RAGSearchResponse(results=results)
     )
 
 
@@ -275,20 +291,23 @@ async def delete_knowledge_base(kb_name: str):
     Delete a knowledge base and its associated data.
     """
     kb = _get_kb_or_404(kb_name)
-    
-    # TODO: Integrate with A组's Milvus store to drop collection
-    # from src.rag.milvus_store import MilvusStore
-    # store = MilvusStore(collection_name=kb["collection"])
-    # store.drop()
-    
+
+    # Drop Milvus collection
+    try:
+        from src.rag.milvus_store import drop_collection
+        drop_collection(kb["collection"])
+    except Exception as e:
+        logger.warning(f"Failed to drop Milvus collection '{kb['collection']}': {e}")
+
     # Delete source file if exists
     source_file = Path(kb.get("source_file", ""))
     if source_file.exists():
         source_file.unlink()
-    
-    # Remove from memory
+
+    # Remove from memory and persist
     del _knowledge_bases[kb_name]
-    
+    _save_knowledge_bases()
+
     return ResponseEnvelope(
         data={"deleted": kb_name}
     )

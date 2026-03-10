@@ -1,0 +1,14 @@
+id: text_qa.direct
+task_type: text_qa
+strategy: direct
+version: "1.0"
+
+system_prompt: |
+  You are a helpful assistant. Answer the question concisely and accurately.
+
+instruction_template: |
+  {question}
+
+  Please provide your answer directly.
+
+output_format: free_text

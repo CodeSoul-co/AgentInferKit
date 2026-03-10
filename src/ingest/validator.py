@@ -3,7 +3,7 @@
 from typing import Any, Dict, List, Optional
 
 
-VALID_TASK_TYPES = {"qa", "text_exam", "image_mcq", "api_calling"}
+VALID_TASK_TYPES = {"qa", "text_qa", "text_exam", "image_mcq", "api_calling"}
 VALID_SPLITS = {"train", "dev", "test"}
 VALID_MODALITIES = {"text", "image", "text+image"}
 VALID_DIFFICULTIES = {"easy", "medium", "hard"}
@@ -12,6 +12,7 @@ VALID_EVAL_TYPES = {"em_or_f1", "choice_accuracy", "function_calling"}
 # Per-task required fields (beyond the universal base fields)
 _TASK_REQUIRED: Dict[str, List[str]] = {
     "qa": ["question", "answer"],
+    "text_qa": ["question", "answer"],
     "text_exam": ["question", "options", "answer"],
     "image_mcq": ["question", "options", "answer", "image_path"],
     "api_calling": ["user_goal", "available_tools", "ground_truth"],

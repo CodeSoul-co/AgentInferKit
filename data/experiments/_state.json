@@ -1,0 +1,36 @@
+{
+  "exp_8a1fb129bfc2": {
+    "experiment_id": "exp_8a1fb129bfc2",
+    "name": "webui_test_001",
+    "description": "Demo test via API",
+    "status": "created",
+    "dataset_id": "demo_exam",
+    "split": "test",
+    "max_samples": null,
+    "model_id": "deepseek-chat",
+    "strategy": "cot",
+    "rag": {
+      "enabled": false,
+      "mode": "retrieved",
+      "kb_name": null,
+      "top_k": 3
+    },
+    "runner": {
+      "concurrency": 5,
+      "retry_times": 3,
+      "resume": true
+    },
+    "eval": {
+      "metrics": [
+        "accuracy"
+      ],
+      "group_by": []
+    },
+    "seed": null,
+    "total_samples": 0,
+    "completed": 0,
+    "created_at": "2026-03-10T15:15:47.520044",
+    "finished_at": null,
+    "config_path": "data/experiments/exp_8a1fb129bfc2_config.json"
+  }
+}

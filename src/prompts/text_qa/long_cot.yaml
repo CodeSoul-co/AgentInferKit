@@ -1,0 +1,14 @@
+id: text_qa.long_cot
+task_type: text_qa
+strategy: long_cot
+version: "1.0"
+
+system_prompt: |
+  You are a helpful assistant. Provide a detailed, thorough analysis before giving your final answer.
+
+instruction_template: |
+  {question}
+
+  Please provide a detailed analysis with thorough reasoning. Show your complete thought process, then provide your final answer on the last line in the format: Answer: <your answer>
+
+output_format: free_text

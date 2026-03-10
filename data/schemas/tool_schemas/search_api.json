@@ -2,41 +2,82 @@
   "tool_id": "search_api",
   "category": "information_retrieval",
   "subcategory": "web_search",
-  "core_description": "Search for relevant information given a query. Supports keyword and semantic search with configurable result count.",
-  "business_scenario": "When the user needs to find factual information, verify claims, or gather evidence from external knowledge sources.",
-  "version": "1.0.0",
+  "core_description": "Search the web. Input: query string. Returns: list of results with title, snippet, url.",
+  "business_scenario": "User needs to find information from the internet.",
   "parameters": {
     "type": "object",
     "properties": {
       "query": {
-        "type": "String",
-        "description": "Search query",
-        "required": true
+        "type": "string"
       },
       "top_k": {
-        "type": "Integer",
-        "description": "Number of results to return",
-        "default": 5,
-        "required": false
+        "type": "integer",
+        "default": 3
       }
-    }
+    },
+    "required": [
+      "query"
+    ]
   },
   "return_schema": {
-    "results": {
-      "type": "array",
-      "description": "List of search result strings"
-    },
-    "total": {
-      "type": "Integer",
-      "description": "Total number of results found"
+    "type": "array",
+    "items": {
+      "type": "object"
     }
   },
   "mock_responses": [
     {
+      "condition": {
+        "query__contains": "气候变化"
+      },
+      "response": {
+        "results": [
+          {
+            "title": "IPCC报告",
+            "snippet": "全球平均温度已上升1.1°C。",
+            "url": "https://ipcc.ch"
+          }
+        ]
+      }
+    },
+    {
+      "condition": {
+        "query__contains": "深度学习"
+      },
+      "response": {
+        "results": [
+          {
+            "title": "深度学习综述",
+            "snippet": "多层神经网络表示学习。",
+            "url": "https://example.com/dl"
+          }
+        ]
+      }
+    },
+    {
+      "condition": {
+        "query__contains": "Python"
+      },
+      "response": {
+        "results": [
+          {
+            "title": "Python官方文档",
+            "snippet": "Python是解释型高级编程语言。",
+            "url": "https://docs.python.org"
+          }
+        ]
+      }
+    },
+    {
       "condition": "default",
       "response": {
-        "results": ["result1", "result2"],
-        "total": 2
+        "results": [
+          {
+            "title": "搜索结果",
+            "snippet": "找到相关信息。",
+            "url": "https://example.com"
+          }
+        ]
       }
     }
   ]
