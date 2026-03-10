@@ -909,3 +909,337 @@ createOptionBiasChart(id, optionBias) {
 ---
 
 *AgentInferKit · 结果分析页重设计方案 · v1.0 · D 岗交付物*
+
+
+# 实验配置页重设计方案
+
+> **核心方向**：推理（Inference）与评估（Evaluation）彻底分离  
+> **覆盖范围**：`experiment.js` + `index.html` Experiments tab + `src/api/schemas.py`（微调）  
+> **对齐需求**：实验组 A（QA/RAG）、实验组 B（image_mcq）、实验组 C（api_calling + CoT/ToT）
+
+---
+
+## 一、现状 Gap 分析
+
+### Gap 1：推理与评估耦合（最核心问题）
+
+当前 `ExperimentCreateRequest` 把 `eval: EvalConfig`（评估指标 + 分组维度）和推理参数（model、strategy、rag）打包在一起，**一次创建 = 推理 + 评估同时配置**，违背老板「推理和评估分开」的要求。
+
+正确架构应当是：
+- **推理配置（Inference Config）**：选数据、选模型、选策略、选 RAG 模式 → 生成 `predictions.jsonl`
+- **评估配置（Evaluation Config）**：选 predictions 文件、选指标、选分组维度 → 生成 `metrics.json`
+
+### Gap 2：截图中「模型与策略」是 Step 2，但 Step 1 已包含模型
+
+截图里 Step 1（基本信息）里已经有了「模型」下拉框，Step 2 又是「模型与策略」，**字段重复**，说明 Stepper 步骤分配混乱，用户完全不知道每步在做什么。
+
+### Gap 3：RAG 配置完全缺失
+
+后端 `RAGConfig` 已定义三种模式（`closed` / `oracle` / `retrieved`），实验组 A 的核心就是 wo RAG / Oracle RAG / Retrieved RAG 三种对比实验，但**当前表单没有任何 RAG 相关字段**，导致实验组 A 根本无法在 UI 上配置。
+
+### Gap 4：评估指标配置无感知
+
+当前「评估指标」字段是一个**纯文本输入框**（`value="accuracy"`），用户需要手动输入逗号分隔的指标名。但 FORMAT_AND_METRICS.md 规定了四种 task_type 各有不同的指标集，用户根本不知道该填什么。
+
+### Gap 5：api_calling 无工具配置入口
+
+实验组 C 的核心是工具调用评测，需要指定 `available_tools` / `tool_index`，但表单没有任何工具相关字段。
+
+### Gap 6：没有「保存推理结果 + 单独评估」的操作路径
+
+当前只有「创建实验」一个按钮，没有「仅运行推理」和「对已有 predictions 运行评估」两个独立入口。
+
+---
+
+## 二、重设计：推理与评估彻底分离
+
+### 2.1 页面整体结构
+
+```
+实验配置（Experiments Tab）
+│
+├── 子 Tab 1：推理任务（Inference）← 主功能
+│     ├── 创建推理任务表单（Stepper，3 步）
+│     └── 推理任务列表
+│
+└── 子 Tab 2：评估任务（Evaluation）← 结果分析的入口
+      ├── 对已有 predictions 运行评估
+      └── 评估历史（跳转结果分析页）
+```
+
+> **注**：评估任务完成后，跳转到「结果分析」页面展示。结果分析页本身就是「评估结果的持久化视图」，满足「保存结果」的需求（metrics.json 已写到 `outputs/metrics/`）。
+
+---
+
+### 2.2 推理任务：重新设计的 3 步 Stepper
+
+#### Step 1：数据选择
+
+| 字段 | 控件类型 | 说明 |
+|---|---|---|
+| 实验名称 * | 文本输入 | 推荐格式：`{数据集}_{模型}_{策略}` |
+| 描述 | 文本域 | 可选 |
+| 数据集 * | 卡片式选择 | 显示数据集名 + task_type badge + 样本数 |
+| 数据分割 | 下拉 | train / dev / test |
+| 最大样本数 | 数字输入 | 留空 = 全部 |
+
+**task_type 自动识别**：选择数据集后，从数据集元信息中读取 `task_type`，后续步骤根据 task_type 动态显示不同字段。
+
+---
+
+#### Step 2：推理配置（根据 task_type 动态渲染）
+
+**通用字段（所有任务）：**
+
+| 字段 | 控件类型 | 说明 |
+|---|---|---|
+| 模型 * | 下拉 | 显示 provider + model_id |
+| 推理策略 * | 卡片式选择（4选1） | Direct / CoT / Long CoT / ToT |
+
+**text_exam 任务（实验组 A）额外显示：RAG 配置区**
+
+```
+RAG 模式
+  ○ Closed-book（不使用外部知识，直接作答）    ← wo RAG
+  ○ Oracle RAG（使用标注好的正确知识块）        ← Oracle RAG  
+  ● Retrieved RAG（从知识库自动检索）           ← Retrieved RAG
+
+[仅 Retrieved RAG 显示以下字段]
+知识库        [选择知识库...  ▼]
+Top-K 召回数  [3            ±]
+```
+
+> 这三种模式直接对应实验组 A 的三种协议，让研究员在 UI 上选择后直接生成对应配置。
+
+**api_calling 任务（实验组 C）额外显示：工具配置区**
+
+```
+工具集
+  ☑ search_api    ☑ tool_elec_0001    □ tool_elec_0002    □ ...
+  （从 data/schemas/tool_schemas/ 读取可用工具列表）
+
+Mock 模式      ● 使用 mock responses    ○ 真实调用
+```
+
+**image_mcq 任务（实验组 B）额外显示：视觉模型提示**
+
+```
+ℹ  图像任务需要支持多模态的模型（VLM）
+   当前选择的 deepseek-chat 不支持图像输入，请选择支持视觉的模型。
+```
+
+---
+
+#### Step 3：运行参数
+
+| 字段 | 控件类型 | 默认值 | 说明 |
+|---|---|---|---|
+| 并发数 | 数字输入 | 5 | 1~50 |
+| 重试次数 | 数字输入 | 3 | 0~10 |
+| 随机种子 | 数字输入 | 留空 | 用于复现 |
+| 断点续跑 | Toggle | 开 | 中断后可恢复 |
+
+**底部按钮：**
+
+```
+[取消]                    [保存配置]  [▶ 开始推理]
+```
+
+- **保存配置**：保存为 YAML 配置文件但不执行，供 Claude Code CLI 复用
+- **开始推理**：创建实验 + 立即运行
+
+---
+
+### 2.3 评估任务：独立入口
+
+在「评估任务」子 Tab 中：
+
+```
+┌─────────────────────────────────────────────────────┐
+│  对已有推理结果运行评估                               │
+├─────────────────────────────────────────────────────┤
+│  推理结果文件 *                                      │
+│  [选择 predictions 文件...  ▼]                       │
+│  （列出 outputs/predictions/ 下所有 .jsonl 文件）    │
+│                                                      │
+│  评估指标（自动根据 task_type 预填，可调整）          │
+│  ┌────────────────────────────────────────────────┐ │
+│  │ ☑ exact_match  ☑ f1_score  ☑ rouge_l  □ bleu  │ │  ← qa 任务
+│  │ ☑ choice_accuracy  ☑ option_bias  ☑ win_rate   │ │  ← text_exam
+│  │ ☑ tool_selection_accuracy  ☑ parameter_accuracy│ │  ← api_calling
+│  └────────────────────────────────────────────────┘ │
+│                                                      │
+│  分组统计维度（可多选）                               │
+│  ☑ 按难度  ☑ 按主题  □ 按调用类型  □ 按题型         │
+│                                                      │
+│  Baseline 对比（用于计算 win_rate，可选）             │
+│  [选择基线实验...  ▼]                                │
+│                                                      │
+│  [▶ 运行评估]                                        │
+└─────────────────────────────────────────────────────┘
+```
+
+评估完成后：
+1. 写入 `outputs/metrics/{experiment_id}.json`
+2. 自动跳转至「结果分析」页展示结果
+3. 在「结果分析」页提供「导出报告」按钮（JSON / CSV）
+
+---
+
+## 三、三种实验流程的完整 UI 路径
+
+### 实验组 A：QA / text_exam + RAG 对比
+
+**要跑的三个实验：**
+
+```
+实验 1：text_exam_direct_closed
+  数据集: demo_exam_cs  模型: deepseek-chat  策略: Direct  RAG: Closed-book
+
+实验 2：text_exam_cot_oracle  
+  数据集: demo_exam_cs  模型: deepseek-chat  策略: CoT  RAG: Oracle RAG
+
+实验 3：text_exam_cot_retrieved
+  数据集: demo_exam_cs  模型: deepseek-chat  策略: CoT  RAG: Retrieved RAG  知识库: qa_chunks  Top-K: 3
+```
+
+**UI 操作路径：**
+
+```
+Step 1: 选 demo_exam_cs → 自动识别 task_type=text_exam
+Step 2: 选 deepseek-chat + 选 CoT + RAG 模式选「Retrieved RAG」
+        → 出现知识库选择 + top_k 配置
+Step 3: 默认参数 → 开始推理
+→ 推理完成后，进入「评估任务」Tab
+→ 选刚生成的 predictions 文件
+→ 指标自动预填：choice_accuracy ✓ option_bias ✓ win_rate ✓
+→ 分组：按难度 ✓ 按主题 ✓
+→ 运行评估 → 跳转结果分析
+```
+
+---
+
+### 实验组 B：image_mcq VLM 测试
+
+**UI 操作路径：**
+
+```
+Step 1: 选 image_mcq 数据集 → 自动识别 task_type=image_mcq
+Step 2: 选 VLM 模型（如 gpt-4o）
+        → 若选了纯文本模型，显示 ⚠ 警告
+        策略选 Direct（图像任务推荐直接作答）
+Step 3: 开始推理
+→ 评估：指标自动预填 choice_accuracy + grounding_error_rate + option_bias
+→ 分组：按题型 ✓ 按难度 ✓
+```
+
+---
+
+### 实验组 C：api_calling + CoT/ToT 对比
+
+**要跑的 4 个实验（对比矩阵）：**
+
+```
+demo_agent × Direct
+demo_agent × CoT
+demo_agent × Long CoT
+demo_agent × ToT
+```
+
+**UI 操作路径：**
+
+```
+Step 1: 选 demo_agent → 自动识别 task_type=api_calling
+Step 2: 选模型 + 选策略（4 个实验各跑一次，每次选不同策略）
+        → 工具配置区出现：勾选 search_api ✓  Mock 模式: 开
+Step 3: 开始推理
+→ 评估：指标自动预填 tool_selection_accuracy + parameter_accuracy + end_to_end_success_rate + invalid_call_rate + avg_tool_calls
+→ 分组：按调用类型 ✓
+```
+
+**对比视图**：4 个实验完成后，在结果分析页进入「对比模式」，选择这 4 个实验，生成策略对比图。
+
+---
+
+## 四、评估指标的自动预填逻辑
+
+根据上传数据集的 `eval_type` 字段（已在数据文件中存在）自动推断并预填：
+
+```js
+const DEFAULT_METRICS_BY_TASK = {
+  qa: {
+    performance: ['exact_match', 'f1_score', 'rouge_l'],
+    efficiency:  ['avg_latency_ms', 'avg_tokens', 'total_cost_usd'],
+    optional:    ['bleu', 'win_rate', 'avg_trace_tokens'],
+  },
+  text_exam: {
+    performance: ['choice_accuracy', 'option_bias', 'win_rate'],
+    efficiency:  ['avg_latency_ms', 'avg_tokens', 'total_cost_usd'],
+    optional:    ['avg_trace_tokens'],
+    // RAG 额外指标（仅 retrieved 模式）
+    rag:         ['retrieval_recall_at_k', 'evidence_hit_rate', 'answer_evidence_alignment'],
+  },
+  image_mcq: {
+    performance: ['choice_accuracy', 'option_bias', 'grounding_error_rate'],
+    efficiency:  ['avg_latency_ms', 'avg_tokens', 'total_cost_usd'],
+    optional:    ['win_rate'],
+  },
+  api_calling: {
+    performance: ['tool_selection_accuracy', 'parameter_accuracy', 'end_to_end_success_rate', 'invalid_call_rate'],
+    efficiency:  ['avg_tool_calls', 'avg_latency_ms', 'avg_tokens', 'total_cost_usd'],
+    optional:    ['avg_reasoning_steps', 'avg_trace_tokens'],
+  },
+};
+```
+
+---
+
+## 五、文件改动清单
+
+### 5.1 前端（重构）
+
+| 文件 | 改动 |
+|---|---|
+| `webui/static/js/experiment.js` | 重构：拆分为 `InferenceManager` + `EvaluationManager` 两个 class；Stepper 增加 task_type 感知；RAG / 工具配置区按 task_type 动态显示 |
+| `webui/templates/index.html` | Experiments tab 增加「推理 / 评估」子 Tab；评估表单新增指标 checkbox 组 + 分组多选 + baseline 对比选择 |
+
+### 5.2 后端（微调）
+
+| 文件 | 改动 | 说明 |
+|---|---|---|
+| `src/api/schemas.py` | `ExperimentCreateRequest` 拆分评估字段 | 推理请求不需要 eval config，或将 eval 设为完全可选 |
+| `src/api/experiments.py` | 新增 `POST /experiments/{id}/evaluate` 端点 | 接收 predictions 文件路径 + 指标配置，触发独立评估 |
+
+### 5.3 不需要修改
+
+| 文件 | 原因 |
+|---|---|
+| `src/evaluators/` | 评测逻辑完整，不动 |
+| `src/api/results.py` | 读取 metrics.json 的逻辑不变 |
+| `webui/static/js/api.js` | 增加 `API.Experiments.evaluate()` 调用即可 |
+
+---
+
+## 六、给 Claude Code 的实现约束
+
+1. **`experimentManager.getFormData()`** 中的字段名（`name`, `dataset_id`, `model_id`, `strategy`）不能改，只扩展
+2. **`experimentManager.runExperiment()`** 逻辑不动，只改触发方式
+3. **`experimentManager.renderExperimentList()`** 在列表中增加「评估」按钮（对 finished 状态的实验），点击跳转到评估 Tab 并预填 predictions 路径
+4. task_type 识别逻辑：从数据集 API 返回的 `task_type` 字段读取，缓存在 `currentDatasetTaskType` 变量中，Step 2 渲染时读取
+5. RAG 配置区默认隐藏，仅 `task_type === 'text_exam'` 时显示
+6. 工具配置区默认隐藏，仅 `task_type === 'api_calling'` 时显示
+
+---
+
+## 七、验收标准
+
+- ✅ **推理/评估分离**：可以只跑推理生成 predictions，再单独选择 predictions 文件运行评估
+- ✅ **实验组 A 可配置**：text_exam 数据集下，Step 2 出现 RAG 配置区，可选 closed / oracle / retrieved 三种模式
+- ✅ **实验组 B 可配置**：image_mcq 数据集下，选择纯文本模型时显示 VLM 警告
+- ✅ **实验组 C 可配置**：api_calling 数据集下，Step 2 出现工具选择区
+- ✅ **评估指标自动预填**：根据 task_type 自动勾选对应的默认指标 checkbox
+- ✅ **结果保存**：评估完成后 metrics.json 写入 outputs/metrics/，结果分析页可展示并导出
+
+---
+
+*AgentInferKit · 实验配置页重设计方案 · v1.0 · D 岗交付物*

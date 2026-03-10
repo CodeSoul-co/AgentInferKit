@@ -326,6 +326,15 @@ const Experiments = {
     async delete(experimentId) {
         return del(`/experiments/${experimentId}`);
     },
+
+    /**
+     * Run evaluation on an existing experiment's predictions
+     * @param {string} experimentId - Experiment ID
+     * @param {Object} config - { metrics: [...], group_by: [...] }
+     */
+    async evaluate(experimentId, config = {}) {
+        return post(`/experiments/${experimentId}/evaluate`, config);
+    },
 };
 
 // =============================================================================

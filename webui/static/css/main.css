@@ -851,6 +851,217 @@ body {
 }
 
 /* ============================================================
+   Experiment Sub-Tabs
+   ============================================================ */
+.exp-sub-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0;
+}
+
+.exp-sub-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.exp-sub-tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.exp-sub-tab-btn.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+}
+
+.exp-sub-tab-panel {
+  display: none;
+}
+
+.exp-sub-tab-panel.active {
+  display: block;
+  padding-top: var(--spacing-md);
+}
+
+/* ============================================================
+   Experiment Stepper - Step Panels
+   ============================================================ */
+.step-panel {
+  display: none;
+}
+
+.step-panel.active {
+  display: block;
+}
+
+/* ============================================================
+   Dataset Card Selection (Step 1)
+   ============================================================ */
+.dataset-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.dataset-select-card {
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius-lg);
+  padding: 14px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  background: var(--bg-primary);
+}
+
+.dataset-select-card:hover {
+  border-color: var(--primary-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.dataset-select-card.selected {
+  border-color: var(--primary-color);
+  background: rgba(99, 102, 241, 0.04);
+}
+
+.dataset-select-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.dataset-select-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ============================================================
+   RAG Mode Cards (Step 2)
+   ============================================================ */
+.form-section {
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-lg);
+  padding: 16px;
+  background: var(--bg-secondary);
+}
+
+.form-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.rag-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.rag-mode-card {
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 12px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  background: var(--bg-primary);
+  text-align: center;
+}
+
+.rag-mode-card:hover {
+  border-color: var(--primary-color);
+}
+
+.rag-mode-card.selected {
+  border-color: var(--primary-color);
+  background: rgba(99, 102, 241, 0.04);
+}
+
+.rag-mode-card input[type="radio"] {
+  display: none;
+}
+
+.rag-mode-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.rag-mode-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ============================================================
+   Tool Checkboxes (Step 2 - api_calling)
+   ============================================================ */
+.tool-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tool-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* ============================================================
+   Evaluation Checkbox Grid
+   ============================================================ */
+.eval-checkbox-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.eval-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.eval-checkbox:hover {
+  background: var(--bg-tertiary);
+}
+
+.eval-checkbox input:checked + span {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+/* ============================================================
    Skeleton Loading
    ============================================================ */
 .skeleton {

@@ -12,7 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Body, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
@@ -84,6 +84,27 @@ _experiments: Dict[str, Dict[str, Any]] = _load_experiments()
 def _generate_experiment_id() -> str:
     """Generate a unique experiment ID."""
     return f"exp_{uuid.uuid4().hex[:12]}"
+
+
+def _resolve_dataset_path(dataset_id: str, split: str = "test") -> Optional[Path]:
+    """Resolve dataset file path from dataset_id."""
+    from .datasets import datasets_store
+    meta = datasets_store.get(dataset_id)
+    if meta and "file_path" in meta:
+        return Path(meta["file_path"])
+    return None
+
+
+def _infer_task_type(dataset_id: str) -> str:
+    """Infer task type from dataset_id string."""
+    did = (dataset_id or "").lower()
+    if "exam" in did or "choice" in did:
+        return "text_exam"
+    if "mcq" in did or "image" in did:
+        return "image_mcq"
+    if "agent" in did or "api" in did or "calling" in did or "tool" in did:
+        return "api_calling"
+    return "qa"
 
 
 async def _run_experiment_task(experiment_id: str, exp: Dict[str, Any]):
@@ -548,6 +569,127 @@ async def stop_experiment(experiment_id: str):
             completed=exp["completed"],
         )
     )
+
+
+@router.post(
+    "/{experiment_id}/evaluate",
+    response_model=ResponseEnvelope[Dict[str, Any]],
+    summary="Run evaluation on existing predictions",
+)
+async def evaluate_experiment(experiment_id: str, body: Dict[str, Any] = Body(default={})):
+    """
+    Run evaluation on an existing experiment's predictions.
+    Accepts optional metrics list and group_by dimensions.
+    """
+    exp = _get_experiment_or_404(experiment_id)
+
+    if exp["status"] != "finished":
+        raise HTTPException(status_code=409, detail="Experiment must be finished before evaluation")
+
+    predictions_path = Path("outputs/predictions") / f"{experiment_id}.jsonl"
+    if not predictions_path.exists():
+        raise HTTPException(status_code=404, detail="Predictions file not found")
+
+    pred_results = read_jsonl(predictions_path)
+
+    # Load original samples to merge reference data
+    dataset_id = exp.get("dataset_id", "")
+    split = exp.get("split", "test")
+    dataset_path = _resolve_dataset_path(dataset_id, split)
+    samples = []
+    if dataset_path and dataset_path.exists():
+        samples = read_jsonl(str(dataset_path))
+
+    sample_map = {s.get("sample_id", s.get("id", "")): s for s in samples}
+    for pred in pred_results:
+        sid = pred.get("sample_id", "")
+        if sid in sample_map:
+            orig = sample_map[sid]
+            pred.setdefault("answer", orig.get("answer", ""))
+            pred.setdefault("reference_answer", orig.get("reference_answer", ""))
+            pred.setdefault("difficulty", orig.get("difficulty", ""))
+            pred.setdefault("metadata", orig.get("metadata", {}))
+
+    # Determine evaluators
+    from ..evaluators.registry import list_metrics
+    available_metrics = set(list_metrics())
+
+    requested_metrics = body.get("metrics", [])
+    evaluator_names = [m for m in requested_metrics if m in available_metrics]
+
+    if not evaluator_names:
+        task_type = _infer_task_type(dataset_id)
+        if task_type in ("text_exam", "image_mcq"):
+            evaluator_names = ["choice_accuracy", "option_bias", "latency_stats", "token_stats", "cost_estimate"]
+        elif task_type == "api_calling":
+            evaluator_names = ["tool_selection_accuracy", "parameter_accuracy", "end_to_end_success_rate",
+                               "invalid_call_rate", "avg_tool_calls", "latency_stats", "token_stats", "cost_estimate"]
+        else:
+            evaluator_names = ["exact_match", "f1_score", "bleu", "rouge_l", "latency_stats", "token_stats", "cost_estimate"]
+
+    logger.info(f"Evaluate {experiment_id} with: {evaluator_names}")
+    metric_results = evaluate_all(pred_results, evaluator_names, {})
+
+    # Build overall summary
+    valid_samples = sum(1 for p in pred_results if not p.get("error"))
+    overall = {}
+    for name, result in metric_results.items():
+        if isinstance(result, dict):
+            for score_key in ("score", "accuracy", "avg_f1", "avg_bleu",
+                              "avg_rouge_l_f1", "avg_score",
+                              "hit_rate", "success_rate", "rate"):
+                if score_key in result:
+                    overall[name] = result[score_key]
+                    break
+            if name == "latency_stats" and "avg_ms" in result:
+                overall["avg_latency_ms"] = result["avg_ms"]
+            elif name == "token_stats":
+                overall["avg_tokens"] = result.get("avg_total_tokens", result.get("avg_total", 0))
+            elif name == "cost_estimate":
+                overall["total_cost_usd"] = result.get("estimated_cost_usd", result.get("total_usd", 0))
+        elif isinstance(result, (int, float)):
+            overall[name] = result
+
+    overall["valid_samples"] = valid_samples
+    overall["total_samples"] = len(pred_results)
+
+    # Group stats
+    group_by = body.get("group_by", ["difficulty"])
+    try:
+        grouped = multi_group_stats(pred_results, samples, group_by)
+    except Exception as ge:
+        logger.warning(f"Group stats failed: {ge}")
+        grouped = {}
+
+    from datetime import timezone
+    metrics_output = {
+        "experiment_id": experiment_id,
+        "evaluated_at": datetime.now(timezone.utc).isoformat(),
+        "model": exp.get("model_id", ""),
+        "strategy": exp.get("strategy", ""),
+        "dataset": dataset_id,
+        "total_samples": len(pred_results),
+        "valid_samples": valid_samples,
+        "overall": overall,
+    }
+    metrics_output.update(grouped)
+    for name, result in metric_results.items():
+        if name not in overall:
+            metrics_output[name] = result
+
+    OUTPUTS_METRICS_DIR.mkdir(parents=True, exist_ok=True)
+    metrics_path = OUTPUTS_METRICS_DIR / f"{experiment_id}.json"
+    with open(metrics_path, "w", encoding="utf-8") as f:
+        json.dump(metrics_output, f, ensure_ascii=False, indent=2)
+
+    # Clear metrics cache in results module
+    from .results import metrics_store
+    if experiment_id in metrics_store:
+        del metrics_store[experiment_id]
+
+    logger.info(f"Evaluation written to {metrics_path}")
+
+    return ResponseEnvelope(data={"experiment_id": experiment_id, "metrics_path": str(metrics_path), "status": "evaluated"})
 
 
 @router.delete(
