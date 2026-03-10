@@ -108,6 +108,24 @@
             }
             
             window.location.hash = tabName;
+            
+            // Refresh results experiment dropdown when switching to results tab
+            if (tabName === 'results' && window.API) {
+                API.fetchExperiments({ status: 'finished' }).then(experiments => {
+                    const select = document.getElementById('results-experiment-select');
+                    if (select) {
+                        const current = select.value;
+                        select.innerHTML = `<option value="">${window.I18N ? I18N.t('results.select_exp') : '选择实验查看结果...'}</option>` +
+                            experiments.map(e => `<option value="${e.experiment_id}">${e.name} (${e.dataset_id})</option>`).join('');
+                        if (current) select.value = current;
+                    }
+                }).catch(err => console.warn('Failed to refresh results dropdown:', err));
+            }
+            
+            // Refresh experiment list when switching to experiments tab
+            if (tabName === 'experiments' && window.experimentManager) {
+                window.experimentManager.loadExperiments();
+            }
         }
         
         // Initialize tab from URL hash

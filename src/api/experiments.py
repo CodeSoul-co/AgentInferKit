@@ -189,11 +189,11 @@ async def _run_experiment_task(experiment_id: str, exp: Dict[str, Any]):
         
         if not evaluator_names:
             if task_type in ("text_exam", "image_mcq"):
-                evaluator_names = ["choice_accuracy", "option_bias"]
+                evaluator_names = ["choice_accuracy", "option_bias", "latency_stats", "token_stats", "cost_estimate"]
             elif task_type == "api_calling":
-                evaluator_names = ["tool_selection_accuracy", "parameter_accuracy", "end_to_end_success_rate"]
+                evaluator_names = ["tool_selection_accuracy", "parameter_accuracy", "end_to_end_success_rate", "invalid_call_rate", "avg_tool_calls", "latency_stats", "token_stats", "cost_estimate"]
             else:
-                evaluator_names = ["exact_match", "f1_score"]
+                evaluator_names = ["exact_match", "f1_score", "bleu", "rouge_l", "latency_stats", "token_stats", "cost_estimate"]
         
         logger.info(f"Using evaluators: {evaluator_names}")
         metric_results = evaluate_all(pred_results, evaluator_names, {})
@@ -202,10 +202,26 @@ async def _run_experiment_task(experiment_id: str, exp: Dict[str, Any]):
         valid_samples = sum(1 for p in pred_results if not p.get("error"))
         overall = {}
         for name, result in metric_results.items():
-            if isinstance(result, dict) and "score" in result:
-                overall[name] = result["score"]
+            if isinstance(result, dict):
+                # Extract the primary score from different metric result formats
+                for score_key in ("score", "accuracy", "avg_f1", "avg_score",
+                                  "hit_rate", "success_rate", "rate"):
+                    if score_key in result:
+                        overall[name] = result[score_key]
+                        break
+                # Extract efficiency stats into overall
+                if name == "latency_stats":
+                    if "avg_ms" in result:
+                        overall["avg_latency_ms"] = result["avg_ms"]
+                elif name == "token_stats":
+                    if "avg_total" in result:
+                        overall["avg_tokens"] = result["avg_total"]
+                elif name == "cost_estimate":
+                    if "total_usd" in result:
+                        overall["total_cost_usd"] = result["total_usd"]
             elif isinstance(result, (int, float)):
                 overall[name] = result
+        
         overall["valid_samples"] = valid_samples
         overall["total_samples"] = len(samples)
         

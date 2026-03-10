@@ -79,13 +79,22 @@ class ResultsVisualizer {
             'rouge_l': 'ROUGE-L',
             'bleu': 'BLEU',
             'choice_accuracy': '选择题准确率',
-            'hit_rate': '命中率',
-            'mrr': 'MRR',
+            'option_bias': '选项偏好',
+            'win_rate': '胜率',
             'avg_latency_ms': '平均延迟',
-            'tokens_per_sec': '吞吐量',
+            'avg_tokens': '平均Token',
+            'avg_trace_tokens': '平均推理Token',
+            'avg_reasoning_steps': '平均推理步数',
             'total_cost_usd': '总成本',
-            'action_success_rate': '动作成功率',
+            'tool_selection_accuracy': '工具选择准确率',
             'parameter_accuracy': '参数准确率',
+            'end_to_end_success_rate': '端到端成功率',
+            'invalid_call_rate': '无效调用率',
+            'avg_tool_calls': '平均工具调用次数',
+            'retrieval_hit_rate': '检索命中率',
+            'context_relevance': '上下文相关性',
+            'valid_samples': '有效样本数',
+            'total_samples': '总样本数',
         };
         return names[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     }
@@ -96,12 +105,22 @@ class ResultsVisualizer {
             'exact_match': '✅',
             'f1_score': '📊',
             'rouge_l': '📝',
+            'bleu': '📐',
             'choice_accuracy': '✓',
-            'hit_rate': '🔍',
-            'mrr': '📈',
+            'option_bias': '⚖️',
+            'win_rate': '🏆',
             'avg_latency_ms': '⏱️',
-            'tokens_per_sec': '⚡',
+            'avg_tokens': '🔢',
+            'avg_trace_tokens': '🧠',
             'total_cost_usd': '💰',
+            'tool_selection_accuracy': '🔧',
+            'parameter_accuracy': '🎯',
+            'end_to_end_success_rate': '🏁',
+            'invalid_call_rate': '⚠️',
+            'avg_tool_calls': '🔗',
+            'retrieval_hit_rate': '🔍',
+            'valid_samples': '📋',
+            'total_samples': '📦',
         };
         return icons[key] || '📌';
     }
@@ -109,9 +128,16 @@ class ResultsVisualizer {
     formatMetricValue(key, value) {
         if (value === null || value === undefined) return '-';
         
-        // Percentage metrics
-        if (['accuracy', 'exact_match', 'f1_score', 'rouge_l', 'bleu', 'choice_accuracy', 
-             'hit_rate', 'mrr', 'action_success_rate', 'parameter_accuracy'].includes(key)) {
+        // Integer count metrics
+        if (['valid_samples', 'total_samples'].includes(key)) {
+            return String(Math.round(value));
+        }
+        
+        // Percentage metrics (0-1 range)
+        if (['accuracy', 'exact_match', 'f1_score', 'rouge_l', 'bleu', 'choice_accuracy',
+             'win_rate', 'tool_selection_accuracy', 'parameter_accuracy',
+             'end_to_end_success_rate', 'invalid_call_rate',
+             'retrieval_hit_rate', 'context_relevance'].includes(key)) {
             return `${(value * 100).toFixed(1)}%`;
         }
         
@@ -125,14 +151,14 @@ class ResultsVisualizer {
             return `$${value.toFixed(4)}`;
         }
         
-        // Throughput
-        if (key === 'tokens_per_sec') {
-            return `${value.toFixed(1)} tok/s`;
+        // Token counts
+        if (key.includes('tokens') || key === 'avg_tokens') {
+            return `${value.toFixed(0)}`;
         }
         
         // Default
         if (typeof value === 'number') {
-            return value.toFixed(2);
+            return Number.isInteger(value) ? String(value) : value.toFixed(2);
         }
         
         return String(value);
@@ -170,8 +196,10 @@ class ResultsVisualizer {
     createRadarChart(id, metrics) {
         // Filter metrics suitable for radar chart (0-1 range)
         const radarMetrics = {};
-        const percentageKeys = ['accuracy', 'exact_match', 'f1_score', 'rouge_l', 'bleu', 
-                                'choice_accuracy', 'hit_rate', 'mrr', 'action_success_rate', 'parameter_accuracy'];
+        const percentageKeys = ['accuracy', 'exact_match', 'f1_score', 'rouge_l', 'bleu',
+                                'choice_accuracy', 'win_rate', 'tool_selection_accuracy',
+                                'parameter_accuracy', 'end_to_end_success_rate',
+                                'retrieval_hit_rate', 'context_relevance'];
         
         for (const [key, value] of Object.entries(metrics)) {
             if (percentageKeys.includes(key) && typeof value === 'number') {
@@ -508,6 +536,7 @@ let resultsVisualizer = null;
 
 function initResultsVisualizer() {
     resultsVisualizer = new ResultsVisualizer();
+    window.resultsVisualizer = resultsVisualizer;
 }
 
 async function viewResults(experimentId) {
