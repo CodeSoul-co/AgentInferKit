@@ -206,8 +206,16 @@ class DatasetUploader {
         
         // Refresh datasets list if available
         setTimeout(() => {
+            console.log('Attempting to refresh datasets list...');
             if (typeof refreshDatasetsList === 'function') {
+                console.log('Calling refreshDatasetsList()');
                 refreshDatasetsList();
+            } else {
+                console.warn('refreshDatasetsList function not found');
+            }
+            // Also refresh dashboard stats
+            if (typeof refreshDashboard === 'function') {
+                refreshDashboard();
             }
         }, 500);
     }

@@ -517,10 +517,15 @@
     // Dataset list functions
     async function refreshDatasetsList() {
         const container = document.getElementById('datasets-list');
-        if (!container) return;
+        if (!container) {
+            console.warn('datasets-list container not found');
+            return;
+        }
         
+        console.log('Refreshing datasets list...');
         try {
             const response = await API.Datasets.list();
+            console.log('API response:', response);
             const datasets = response.datasets || [];
             
             if (datasets.length === 0) {
