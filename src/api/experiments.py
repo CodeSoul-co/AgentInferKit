@@ -30,8 +30,8 @@ from ..runners.qa_runner import QARunner
 from ..runners.exam_runner import ExamRunner
 from ..runners.image_runner import ImageRunner
 from ..runners.agent_runner import AgentRunner
-from ..adapters import get_adapter
-from ..strategies import get_strategy
+from ..adapters.registry import load_adapter
+from ..strategies.registry import load_strategy
 from ..utils.file_io import read_jsonl
 
 
@@ -109,35 +109,28 @@ async def _run_experiment_task(experiment_id: str, exp: Dict[str, Any]):
         
         logger.info(f"Loaded {len(samples)} samples for experiment {experiment_id}")
         
-        # Get adapter and strategy
-        adapter = get_adapter(exp["model_id"])
-        strategy = get_strategy(exp["strategy"])
+        # Determine task type from first sample
+        task_type = samples[0].get("task_type", "text_qa") if samples else "text_qa"
         
-        # Determine runner based on dataset task_type
-        from .datasets import datasets_store
-        dataset_meta = datasets_store.get(exp["dataset_id"])
-        if not dataset_meta:
-            logger.error(f"Dataset metadata not found: {exp['dataset_id']}")
-            exp["status"] = "failed"
-            _save_experiments()
-            return
+        # Load model adapter
+        model_config = {
+            "provider": exp["model_id"].split("-")[0] if "-" in exp["model_id"] else "openai",
+            "model": exp["model_id"]
+        }
+        adapter = load_adapter(model_config)
         
-        task_type = dataset_meta.get("task_type", "qa")
+        # Load strategy
+        strategy_config = {}
+        strategy = load_strategy(exp["strategy"], strategy_config)
         
         # Create appropriate runner
-        if task_type == "qa":
-            runner = QARunner(adapter, strategy)
-        elif task_type == "text_exam":
-            runner = ExamRunner(adapter, strategy)
-        elif task_type == "image_mcq":
-            runner = ImageRunner(adapter, strategy)
-        elif task_type == "api_calling":
-            runner = AgentRunner(adapter, strategy)
+        rag_config = exp.get("rag", {})
+        if task_type == "api_calling":
+            runner = AgentRunner(adapter, strategy, model_config=model_config, rag_config=rag_config)
+        elif task_type in ("text_exam", "image_mcq"):
+            runner = ExamRunner(adapter, strategy, model_config=model_config, rag_config=rag_config)
         else:
-            logger.error(f"Unknown task type: {task_type}")
-            exp["status"] = "failed"
-            _save_experiments()
-            return
+            runner = QARunner(adapter, strategy, model_config=model_config, rag_config=rag_config)
         
         # Run batch inference
         batch_runner = BatchRunner(
@@ -168,7 +161,7 @@ async def _run_experiment_task(experiment_id: str, exp: Dict[str, Any]):
         logger.info(f"Experiment {experiment_id} completed successfully")
         
     except Exception as e:
-        logger.error(f"Experiment {experiment_id} failed: {e}")
+        logger.error(f"Experiment {experiment_id} failed: {e}", exc_info=True)
         exp["status"] = "failed"
         _save_experiments()
 
