@@ -260,3 +260,100 @@ def tool_selection_accuracy(tool_calls: List[List[Dict[str, Any]]]) -> float:
                     correct += 1
     
     return correct / total if total > 0 else 0.0
+
+
+def end_to_end_success_rate(predictions: List[Dict[str, Any]], **kw) -> Dict[str, Any]:
+    """Fraction of samples where the agent produced the correct final answer.
+
+    Each prediction dict should have 'parsed_answer' and
+    'answer' (or 'reference_answer').
+    """
+    if not predictions:
+        return {"metric": "end_to_end_success_rate", "rate": 0.0, "total": 0}
+
+    correct = 0
+    for pred in predictions:
+        parsed = str(pred.get("parsed_answer", "")).strip().lower()
+        ref = str(pred.get("answer", pred.get("reference_answer", ""))).strip().lower()
+        if parsed and ref and parsed == ref:
+            correct += 1
+
+    rate = correct / len(predictions)
+    return {
+        "metric": "end_to_end_success_rate",
+        "rate": round(rate, 4),
+        "correct": correct,
+        "total": len(predictions),
+    }
+
+
+def invalid_call_rate(predictions: List[Dict[str, Any]], **kw) -> Dict[str, Any]:
+    """Fraction of tool calls that were invalid (unrecognised tool or bad params).
+
+    Looks at 'tool_trace' in each prediction. A call is invalid if
+    it has ``"valid": False`` or ``"error"`` set.
+    """
+    total_calls = 0
+    invalid_calls = 0
+
+    for pred in predictions:
+        trace = pred.get("tool_trace", [])
+        if not isinstance(trace, list):
+            continue
+        for call in trace:
+            total_calls += 1
+            if not call.get("valid", True) or call.get("error"):
+                invalid_calls += 1
+
+    rate = invalid_calls / total_calls if total_calls > 0 else 0.0
+    return {
+        "metric": "invalid_call_rate",
+        "rate": round(rate, 4),
+        "invalid_calls": invalid_calls,
+        "total_calls": total_calls,
+    }
+
+
+def avg_tool_calls(predictions: List[Dict[str, Any]], **kw) -> Dict[str, Any]:
+    """Average number of tool calls per sample."""
+    if not predictions:
+        return {"metric": "avg_tool_calls", "avg": 0.0, "total": 0}
+
+    counts = []
+    for pred in predictions:
+        trace = pred.get("tool_trace", [])
+        counts.append(len(trace) if isinstance(trace, list) else 0)
+
+    avg = sum(counts) / len(counts)
+    return {
+        "metric": "avg_tool_calls",
+        "avg": round(avg, 2),
+        "total": len(counts),
+    }
+
+
+def avg_reasoning_steps(predictions: List[Dict[str, Any]], **kw) -> Dict[str, Any]:
+    """Average number of reasoning steps per sample.
+
+    Counts entries in 'reasoning_trace' (list) or newline-separated
+    steps if it is a string.
+    """
+    if not predictions:
+        return {"metric": "avg_reasoning_steps", "avg": 0.0, "total": 0}
+
+    counts = []
+    for pred in predictions:
+        trace = pred.get("reasoning_trace")
+        if isinstance(trace, list):
+            counts.append(len(trace))
+        elif isinstance(trace, str) and trace.strip():
+            counts.append(len([l for l in trace.strip().split("\n") if l.strip()]))
+        else:
+            counts.append(0)
+
+    avg = sum(counts) / len(counts)
+    return {
+        "metric": "avg_reasoning_steps",
+        "avg": round(avg, 2),
+        "total": len(counts),
+    }

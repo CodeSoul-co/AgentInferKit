@@ -103,6 +103,20 @@ def _wrap_avg_trace_tokens(predictions: List[Dict[str, Any]], **kw) -> Dict[str,
     return {"metric": "avg_trace_tokens", "avg": round(avg, 1), "total": len(counts)}
 
 
+def _wrap_tool_selection_accuracy(predictions: List[Dict[str, Any]], **kw) -> Dict[str, Any]:
+    """Wrap agent_metrics.tool_selection_accuracy to accept predictions list."""
+    tool_calls = [p.get("tool_trace", []) for p in predictions]
+    rate = agent_metrics.tool_selection_accuracy(tool_calls)
+    return {"metric": "tool_selection_accuracy", "accuracy": round(rate, 4), "total": len(predictions)}
+
+
+def _wrap_parameter_accuracy(predictions: List[Dict[str, Any]], **kw) -> Dict[str, Any]:
+    """Wrap agent_metrics.parameter_accuracy to accept predictions list."""
+    tool_calls = [p.get("tool_trace", []) for p in predictions]
+    rate = agent_metrics.parameter_accuracy(tool_calls)
+    return {"metric": "parameter_accuracy", "accuracy": round(rate, 4), "total": len(predictions)}
+
+
 # Metric name -> callable mapping
 _METRIC_MAP: Dict[str, Callable] = {
     # Text metrics
@@ -123,13 +137,13 @@ _METRIC_MAP: Dict[str, Callable] = {
     "token_stats": efficiency.token_stats,
     "cost_estimate": efficiency.cost_estimate,
     "avg_trace_tokens": _wrap_avg_trace_tokens,
-    # Agent metrics
-    "tool_selection_accuracy": agent_metrics.tool_selection_accuracy,
-    "parameter_accuracy": agent_metrics.parameter_accuracy,
+    # Agent metrics (prediction-list based)
     "end_to_end_success_rate": agent_metrics.end_to_end_success_rate,
     "invalid_call_rate": agent_metrics.invalid_call_rate,
     "avg_tool_calls": agent_metrics.avg_tool_calls,
     "avg_reasoning_steps": agent_metrics.avg_reasoning_steps,
+    "tool_selection_accuracy": _wrap_tool_selection_accuracy,
+    "parameter_accuracy": _wrap_parameter_accuracy,
 }
 
 

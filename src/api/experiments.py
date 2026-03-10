@@ -28,11 +28,45 @@ from .schemas import (
 
 router = APIRouter(tags=["experiments"])
 
-# In-memory storage for experiments (will be replaced by database in production)
-_experiments: Dict[str, Dict[str, Any]] = {}
-
-# Directory for experiment configs
+# Directory for experiment configs and state
 EXPERIMENTS_DIR = Path("data/experiments")
+_STATE_FILE = EXPERIMENTS_DIR / "_state.json"
+
+
+def _load_experiments() -> Dict[str, Dict[str, Any]]:
+    """Load experiments from persistent JSON state file."""
+    if not _STATE_FILE.exists():
+        return {}
+    try:
+        with open(_STATE_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        # Restore datetime objects
+        for exp in data.values():
+            if isinstance(exp.get("created_at"), str):
+                exp["created_at"] = datetime.fromisoformat(exp["created_at"])
+            if isinstance(exp.get("finished_at"), str):
+                exp["finished_at"] = datetime.fromisoformat(exp["finished_at"])
+        return data
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _save_experiments() -> None:
+    """Persist experiments dict to JSON state file."""
+    EXPERIMENTS_DIR.mkdir(parents=True, exist_ok=True)
+    serialisable = {}
+    for eid, exp in _experiments.items():
+        row = dict(exp)
+        if isinstance(row.get("created_at"), datetime):
+            row["created_at"] = row["created_at"].isoformat()
+        if isinstance(row.get("finished_at"), datetime):
+            row["finished_at"] = row["finished_at"].isoformat()
+        serialisable[eid] = row
+    with open(_STATE_FILE, "w", encoding="utf-8") as f:
+        json.dump(serialisable, f, indent=2, ensure_ascii=False)
+
+
+_experiments: Dict[str, Dict[str, Any]] = _load_experiments()
 
 
 def _generate_experiment_id() -> str:
@@ -73,7 +107,7 @@ async def create_experiment(request: ExperimentCreateRequest):
     with open(config_path, "w", encoding="utf-8") as f:
         json.dump(config_data, f, indent=2, ensure_ascii=False)
     
-    # Store experiment in memory
+    # Store experiment and persist
     _experiments[experiment_id] = {
         "experiment_id": experiment_id,
         "name": request.name,
@@ -94,6 +128,7 @@ async def create_experiment(request: ExperimentCreateRequest):
         "finished_at": None,
         "config_path": str(config_path),
     }
+    _save_experiments()
     
     return ResponseEnvelope(
         data=ExperimentCreateResponse(
@@ -202,6 +237,7 @@ async def run_experiment(experiment_id: str):
     
     # Update status to running
     exp["status"] = "running"
+    _save_experiments()
     
     # TODO: Integrate with A组's Runner module
     # runner = get_runner(exp["dataset_id"], exp["model_id"], exp["strategy"])
@@ -294,6 +330,7 @@ async def stop_experiment(experiment_id: str):
     
     # Update status
     exp["status"] = "stopped"
+    _save_experiments()
     
     # TODO: Integrate with A组's Runner module to stop execution
     # runner.stop(experiment_id)
@@ -327,8 +364,9 @@ async def delete_experiment(experiment_id: str):
     if config_path.exists():
         config_path.unlink()
     
-    # Remove from memory
+    # Remove from memory and persist
     del _experiments[experiment_id]
+    _save_experiments()
     
     return ResponseEnvelope(
         data={"deleted": experiment_id}
