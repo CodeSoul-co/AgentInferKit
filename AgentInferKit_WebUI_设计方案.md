@@ -454,3 +454,458 @@ async function prevalidateJsonl(file) {
 ---
 
 *AgentInferKit · WebUI 重设计规范 · v1.0 · D 岗交付物*
+
+# 结果分析页重设计方案
+
+> **范围**：`webui/templates/index.html`（Results tab）+ `webui/static/js/results.js`  
+> **后端不变**：`src/api/results.py` 接口保持原样，只改前端渲染逻辑  
+> **参考文档**：`FORMAT_AND_METRICS.md` v2.0
+
+---
+
+## 一、现状问题（基于截图 + 代码分析）
+
+### 问题 1：指标卡分类错误
+
+`renderMetrics()` 直接遍历 `metrics.overall` 的所有字段平铺成卡片，导致 **Valid Samples / Total Samples 这类元信息**和 **Exact Match / F1 等性能指标**混在同一排。元信息不是"评测结果"，不应出现在指标卡区域。
+
+### 问题 2：图表 Y 轴量纲混乱（核心问题）
+
+`createMetricsBarChart()` 把 `精确匹配(0.5)`、`F1(0.5)`、`平均延迟(1749ms)`、`Valid Samples(6)`、`Total Samples(6)` 全部放在同一个 Y 轴。1749ms 撑满整图，0.5 的准确率柱子接近于零，图表**完全没有信息价值**。
+
+### 问题 3：无任务类型感知
+
+`results.js` 对所有任务类型展示同一套指标卡 + 同一套图表，但 FORMAT_AND_METRICS.md 明确规定了四类任务（qa / text_exam / image_mcq / api_calling）对应完全不同的指标矩阵。
+
+### 问题 4：分组统计没有 UI 入口
+
+后端 `_load_metrics()` 已返回 `by_difficulty` / `by_topic` / `by_category` 等分组数据，但 `renderCharts()` 只处理了 `by_difficulty` 和 `by_topic`，其他分组维度（`by_call_type`、`by_question_type`）直接丢弃，且没有切换维度的 UI。
+
+### 问题 5：样本级浏览入口缺失
+
+后端 `GET /results/{experiment_id}/predictions` 已支持分页 + 过滤（correct / difficulty），但 UI 没有任何入口触达这个接口，用户无法查看单条预测结果。
+
+### 问题 6：多实验对比功能无入口
+
+`compareExperiments()` 函数已经写好，但 HTML 里没有触发它的 UI，该功能等于死代码。
+
+---
+
+## 二、重设计后的页面结构
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  结果分析                              [对比模式 ⇄] [导出 ↓]    │
+│  查看实验评测指标与可视化图表                                      │
+├──────────────────────────────────────────────────────────────────┤
+│  🔍 选择实验...（带搜索的下拉，显示实验名 + task_type badge）     │
+├────────────────┬─────────────────────────────────────────────────┤
+│                │  ── 区域 A：实验元信息卡 ──────────────────────  │
+│                │  实验ID / 数据集 / 模型 / 策略 / 样本数 / 耗时   │
+│                │                                                  │
+│                │  ── 区域 B：性能指标卡（按 task_type 动态渲染） ─ │
+│  （隐藏，      │  [大卡片 × 3~4，只展示核心性能指标]              │
+│   对比模式     │                                                  │
+│   时展开为     │  ── 区域 C：效率指标卡（通用，小卡片） ──────────  │
+│   实验列表）   │  Avg Latency | Avg Tokens | Total Cost | Trace   │
+│                │                                                  │
+│                │  ── 区域 D：图表区（按 task_type 动态渲染） ─────  │
+│                │  [左图 50%] [右图 50%]                           │
+│                │                                                  │
+│                │  ── 区域 E：分组统计表（维度切换标签页） ─────────  │
+│                │  [难度] [主题/类别] [调用类型] ...               │
+│                │                                                  │
+│                │  ── 区域 F：样本级浏览（折叠，默认收起） ─────────  │
+│                │  分页表格 + 筛选（correct/difficulty）           │
+└────────────────┴─────────────────────────────────────────────────┘
+```
+
+---
+
+## 三、区域 A：实验元信息卡
+
+从 `metrics.overall` 中**只提取元信息字段**，以横向 key-value pill 样式渲染，不作为"指标卡"：
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  test_qa_cot_001                              [text_qa] [cot] │
+│  数据集: demo_qa_v1 · test split   模型: deepseek-chat        │
+│  样本: 6 有效 / 6 总计             完成时间: 2026-03-10 14:32  │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**JS 实现要点：**
+
+```js
+// 从 overall 中分离元信息字段，不渲染为指标卡
+const META_FIELDS = new Set([
+  'experiment_id', 'model', 'strategy', 'dataset',
+  'total_samples', 'valid_samples', 'evaluated_at'
+]);
+
+// 渲染指标卡时过滤掉这些字段
+const performanceEntries = Object.entries(overall)
+  .filter(([k]) => !META_FIELDS.has(k));
+```
+
+---
+
+## 四、区域 B：性能指标卡（task_type 感知）
+
+根据 `metrics.task_type`（或从 `experiment_id` 对应实验的 `dataset_id` 推断）动态渲染不同指标卡。
+
+### 指标卡配置表
+
+```js
+const METRIC_CARDS_BY_TASK = {
+  qa: [
+    { key: 'exact_match',  label: '精确匹配',  icon: 'target',    color: 'green',  fmt: 'pct' },
+    { key: 'f1',           label: 'F1 分数',   icon: 'activity',  color: 'blue',   fmt: 'pct' },
+    { key: 'rouge_l',      label: 'ROUGE-L',   icon: 'align-left',color: 'purple', fmt: 'pct' },
+    { key: 'bleu',         label: 'BLEU',      icon: 'hash',      color: 'orange', fmt: 'pct' },
+  ],
+  text_exam: [
+    { key: 'choice_accuracy', label: '选择题准确率', icon: 'check-circle', color: 'green',  fmt: 'pct' },
+    { key: 'win_rate',        label: 'Win Rate',    icon: 'trophy',       color: 'yellow', fmt: 'pct' },
+  ],
+  image_mcq: [
+    { key: 'choice_accuracy',      label: '选择题准确率',  icon: 'check-circle',  color: 'green',  fmt: 'pct' },
+    { key: 'grounding_error_rate', label: 'Grounding 错误率', icon: 'eye-off',   color: 'red',    fmt: 'pct' },
+    { key: 'win_rate',             label: 'Win Rate',     icon: 'trophy',       color: 'yellow', fmt: 'pct' },
+  ],
+  api_calling: [
+    { key: 'tool_selection_accuracy',  label: '工具选择准确率',  icon: 'wrench',    color: 'blue',   fmt: 'pct' },
+    { key: 'parameter_accuracy',       label: '参数准确率',      icon: 'sliders',   color: 'green',  fmt: 'pct' },
+    { key: 'end_to_end_success_rate',  label: '端到端成功率',    icon: 'check-circle', color: 'purple', fmt: 'pct' },
+    { key: 'invalid_call_rate',        label: '无效调用率',      icon: 'x-circle',  color: 'red',    fmt: 'pct' },
+  ],
+};
+```
+
+### 指标卡样式
+
+每张大卡片结构（参考整体 UI 方案的 stat-card）：
+
+```
+┌─────────────────────────────────┐
+│  [icon 20px]  精确匹配          │
+│  绿色图标区   ────────────────   │
+│               50.0%  ← 大字     │
+│               (3/6 correct)     │← 小字辅助信息
+└─────────────────────────────────┘
+```
+
+---
+
+## 五、区域 C：效率指标卡（通用）
+
+所有任务类型统一显示，以**小卡片 + 灰色调**区别于性能指标区：
+
+| 指标 | 图标 | 格式 |
+|---|---|---|
+| `avg_latency_ms` | `clock` | `1749 ms` |
+| `avg_tokens` | `file-text` | `284 tok` |
+| `total_cost_usd` | `dollar-sign` | `$0.0023` |
+| `avg_trace_tokens` | `git-branch` | `0 tok`（direct 为 0） |
+
+> **关键修复**：这 4 个效率指标单独一排，绝不与性能指标共用图表 Y 轴。
+
+---
+
+## 六、区域 D：图表区（按 task_type 动态渲染）
+
+### 图表选型原则
+
+- **性能指标** → 百分比，用**水平条形图**（横向更易读，标签不遮挡）
+- **分布数据** → 用**柱状图**
+- **延迟数据** → 单独图表，Y 轴单位为 ms
+- **绝不混用量纲不同的指标在同一 Y 轴**
+
+---
+
+### qa 任务：2 图
+
+**左图：文本指标对比**（水平条形图）
+
+```
+精确匹配  ████████░░  50.0%
+F1 分数   ████████░░  50.0%
+ROUGE-L   █████░░░░░  38.2%
+BLEU      ████░░░░░░  31.5%
+
+Y 轴：指标名  X 轴：0~100%
+```
+
+**右图：延迟分布**（柱状图，Y 轴单位 ms）
+
+```
+P50延迟  ████  1200ms
+P95延迟  ██████████ 3100ms
+平均延迟 █████  1749ms
+
+Y 轴：ms（独立轴，不与准确率混用）
+```
+
+---
+
+### text_exam 任务：3 图
+
+**左图：按难度分组准确率**（水平条形图）
+
+```
+easy   ██████████  80.0%
+medium ████████░░  60.0%
+hard   ████░░░░░░  30.0%
+```
+
+**中图：选项偏置分布**（饼图 / 柱状图）
+
+```
+A  █████  30%
+B  ████   25%
+C  ████   25%
+D  ███    20%
+```
+
+> 选项偏置来自 `_wrap_option_bias()` 返回的 `distribution` 字段，已在 registry.py 中实现。
+
+**右图：按主题分组准确率**（水平条形图，若有 by_topic 数据）
+
+---
+
+### image_mcq 任务：3 图
+
+**左图：按题型分组准确率**（水平条形图）
+
+```
+object_recognition  ████████  70%
+attribute           ██████░░  55%
+relation            ████░░░░  40%
+ocr                 ███░░░░░  30%
+```
+
+> 来自 `by_question_type` 分组，`metadata.question_type` 字段。
+
+**中图：难度分组准确率**（条形图）
+
+**右图：选项偏置**（柱状图）
+
+---
+
+### api_calling 任务：3 图
+
+**左图：4 个 Agent 指标对比**（水平条形图，统一 0~100% 轴）
+
+```
+工具选择准确率  ████████  75%
+参数准确率      ██████░░  60%
+端到端成功率    █████░░░  50%
+无效调用率      ██░░░░░░  20%  ← 越低越好（红色）
+```
+
+> 注意：`invalid_call_rate` 语义相反，条形用红色且标注"越低越好"。
+
+**中图：按调用类型分组成功率**（水平条形图）
+
+```
+single_tool   ████████  80%
+multi_tool    █████░░░  50%
+multi_step    ████░░░░  40%
+param_sensitive ███░░░  30%
+```
+
+> 来自 `by_call_type` 分组。
+
+**右图：平均工具调用次数 vs 端到端成功率**（散点图，按策略着色）
+
+---
+
+## 七、区域 E：分组统计表（标签页切换）
+
+在图表区下方，将所有分组维度以**标签页（Tab）**形式组织，用户点击切换：
+
+```
+[按难度] [按主题] [按调用类型] [按题型]
+         ↑ 根据 task_type 动态显示可用标签
+```
+
+每个标签页内为一张统计表：
+
+| 分组 | 样本数 | 准确率 | Avg Latency | Avg Tokens |
+|---|---|---|---|---|
+| easy | 20 | 80.0% | 1200ms | 210 |
+| medium | 30 | 60.0% | 1800ms | 285 |
+| hard | 10 | 30.0% | 2400ms | 360 |
+
+**JS 实现：**
+
+```js
+// 分组维度配置（根据 task_type 过滤显示）
+const GROUP_DIMS = {
+  by_difficulty:   { label: '按难度',    tasks: ['qa','text_exam','image_mcq','api_calling'] },
+  by_topic:        { label: '按主题',    tasks: ['qa','text_exam'] },
+  by_question_type:{ label: '按题型',    tasks: ['text_exam','image_mcq'] },
+  by_category:     { label: '按设备类别', tasks: ['api_calling'] },
+  by_call_type:    { label: '按调用类型', tasks: ['api_calling'] },
+};
+
+function renderGroupTabs(metrics, taskType) {
+  const available = Object.entries(GROUP_DIMS)
+    .filter(([key, cfg]) => cfg.tasks.includes(taskType) && metrics[key]?.length > 0);
+  // 渲染标签页...
+}
+```
+
+---
+
+## 八、区域 F：样本级浏览（折叠面板）
+
+默认折叠，点击「查看样本详情 ▼」展开。
+
+**筛选栏：**
+
+```
+[全部 ▼] [正确 ✓] [错误 ✗]     难度: [全部 ▼]     🔍 搜索 sample_id
+```
+
+**表格列（根据 task_type）：**
+
+| sample_id | 预测答案 | 正确答案 | 是否正确 | 延迟 | Token |
+|---|---|---|---|---|---|
+| qa_001 | 巴黎 | 巴黎 | ✅ | 1.2s | 210 |
+| qa_002 | 柏林 | 巴黎 | ❌ | 2.1s | 285 |
+
+- api_calling 任务额外显示「工具调用链」列，点击展开 tool_trace
+- 点击行 → 右侧弹出 Drawer，显示完整 `reasoning_trace` 和 `input_prompt`
+
+**分页：** 20 条/页，支持上一页/下一页。调用 `GET /results/{experiment_id}/predictions?offset=X&limit=20&correct=true`。
+
+---
+
+## 九、对比模式
+
+点击「对比模式 ⇄」按钮后，页面切换为对比视图：
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│  实验对比                               [退出对比模式 ×]       │
+├────────────────────────────────────────────────────────────────┤
+│  + 添加实验（最多 4 个）                                        │
+│  [test_qa_direct ×]  [test_qa_cot ×]  [test_qa_tot ×]          │
+├────────────────────────────────────────────────────────────────┤
+│  对比指标选择：[✓ 精确匹配] [✓ F1] [□ ROUGE-L] [✓ Avg Latency] │
+├────────────────────────────────────────────────────────────────┤
+│  对比图表（分组柱状图，每个指标一组，按实验着色）               │
+│                                                                 │
+│  对比汇总表                                                     │
+│  指标 | direct | cot | tot | △ best vs direct                  │
+└────────────────────────────────────────────────────────────────┘
+```
+
+调用已有的 `API.Results.compare(experimentIds, metrics)` 接口，不需要修改后端。
+
+---
+
+## 十、文件改动清单
+
+### 10.1 需要修改的文件
+
+| 文件 | 改动类型 | 核心改动内容 |
+|---|---|---|
+| `webui/static/js/results.js` | **重构** | `renderMetrics()` 增加 task_type 感知；`renderCharts()` 按任务类型分路渲染；新增 `renderGroupTabs()`、`renderSampleBrowser()`、`renderCompareMode()` |
+| `webui/templates/index.html` | 局部修改 | Results tab 新增骨架 HTML：元信息区、性能/效率指标分区、分组统计标签页容器、样本浏览折叠面板、对比模式按钮 |
+
+### 10.2 不需要修改的文件
+
+| 文件 | 原因 |
+|---|---|
+| `src/api/results.py` | 已提供所需的全部接口 |
+| `src/evaluators/` | 评测逻辑完整，不动 |
+| `webui/static/js/api.js` | API 调用层不动 |
+
+---
+
+## 十一、results.js 核心重构思路
+
+### 11.1 主入口 `loadMetrics()` 改造
+
+```js
+async loadMetrics(experimentId) {
+  this.currentExperimentId = experimentId;
+  this.showSkeleton();  // 显示骨架屏
+
+  const [metrics, expInfo] = await Promise.all([
+    API.getMetrics(experimentId),
+    API.fetchExperiment(experimentId).catch(() => null),
+  ]);
+
+  const taskType = expInfo?.dataset_id
+    ? this.inferTaskType(expInfo.dataset_id)
+    : metrics.task_type || 'qa';  // fallback
+
+  this.renderExperimentMeta(metrics, expInfo);       // 区域 A
+  this.renderPerformanceCards(metrics, taskType);    // 区域 B
+  this.renderEfficiencyCards(metrics);               // 区域 C
+  this.renderTaskCharts(metrics, taskType);          // 区域 D
+  this.renderGroupTabs(metrics, taskType);           // 区域 E
+  this.initSampleBrowser(experimentId);              // 区域 F（懒加载）
+}
+```
+
+### 11.2 图表量纲分离原则
+
+```js
+renderTaskCharts(metrics, taskType) {
+  // 性能图表（0~100% 轴）
+  this.createHorizontalBar('perf-chart', {
+    data: this.getPerformanceData(metrics, taskType),
+    xMax: 100,
+    unit: '%',
+  });
+
+  // 延迟图表（独立 ms 轴，绝不与性能混用）
+  this.createLatencyChart('latency-chart', {
+    p50: metrics.overall?.latency_p50_ms,
+    p95: metrics.overall?.latency_p95_ms,
+    avg: metrics.overall?.avg_latency_ms,
+  });
+
+  // 任务特定图表
+  if (taskType === 'text_exam' || taskType === 'image_mcq') {
+    this.createOptionBiasChart('bias-chart', metrics.option_bias);
+  }
+  if (taskType === 'api_calling') {
+    this.createCallTypeChart('calltype-chart', metrics.by_call_type);
+  }
+}
+```
+
+### 11.3 选项偏置图（已有数据，需新增渲染）
+
+```js
+// option_bias 字段来自 _wrap_option_bias()，结构：
+// { distribution: { A: 0.30, B: 0.25, C: 0.25, D: 0.20 }, total: 120 }
+
+createOptionBiasChart(id, optionBias) {
+  if (!optionBias?.distribution) return;
+  const dist = optionBias.distribution;
+  // 饼图（分布接近 25% 为理想）
+  // 可视化哪个选项被过度选择
+}
+```
+
+---
+
+## 十二、验收标准
+
+- ✅ **量纲分离**：性能指标（%）和延迟（ms）不出现在同一图表的同一 Y 轴
+- ✅ **元信息不作为指标卡**：Valid Samples / Total Samples 只在元信息区显示
+- ✅ **task_type 感知**：qa / text_exam / image_mcq / api_calling 四种任务展示不同指标卡和图表
+- ✅ **选项偏置可视化**：text_exam 和 image_mcq 任务展示 A/B/C/D 选项分布图
+- ✅ **分组统计可切换**：by_difficulty / by_topic / by_call_type 等维度可通过标签页切换
+- ✅ **样本级浏览**：可分页查看单条预测，支持 correct/difficulty 过滤
+- ✅ **对比模式可用**：调用已有 compare API，支持最多 4 个实验对比
+
+---
+
+*AgentInferKit · 结果分析页重设计方案 · v1.0 · D 岗交付物*

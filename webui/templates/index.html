@@ -299,9 +299,17 @@
             <h1 class="page-title" data-i18n="results.title">结果分析</h1>
             <span class="page-subtitle" data-i18n="results.subtitle">查看实验评测指标与可视化图表</span>
         </div>
+        <div class="page-header-right">
+            <button class="btn btn-secondary" onclick="if(resultsVisualizer) resultsVisualizer.enterCompareMode()">
+                <i data-lucide="git-compare" style="width:16px;height:16px;"></i> 对比模式
+            </button>
+            <button class="btn btn-secondary" onclick="if(resultsVisualizer && resultsVisualizer.currentExperimentId) { const url = API.Results.getExportUrl(resultsVisualizer.currentExperimentId); window.open(url, '_blank'); }">
+                <i data-lucide="download" style="width:16px;height:16px;"></i> 导出
+            </button>
+        </div>
     </div>
 
-    <!-- Experiment selector at top -->
+    <!-- Experiment selector -->
     <div class="card mb-lg">
         <div class="card-body" style="padding: var(--spacing-md) var(--spacing-lg);">
             <div class="flex items-center gap-md">
@@ -313,27 +321,26 @@
         </div>
     </div>
 
-    <!-- Metrics skeleton / cards -->
-    <div id="metrics-container" class="mb-lg">
-        <div class="stats-grid">
-            <div class="skeleton skeleton-card"></div>
-            <div class="skeleton skeleton-card"></div>
-            <div class="skeleton skeleton-card"></div>
-            <div class="skeleton skeleton-card"></div>
-        </div>
-    </div>
+    <!-- Region A: Experiment Meta Info -->
+    <div id="results-meta" class="mb-md"></div>
 
-    <!-- Charts -->
-    <div id="charts-container" class="flex gap-md flex-wrap">
-        <div class="chart-card">
-            <div class="chart-title" data-i18n="results.chart.accuracy">准确率分布</div>
-            <canvas id="chart-accuracy" height="240"></canvas>
-        </div>
-        <div class="chart-card">
-            <div class="chart-title" data-i18n="results.chart.latency">延迟分布</div>
-            <canvas id="chart-latency" height="240"></canvas>
-        </div>
-    </div>
+    <!-- Region B: Performance Metric Cards (task-type specific) -->
+    <div id="results-perf-cards" class="mb-md"></div>
+
+    <!-- Region C: Efficiency Metric Cards (universal) -->
+    <div id="results-eff-cards" class="mb-lg"></div>
+
+    <!-- Region D: Charts (dimension-separated) -->
+    <div id="results-charts" class="mb-lg"></div>
+
+    <!-- Region E: Group Statistics Tabs -->
+    <div id="results-groups" class="mb-lg"></div>
+
+    <!-- Region F: Sample Browser (collapsible) -->
+    <div id="results-samples" class="mb-lg"></div>
+
+    <!-- Compare Mode Container (hidden by default) -->
+    <div id="results-compare" style="display:none;" class="mb-lg"></div>
 </div>
 
 <!-- ================================================================
@@ -665,9 +672,11 @@
     async function loadSelectedResults() {
         const select = document.getElementById('results-experiment-select');
         const experimentId = select.value;
-        if (experimentId && resultsVisualizer) {
-            await resultsVisualizer.loadMetrics(experimentId);
+        if (!experimentId) return;
+        if (!window.resultsVisualizer) {
+            initResultsVisualizer();
         }
+        await window.resultsVisualizer.loadMetrics(experimentId);
     }
 
     // Chat functions
