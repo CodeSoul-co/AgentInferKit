@@ -76,8 +76,8 @@ class RunnerConfig(BaseModel):
 class EvalConfig(BaseModel):
     """Evaluation configuration."""
     metrics: List[str] = Field(
-        default=["accuracy"],
-        description="List of metrics to compute, e.g., ['choice_accuracy', 'latency', 'token_cost']"
+        default=[],
+        description="List of metrics to compute, e.g., ['exact_match', 'f1_score', 'choice_accuracy']"
     )
     group_by: List[str] = Field(
         default=[],
@@ -260,7 +260,7 @@ class CompareRequest(BaseModel):
     """Request body for comparing multiple experiments."""
     experiment_ids: List[str] = Field(..., min_length=1, description="List of experiment IDs to compare")
     metrics: List[str] = Field(
-        default=["accuracy", "avg_latency_ms", "avg_tokens"],
+        default=["exact_match", "f1_score"],
         description="Metrics to include in comparison"
     )
     group_by: Optional[str] = Field(default=None, description="Optional grouping dimension")
