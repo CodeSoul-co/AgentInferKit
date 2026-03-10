@@ -514,6 +514,96 @@
         `;
     }
 
+    // Dataset list functions
+    async function refreshDatasetsList() {
+        const container = document.getElementById('datasets-list');
+        if (!container) return;
+        
+        try {
+            const response = await API.Datasets.list();
+            const datasets = response.datasets || [];
+            
+            if (datasets.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon"><i data-lucide="database"></i></div>
+                        <div class="empty-state-title" data-i18n="datasets.no_data">暂无数据集</div>
+                        <div class="empty-state-description" data-i18n="datasets.no_data_desc">上传您的第一个 JSONL 数据集</div>
+                    </div>
+                `;
+                if (window.lucide) lucide.createIcons();
+                return;
+            }
+            
+            container.innerHTML = `
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>数据集 ID</th>
+                            <th>任务类型</th>
+                            <th>样本数</th>
+                            <th>版本</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${datasets.map(ds => `
+                            <tr>
+                                <td style="font-weight:600;">${ds.dataset_id}</td>
+                                <td><span class="badge badge-info">${ds.task_type}</span></td>
+                                <td>${ds.total_samples}</td>
+                                <td>${ds.version || 'v1'}</td>
+                                <td style="font-size:0.8rem;color:var(--text-muted);">${new Date(ds.created_at).toLocaleString(I18N && I18N.currentLang === 'en' ? 'en-US' : 'zh-CN')}</td>
+                                <td>
+                                    <button class="btn btn-secondary" style="padding:6px 12px;font-size:0.8rem;" onclick="viewDataset('${ds.dataset_id}')">
+                                        <i data-lucide="eye" style="width:14px;height:14px;"></i> 查看
+                                    </button>
+                                    <button class="btn btn-danger" style="padding:6px 12px;font-size:0.8rem;" onclick="deleteDataset('${ds.dataset_id}')">
+                                        <i data-lucide="trash-2" style="width:14px;height:14px;"></i> 删除
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            
+            if (window.lucide) lucide.createIcons();
+        } catch (error) {
+            console.error('Failed to load datasets:', error);
+            container.innerHTML = `
+                <div class="alert alert-error">
+                    加载数据集列表失败: ${error.message}
+                </div>
+            `;
+        }
+    }
+    
+    async function viewDataset(datasetId) {
+        try {
+            const preview = await API.Datasets.preview(datasetId, 10);
+            console.log('Dataset preview:', preview);
+            alert(`数据集 ${datasetId} 预览:\n${JSON.stringify(preview.samples.slice(0, 3), null, 2)}`);
+        } catch (error) {
+            alert(`查看失败: ${error.message}`);
+        }
+    }
+    
+    async function deleteDataset(datasetId) {
+        if (!confirm(`确定要删除数据集 ${datasetId} 吗？此操作不可恢复。`)) {
+            return;
+        }
+        
+        try {
+            await API.Datasets.delete(datasetId);
+            await refreshDatasetsList();
+            await refreshDashboard();
+        } catch (error) {
+            alert(`删除失败: ${error.message}`);
+        }
+    }
+
     // Experiment form functions
     function showCreateExperimentForm() {
         document.getElementById('create-experiment-form').classList.remove('hidden');
@@ -614,6 +704,7 @@
     // Initialize on load
     document.addEventListener('DOMContentLoaded', () => {
         refreshDashboard();
+        refreshDatasetsList();
 
         if (typeof initUploader === 'function') initUploader();
         if (typeof initExperimentManager === 'function') initExperimentManager();
