@@ -8,6 +8,9 @@ rule
 # Experiment outputs (do not push)
 outputs/
 
+# Runtime experiment state (API-created sessions)
+data/experiments/
+
 # Milvus Docker volumes (runtime data)
 volumes/
 
