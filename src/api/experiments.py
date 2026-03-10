@@ -32,6 +32,9 @@ from ..runners.image_runner import ImageRunner
 from ..runners.agent_runner import AgentRunner
 from ..adapters.registry import load_adapter
 from ..strategies.registry import load_strategy
+from ..evaluators.registry import evaluate_all
+from ..evaluators.group_stats import multi_group_stats
+from ..config import OUTPUTS_METRICS_DIR
 from ..utils.file_io import read_jsonl
 
 
@@ -159,6 +162,78 @@ async def _run_experiment_task(experiment_id: str, exp: Dict[str, Any]):
             concurrency=concurrency,
             on_progress=on_progress
         )
+        
+        # Evaluate predictions and generate metrics
+        logger.info(f"Evaluating experiment {experiment_id}...")
+        pred_results = read_jsonl(predictions_path)
+        
+        # Merge reference data from samples into predictions
+        sample_map = {s["sample_id"]: s for s in samples}
+        for pred in pred_results:
+            sid = pred.get("sample_id", "")
+            if sid in sample_map:
+                orig = sample_map[sid]
+                pred.setdefault("answer", orig.get("answer", ""))
+                pred.setdefault("reference_answer", orig.get("reference_answer", ""))
+                pred.setdefault("difficulty", orig.get("difficulty", ""))
+                pred.setdefault("metadata", orig.get("metadata", {}))
+        
+        # Determine evaluators based on task type
+        eval_config = exp.get("eval", {})
+        evaluator_names = eval_config.get("metrics", [])
+        if not evaluator_names:
+            if task_type in ("text_exam", "image_mcq"):
+                evaluator_names = ["choice_accuracy", "option_bias"]
+            elif task_type == "api_calling":
+                evaluator_names = ["tool_selection_accuracy", "parameter_accuracy", "end_to_end_success_rate"]
+            else:
+                evaluator_names = ["exact_match", "f1_score"]
+        
+        metric_results = evaluate_all(pred_results, evaluator_names, {})
+        
+        # Build overall summary
+        valid_samples = sum(1 for p in pred_results if not p.get("error"))
+        overall = {}
+        for name, result in metric_results.items():
+            if isinstance(result, dict) and "score" in result:
+                overall[name] = result["score"]
+            elif isinstance(result, (int, float)):
+                overall[name] = result
+        overall["valid_samples"] = valid_samples
+        overall["total_samples"] = len(samples)
+        
+        # Group stats
+        group_by = eval_config.get("group_by", ["difficulty"])
+        try:
+            grouped = multi_group_stats(pred_results, samples, group_by)
+        except Exception as ge:
+            logger.warning(f"Group stats failed: {ge}")
+            grouped = {}
+        
+        # Build metrics output
+        from datetime import timezone
+        metrics_output = {
+            "experiment_id": experiment_id,
+            "evaluated_at": datetime.now(timezone.utc).isoformat(),
+            "model": exp["model_id"],
+            "strategy": exp["strategy"],
+            "dataset": str(dataset_path),
+            "total_samples": len(samples),
+            "valid_samples": valid_samples,
+            "overall": overall,
+        }
+        metrics_output.update(grouped)
+        for name, result in metric_results.items():
+            if name not in overall:
+                metrics_output[name] = result
+        
+        # Write metrics file
+        OUTPUTS_METRICS_DIR.mkdir(parents=True, exist_ok=True)
+        metrics_path = OUTPUTS_METRICS_DIR / f"{experiment_id}.json"
+        with open(metrics_path, "w", encoding="utf-8") as f:
+            json.dump(metrics_output, f, ensure_ascii=False, indent=2)
+        
+        logger.info(f"Metrics written to {metrics_path}")
         
         # Mark as finished
         exp["status"] = "finished"
