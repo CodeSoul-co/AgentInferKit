@@ -204,7 +204,8 @@ async def _run_experiment_task(experiment_id: str, exp: Dict[str, Any]):
         for name, result in metric_results.items():
             if isinstance(result, dict):
                 # Extract the primary score from different metric result formats
-                for score_key in ("score", "accuracy", "avg_f1", "avg_score",
+                for score_key in ("score", "accuracy", "avg_f1", "avg_bleu",
+                                  "avg_rouge_l_f1", "avg_score",
                                   "hit_rate", "success_rate", "rate"):
                     if score_key in result:
                         overall[name] = result[score_key]
@@ -214,10 +215,14 @@ async def _run_experiment_task(experiment_id: str, exp: Dict[str, Any]):
                     if "avg_ms" in result:
                         overall["avg_latency_ms"] = result["avg_ms"]
                 elif name == "token_stats":
-                    if "avg_total" in result:
+                    if "avg_total_tokens" in result:
+                        overall["avg_tokens"] = result["avg_total_tokens"]
+                    elif "avg_total" in result:
                         overall["avg_tokens"] = result["avg_total"]
                 elif name == "cost_estimate":
-                    if "total_usd" in result:
+                    if "estimated_cost_usd" in result:
+                        overall["total_cost_usd"] = result["estimated_cost_usd"]
+                    elif "total_usd" in result:
                         overall["total_cost_usd"] = result["total_usd"]
             elif isinstance(result, (int, float)):
                 overall[name] = result
