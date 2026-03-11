@@ -274,7 +274,7 @@ class ExperimentManager {
         }
         
         // Auto-fill experiment name
-        const nameInput = document.querySelector('#experiment-form [name="name"]');
+        const nameInput = document.getElementById('exp-name-input');
         if (nameInput && !nameInput.value) {
             nameInput.value = `${datasetId}_test`;
         }
@@ -524,7 +524,13 @@ class ExperimentManager {
         const form = document.getElementById('experiment-form');
         if (!form) return {};
         
-        const val = (name) => form.querySelector(`[name="${name}"]`)?.value || '';
+        const val = (name) => {
+            // For 'name' field, use direct getElementById to avoid ambiguity
+            if (name === 'name') {
+                return document.getElementById('exp-name-input')?.value?.trim() || '';
+            }
+            return form.querySelector(`[name="${name}"]`)?.value?.trim() || '';
+        };
         const intVal = (name, def) => {
             const v = form.querySelector(`[name="${name}"]`)?.value;
             return v ? parseInt(v) : def;
@@ -597,7 +603,15 @@ class ExperimentManager {
         // Set API key if provided
         if (config._api_key) {
             const provider = document.getElementById('exp-provider-select')?.value;
-            try { await API.Models.setApiKey(provider, config._api_key); } catch (e) { /* ignore */ }
+            if (provider) {
+                try {
+                    await API.Models.setApiKey(provider, config._api_key);
+                    this.showNotification('info', `已设置 ${provider} API Key（仅当前会话有效）`);
+                } catch (e) {
+                    this.showNotification('error', `设置 API Key 失败: ${e.message}`);
+                    return;
+                }
+            }
         }
         
         await this.createExperiment(config);
@@ -612,7 +626,15 @@ class ExperimentManager {
         // Set API key if provided
         if (config._api_key) {
             const provider = document.getElementById('exp-provider-select')?.value;
-            try { await API.Models.setApiKey(provider, config._api_key); } catch (e) { /* ignore */ }
+            if (provider) {
+                try {
+                    await API.Models.setApiKey(provider, config._api_key);
+                    this.showNotification('info', `已设置 ${provider} API Key（仅当前会话有效）`);
+                } catch (e) {
+                    this.showNotification('error', `设置 API Key 失败: ${e.message}`);
+                    return;
+                }
+            }
         }
         
         try {
