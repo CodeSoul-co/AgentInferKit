@@ -957,16 +957,6 @@ body {
   background: var(--bg-secondary);
 }
 
-.form-section-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 12px;
-}
-
 .rag-mode-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1092,6 +1082,121 @@ body {
   100% {
     background-position: 200% 0;
   }
+}
+
+/* ============================================================
+   Toggle Switch
+   ============================================================ */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--border-color);
+  border-radius: 20px;
+  transition: background var(--transition-fast);
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  left: 2px;
+  bottom: 2px;
+  background: white;
+  border-radius: 50%;
+  transition: transform var(--transition-fast);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: var(--primary-color);
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(16px);
+}
+
+/* ============================================================
+   Metrics Checkbox Group
+   ============================================================ */
+.metrics-checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.metrics-checkbox-group label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.metrics-checkbox-group label:hover {
+  background: var(--bg-tertiary);
+}
+
+.metrics-checkbox-group input:checked + span {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+/* ============================================================
+   Form Hint
+   ============================================================ */
+.form-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* ============================================================
+   RAG Mode Icon
+   ============================================================ */
+.rag-mode-icon {
+  font-size: 20px;
+  margin-bottom: 4px;
+}
+
+/* ============================================================
+   Form Section Divider (border-top variant)
+   ============================================================ */
+.form-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.form-section-title:first-child {
+  border-top: none;
+  padding-top: 0;
 }
 
 /* ============================================================

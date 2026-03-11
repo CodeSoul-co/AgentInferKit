@@ -178,110 +178,280 @@
     <div id="exp-infer-panel" class="exp-sub-tab-panel active">
         <div id="experiment-progress" class="hidden mb-lg"></div>
 
-        <!-- Create Form (hidden) -->
+        <!-- Create Form (hidden) - 7-section single-page scroll layout -->
         <div id="create-experiment-form" class="card mb-lg hidden">
             <div class="card-header"><i data-lucide="settings" style="width:16px;height:16px;"></i> 创建推理任务</div>
             <div class="card-body" id="experiment-form">
-                <div class="step-indicator mb-lg">
-                    <div class="step-item active" data-step="1"><span class="step-number">1</span> <span>数据选择</span></div>
-                    <div class="step-divider"></div>
-                    <div class="step-item" data-step="2"><span class="step-number">2</span> <span>推理配置</span></div>
-                    <div class="step-divider"></div>
-                    <div class="step-item" data-step="3"><span class="step-number">3</span> <span>运行参数</span></div>
-                </div>
 
-                <!-- Step 1: Data Selection -->
-                <div id="step-panel-1" class="step-panel active">
+                <!-- Section 1: Basic Info -->
+                <div class="form-section-title"><i data-lucide="file-text" style="width:16px;height:16px;"></i> 基本信息</div>
+                <div class="form-group">
+                    <label class="form-label">实验名称 *</label>
+                    <input type="text" name="name" class="form-input" placeholder="推荐格式: 数据集_模型_策略，例如 demo_exam_cot_oracle">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">描述</label>
+                    <textarea name="description" class="form-textarea" placeholder="实验描述（可选）" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">选择数据集 *</label>
+                    <div id="step1-datasets"></div>
+                    <select name="dataset_id" style="display:none;"></select>
+                </div>
+                <div class="flex gap-md">
                     <div class="form-group">
-                        <label class="form-label">实验名称 *</label>
-                        <input type="text" name="name" class="form-input" placeholder="推荐格式: 数据集_模型_策略">
+                        <label class="form-label">数据分割</label>
+                        <select name="split" class="form-select"><option value="test">test</option><option value="dev">dev</option><option value="train">train</option></select>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">描述</label>
-                        <textarea name="description" class="form-textarea" placeholder="实验描述（可选）" style="min-height:50px;"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">选择数据集 *</label>
-                        <div id="step1-datasets"></div>
-                        <select name="dataset_id" style="display:none;"></select>
-                    </div>
-                    <div class="flex gap-md">
-                        <div class="form-group">
-                            <label class="form-label">数据分割</label>
-                            <select name="split" class="form-select"><option value="test">test</option><option value="dev">dev</option><option value="train">train</option></select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">最大样本数</label>
-                            <input type="number" name="max_samples" class="form-input" placeholder="全部（留空）">
-                        </div>
+                        <label class="form-label">最大样本数</label>
+                        <input type="number" name="max_samples" class="form-input" placeholder="全部（留空）">
                     </div>
                 </div>
+                <div id="task-type-badge" class="mb-md" style="display:none;"></div>
 
-                <!-- Step 2: Inference Config -->
-                <div id="step-panel-2" class="step-panel">
-                    <div class="form-group">
-                        <label class="form-label">模型 *</label>
-                        <select name="model_id" class="form-select" id="exp-model-select"><option value="">选择模型...</option></select>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">推理策略</label>
-                        <div class="strategy-grid" id="strategy-grid">
-                            <div class="strategy-card selected" data-strategy="direct" onclick="selectStrategy(this)">
-                                <div class="strategy-card-icon"><i data-lucide="zap" style="width:20px;height:20px;"></i></div>
-                                <div class="strategy-card-title">Direct</div>
-                                <div class="strategy-card-desc">直接生成答案，速度最快</div>
-                            </div>
-                            <div class="strategy-card" data-strategy="cot" onclick="selectStrategy(this)">
-                                <div class="strategy-card-icon"><i data-lucide="git-branch" style="width:20px;height:20px;"></i></div>
-                                <div class="strategy-card-title">CoT</div>
-                                <div class="strategy-card-desc">逐步推理后给出答案</div>
-                            </div>
-                            <div class="strategy-card" data-strategy="long_cot" onclick="selectStrategy(this)">
-                                <div class="strategy-card-icon"><i data-lucide="list-tree" style="width:20px;height:20px;"></i></div>
-                                <div class="strategy-card-title">Long CoT</div>
-                                <div class="strategy-card-desc">深度分解子问题</div>
-                            </div>
-                            <div class="strategy-card" data-strategy="tot" onclick="selectStrategy(this)">
-                                <div class="strategy-card-icon"><i data-lucide="network" style="width:20px;height:20px;"></i></div>
-                                <div class="strategy-card-title">ToT</div>
-                                <div class="strategy-card-desc">树状搜索多路径</div>
-                            </div>
-                        </div>
-                        <select name="strategy" class="form-select" id="strategy-hidden-select" style="display:none;">
-                            <option value="direct" selected>Direct</option><option value="cot">CoT</option><option value="long_cot">Long CoT</option><option value="tot">ToT</option>
+                <!-- Section 2: Model & API Credentials -->
+                <div class="form-section-title" style="margin-top:24px;"><i data-lucide="cpu" style="width:16px;height:16px;"></i> 模型与 API 凭证</div>
+                <div class="flex gap-md" style="flex-wrap:wrap;">
+                    <div class="form-group flex-1" style="min-width:180px;">
+                        <label class="form-label">Provider *</label>
+                        <select name="provider" class="form-select" id="exp-provider-select" onchange="experimentManager && experimentManager.onProviderChange(this.value)">
+                            <option value="">选择 Provider...</option>
+                            <option value="deepseek">DeepSeek</option>
+                            <option value="openai">OpenAI</option>
+                            <option value="anthropic">Anthropic</option>
+                            <option value="qwen">通义千问</option>
+                            <option value="ollama">Ollama (本地)</option>
                         </select>
                     </div>
-                    <div id="step2-dynamic"></div>
+                    <div class="form-group flex-1" style="min-width:200px;">
+                        <label class="form-label">模型 *</label>
+                        <select name="model_id" class="form-select" id="exp-model-select">
+                            <option value="">先选择 Provider...</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex gap-md" style="flex-wrap:wrap;" id="api-credential-row">
+                    <div class="form-group flex-1" style="min-width:260px;" id="api-key-group">
+                        <label class="form-label">API Key</label>
+                        <div style="display:flex;gap:8px;">
+                            <input type="password" name="api_key" class="form-input" id="exp-api-key" placeholder="sk-... (不保存到服务器，仅本次会话使用)" style="flex:1;">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="const i=document.getElementById('exp-api-key');i.type=i.type==='password'?'text':'password'" title="显示/隐藏">
+                                <i data-lucide="eye" style="width:14px;height:14px;"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-group flex-1" style="min-width:200px;">
+                        <label class="form-label">Base URL</label>
+                        <input type="text" name="base_url" class="form-input" id="exp-base-url" placeholder="留空使用默认">
+                    </div>
+                    <div class="form-group" style="align-self:flex-end;">
+                        <button type="button" class="btn btn-secondary" onclick="experimentManager && experimentManager.testConnection()" id="exp-ping-btn">
+                            <i data-lucide="wifi" style="width:14px;height:14px;"></i> 连接测试
+                        </button>
+                    </div>
+                </div>
+                <div id="ping-result" style="display:none;" class="mb-sm"></div>
+                <div id="vlm-warning" style="display:none;" class="alert alert-warning mb-sm">
+                    <i data-lucide="alert-triangle" style="width:16px;height:16px;"></i>
+                    图像任务需要支持多模态的模型（VLM）。当前选择的模型可能不支持图像输入，请选择支持视觉的模型（如 gpt-4o）。
                 </div>
 
-                <!-- Step 3: Run Parameters -->
-                <div id="step-panel-3" class="step-panel">
-                    <div class="flex gap-md">
-                        <div class="form-group flex-1">
-                            <label class="form-label">并发数</label>
-                            <input type="number" name="concurrency" class="form-input" value="5" min="1" max="50">
+                <!-- Section 3: Inference Strategy -->
+                <div class="form-section-title" style="margin-top:24px;"><i data-lucide="route" style="width:16px;height:16px;"></i> 推理策略</div>
+                <div class="strategy-grid" id="strategy-grid">
+                    <div class="strategy-card selected" data-strategy="direct" onclick="selectStrategy(this)">
+                        <div class="strategy-card-icon"><i data-lucide="zap" style="width:20px;height:20px;"></i></div>
+                        <div class="strategy-card-title">Direct</div>
+                        <div class="strategy-card-desc">直接生成，速度最快</div>
+                    </div>
+                    <div class="strategy-card" data-strategy="cot" onclick="selectStrategy(this)">
+                        <div class="strategy-card-icon"><i data-lucide="git-branch" style="width:20px;height:20px;"></i></div>
+                        <div class="strategy-card-title">CoT</div>
+                        <div class="strategy-card-desc">链式思考，逐步推理</div>
+                    </div>
+                    <div class="strategy-card" data-strategy="long_cot" onclick="selectStrategy(this)">
+                        <div class="strategy-card-icon"><i data-lucide="list-tree" style="width:20px;height:20px;"></i></div>
+                        <div class="strategy-card-title">Long CoT</div>
+                        <div class="strategy-card-desc">深度分解，适合复杂问题</div>
+                    </div>
+                    <div class="strategy-card" data-strategy="tot" onclick="selectStrategy(this)">
+                        <div class="strategy-card-icon"><i data-lucide="network" style="width:20px;height:20px;"></i></div>
+                        <div class="strategy-card-title">ToT</div>
+                        <div class="strategy-card-desc">树状搜索，多路径探索</div>
+                    </div>
+                    <div class="strategy-card" data-strategy="react" id="strategy-react-card" style="display:none;" onclick="selectStrategy(this)">
+                        <div class="strategy-card-icon"><i data-lucide="repeat" style="width:20px;height:20px;"></i></div>
+                        <div class="strategy-card-title">ReAct</div>
+                        <div class="strategy-card-desc">推理+行动循环</div>
+                    </div>
+                </div>
+                <select name="strategy" class="form-select" id="strategy-hidden-select" style="display:none;">
+                    <option value="direct" selected>Direct</option><option value="cot">CoT</option><option value="long_cot">Long CoT</option><option value="tot">ToT</option><option value="react">ReAct</option>
+                </select>
+
+                <!-- Section 4: RAG Config (shown only for text_exam / qa) -->
+                <div id="section-rag" style="display:none;">
+                    <div class="form-section-title" style="margin-top:24px;">
+                        <i data-lucide="book-open" style="width:16px;height:16px;"></i> RAG 配置
+                        <label class="toggle-switch" style="margin-left:12px;">
+                            <input type="checkbox" id="rag-toggle" onchange="experimentManager && experimentManager.onRagToggle(this.checked)">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div id="rag-config-body" style="display:none;">
+                        <div class="rag-mode-grid">
+                            <label class="rag-mode-card selected" onclick="experimentManager && experimentManager.selectRAGMode('closed', this)">
+                                <input type="radio" name="rag_mode" value="closed" checked>
+                                <div class="rag-mode-icon">❌</div>
+                                <div class="rag-mode-title">Closed-book</div>
+                                <div class="rag-mode-desc">不使用外部知识，直接作答（基线）</div>
+                            </label>
+                            <label class="rag-mode-card" onclick="experimentManager && experimentManager.selectRAGMode('oracle', this)">
+                                <input type="radio" name="rag_mode" value="oracle">
+                                <div class="rag-mode-icon">✅</div>
+                                <div class="rag-mode-title">Oracle RAG</div>
+                                <div class="rag-mode-desc">使用标注的正确知识块（性能上界）</div>
+                            </label>
+                            <label class="rag-mode-card" onclick="experimentManager && experimentManager.selectRAGMode('retrieved', this)">
+                                <input type="radio" name="rag_mode" value="retrieved">
+                                <div class="rag-mode-icon">🔍</div>
+                                <div class="rag-mode-title">Retrieved RAG</div>
+                                <div class="rag-mode-desc">从向量知识库自动检索（真实场景）</div>
+                            </label>
                         </div>
-                        <div class="form-group flex-1">
-                            <label class="form-label">重试次数</label>
-                            <input type="number" name="retry_times" class="form-input" value="3" min="0" max="10">
+                        <div id="rag-oracle-options" style="display:none;margin-top:12px;">
+                            <div class="form-group">
+                                <label class="form-label">知识块来源文件</label>
+                                <select name="oracle_chunks_file" class="form-select" id="rag-oracle-file-select">
+                                    <option value="">选择含 chunk 的 JSONL 文件...</option>
+                                </select>
+                                <div class="form-hint">数据集目录中含有 chunk_id 字段的 .jsonl 文件</div>
+                            </div>
+                        </div>
+                        <div id="rag-retrieved-options" style="display:none;margin-top:12px;">
+                            <div class="flex gap-md">
+                                <div class="form-group flex-1">
+                                    <label class="form-label">知识库</label>
+                                    <select name="kb_name" class="form-select" id="rag-kb-select">
+                                        <option value="">选择知识库...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Top-K 召回数</label>
+                                    <input type="number" name="top_k" class="form-input" value="3" min="1" max="20" style="width:80px;">
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-            <div class="card-footer flex justify-between">
-                <div>
-                    <button class="btn btn-secondary" onclick="experimentManager && experimentManager.hideCreateForm()">
-                        <i data-lucide="x" style="width:14px;height:14px;"></i> 取消
-                    </button>
-                    <button class="btn btn-secondary" id="step-prev-btn" style="display:none;margin-left:8px;" onclick="experimentManager && experimentManager.prevStep()">
-                        <i data-lucide="arrow-left" style="width:14px;height:14px;"></i> 上一步
+
+                <!-- Section 5: Tool Config (shown only for api_calling) -->
+                <div id="section-tools" style="display:none;">
+                    <div class="form-section-title" style="margin-top:24px;"><i data-lucide="wrench" style="width:16px;height:16px;"></i> 工具配置</div>
+                    <div class="form-group">
+                        <label class="form-label">可用工具</label>
+                        <div class="metrics-checkbox-group" id="tool-checkboxes">
+                            <span class="text-muted">加载工具列表中...</span>
+                        </div>
+                    </div>
+                    <div class="flex gap-md" style="flex-wrap:wrap;">
+                        <div class="form-group">
+                            <label class="form-label">执行模式</label>
+                            <div style="display:flex;gap:16px;align-items:center;">
+                                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                    <input type="radio" name="tool_exec_mode" value="mock" checked> Mock (模拟返回)
+                                </label>
+                                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                    <input type="radio" name="tool_exec_mode" value="real"> 真实调用
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Max 调用步数</label>
+                            <input type="number" name="max_tool_steps" class="form-input" value="10" min="1" max="50" style="width:80px;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 6: Run Parameters -->
+                <div class="form-section-title" style="margin-top:24px;"><i data-lucide="sliders" style="width:16px;height:16px;"></i> 运行参数</div>
+                <div class="flex gap-md" style="flex-wrap:wrap;">
+                    <div class="form-group" style="min-width:120px;">
+                        <label class="form-label">并发数</label>
+                        <input type="number" name="concurrency" class="form-input" value="5" min="1" max="50">
+                    </div>
+                    <div class="form-group" style="min-width:120px;">
+                        <label class="form-label">重试次数</label>
+                        <input type="number" name="retry_times" class="form-input" value="3" min="0" max="10">
+                    </div>
+                    <div class="form-group" style="min-width:120px;">
+                        <label class="form-label">随机种子</label>
+                        <input type="number" name="seed" class="form-input" placeholder="留空不固定">
+                    </div>
+                    <div class="form-group" style="min-width:120px;">
+                        <label class="form-label">断点续跑</label>
+                        <label class="toggle-switch" style="margin-top:6px;">
+                            <input type="checkbox" name="resume" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+                <div style="margin-bottom:12px;">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('advanced-params').style.display=document.getElementById('advanced-params').style.display==='none'?'block':'none'">
+                        ▼ 展开高级参数
                     </button>
                 </div>
-                <div>
-                    <button class="btn btn-primary" id="step-next-btn" onclick="experimentManager && experimentManager.nextStep()">
-                        下一步 <i data-lucide="arrow-right" style="width:14px;height:14px;"></i>
+                <div id="advanced-params" style="display:none;">
+                    <div class="flex gap-md" style="flex-wrap:wrap;">
+                        <div class="form-group" style="min-width:140px;">
+                            <label class="form-label">请求超时 (秒)</label>
+                            <input type="number" name="request_timeout_s" class="form-input" value="60" min="5" max="300">
+                        </div>
+                        <div class="form-group" style="min-width:140px;">
+                            <label class="form-label">Temperature</label>
+                            <input type="number" name="temperature" class="form-input" value="0.0" min="0" max="2" step="0.1">
+                        </div>
+                        <div class="form-group" style="min-width:140px;">
+                            <label class="form-label">Max Tokens</label>
+                            <input type="number" name="max_tokens" class="form-input" value="2048" min="64" max="32768">
+                        </div>
+                        <div class="form-group" style="min-width:140px;">
+                            <label class="form-label">Batch Size</label>
+                            <input type="number" name="batch_size" class="form-input" value="10" min="1" max="100">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 7: Evaluation Metrics (auto-fill by task_type) -->
+                <div class="form-section-title" style="margin-top:24px;"><i data-lucide="check-square" style="width:16px;height:16px;"></i> 评估指标</div>
+                <div class="form-group">
+                    <label class="form-label">性能指标</label>
+                    <div class="metrics-checkbox-group" id="infer-perf-metrics"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">效率指标</label>
+                    <div class="metrics-checkbox-group" id="infer-eff-metrics"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">可选指标</label>
+                    <div class="metrics-checkbox-group" id="infer-opt-metrics"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">分组统计维度</label>
+                    <div class="metrics-checkbox-group" id="infer-group-dims"></div>
+                </div>
+
+            </div>
+            <div class="card-footer flex justify-between">
+                <button class="btn btn-secondary" onclick="experimentManager && experimentManager.hideCreateForm()">
+                    <i data-lucide="x" style="width:14px;height:14px;"></i> 取消
+                </button>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn btn-secondary" onclick="experimentManager && experimentManager.submitForm()">
+                        <i data-lucide="save" style="width:14px;height:14px;"></i> 保存配置
                     </button>
-                    <button class="btn btn-primary" id="step-submit-btn" style="display:none;" onclick="experimentManager && experimentManager.submitAndRun()">
+                    <button class="btn btn-primary" onclick="experimentManager && experimentManager.submitAndRun()">
                         <i data-lucide="play" style="width:14px;height:14px;"></i> 开始推理
                     </button>
                 </div>
@@ -316,11 +486,11 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">评估指标（根据 task_type 自动预填，可调整）</label>
-                    <div id="eval-metrics-checkboxes" class="eval-checkbox-grid"></div>
+                    <div id="eval-metrics-checkboxes" class="metrics-checkbox-group"></div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">分组统计维度（可多选）</label>
-                    <div id="eval-groups-checkboxes" class="eval-checkbox-grid"></div>
+                    <div id="eval-groups-checkboxes" class="metrics-checkbox-group"></div>
                 </div>
             </div>
             <div class="card-footer" style="text-align:right;">

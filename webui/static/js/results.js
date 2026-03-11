@@ -56,7 +56,13 @@ class ResultsVisualizer {
     // =========================================================================
     static META_FIELDS = new Set([
         'experiment_id', 'model', 'strategy', 'dataset',
-        'total_samples', 'valid_samples', 'evaluated_at'
+        'total_samples', 'valid_samples', 'evaluated_at',
+        'model_id', 'dataset_id', 'task_type', 'name',
+        'status', 'created_at', 'updated_at', 'config',
+        'by_difficulty', 'by_topic', 'by_category',
+        'by_call_type', 'by_question_type',
+        'latency_stats', 'token_stats', 'cost_estimate',
+        'option_bias', 'exact_match', 'f1_score', 'bleu', 'rouge_l',
     ]);
     
     // =========================================================================
@@ -64,25 +70,25 @@ class ResultsVisualizer {
     // =========================================================================
     static METRIC_CARDS_BY_TASK = {
         qa: [
-            { key: 'exact_match',  label: '精确匹配',  icon: 'target',     color: '#22C55E', fmt: 'pct' },
-            { key: 'f1_score',     label: 'F1 分数',   icon: 'activity',   color: '#3B82F6', fmt: 'pct' },
-            { key: 'rouge_l',      label: 'ROUGE-L',   icon: 'align-left', color: '#8B5CF6', fmt: 'pct' },
-            { key: 'bleu',         label: 'BLEU',      icon: 'hash',       color: '#F59E0B', fmt: 'pct' },
+            { key: 'exact_match',  altKeys: ['accuracy'], label: '精确匹配',  icon: 'target',     color: '#22C55E', fmt: 'pct' },
+            { key: 'f1_score',     altKeys: ['avg_f1'],   label: 'F1 分数',   icon: 'activity',   color: '#3B82F6', fmt: 'pct' },
+            { key: 'rouge_l',      altKeys: ['avg_rouge_l_f1'], label: 'ROUGE-L', icon: 'align-left', color: '#8B5CF6', fmt: 'pct' },
+            { key: 'bleu',         altKeys: ['avg_bleu'], label: 'BLEU',      icon: 'hash',       color: '#F59E0B', fmt: 'pct' },
         ],
         text_exam: [
-            { key: 'choice_accuracy', label: '选择题准确率', icon: 'check-circle', color: '#22C55E', fmt: 'pct' },
-            { key: 'win_rate',        label: 'Win Rate',    icon: 'trophy',       color: '#F59E0B', fmt: 'pct' },
+            { key: 'choice_accuracy', altKeys: ['accuracy'], label: '选择题准确率', icon: 'check-circle', color: '#22C55E', fmt: 'pct' },
+            { key: 'win_rate',        altKeys: [],           label: 'Win Rate',    icon: 'trophy',       color: '#F59E0B', fmt: 'pct' },
         ],
         image_mcq: [
-            { key: 'choice_accuracy',      label: '选择题准确率',    icon: 'check-circle', color: '#22C55E', fmt: 'pct' },
-            { key: 'grounding_error_rate', label: 'Grounding错误率', icon: 'eye-off',      color: '#EF4444', fmt: 'pct' },
-            { key: 'win_rate',             label: 'Win Rate',       icon: 'trophy',       color: '#F59E0B', fmt: 'pct' },
+            { key: 'choice_accuracy',      altKeys: ['accuracy'], label: '选择题准确率',    icon: 'check-circle', color: '#22C55E', fmt: 'pct' },
+            { key: 'grounding_error_rate', altKeys: [],           label: 'Grounding错误率', icon: 'eye-off',      color: '#EF4444', fmt: 'pct' },
+            { key: 'win_rate',             altKeys: [],           label: 'Win Rate',       icon: 'trophy',       color: '#F59E0B', fmt: 'pct' },
         ],
         api_calling: [
-            { key: 'tool_selection_accuracy',  label: '工具选择准确率', icon: 'wrench',       color: '#3B82F6', fmt: 'pct' },
-            { key: 'parameter_accuracy',       label: '参数准确率',     icon: 'sliders',      color: '#22C55E', fmt: 'pct' },
-            { key: 'end_to_end_success_rate',  label: '端到端成功率',   icon: 'check-circle', color: '#8B5CF6', fmt: 'pct' },
-            { key: 'invalid_call_rate',        label: '无效调用率',     icon: 'x-circle',     color: '#EF4444', fmt: 'pct' },
+            { key: 'tool_selection_accuracy',  altKeys: ['accuracy'], label: '工具选择准确率', icon: 'wrench',       color: '#3B82F6', fmt: 'pct' },
+            { key: 'parameter_accuracy',       altKeys: ['accuracy'], label: '参数准确率',     icon: 'sliders',      color: '#22C55E', fmt: 'pct' },
+            { key: 'end_to_end_success_rate',  altKeys: ['rate'],     label: '端到端成功率',   icon: 'check-circle', color: '#8B5CF6', fmt: 'pct' },
+            { key: 'invalid_call_rate',        altKeys: ['rate'],     label: '无效调用率',     icon: 'x-circle',     color: '#EF4444', fmt: 'pct' },
         ],
     };
     
@@ -90,10 +96,10 @@ class ResultsVisualizer {
     // Efficiency metric card configs (universal)
     // =========================================================================
     static EFFICIENCY_CARDS = [
-        { key: 'avg_latency_ms',   label: '平均延迟',     icon: 'clock',       fmt: 'ms' },
-        { key: 'avg_tokens',       label: '平均Token',    icon: 'file-text',   fmt: 'int' },
-        { key: 'total_cost_usd',   label: '总成本',       icon: 'dollar-sign', fmt: 'usd' },
-        { key: 'avg_trace_tokens', label: '推理链Token',  icon: 'git-branch',  fmt: 'int' },
+        { key: 'avg_latency_ms',       altKeys: ['avg_ms'], label: '平均延迟',     icon: 'clock',       fmt: 'ms',  source: 'latency_stats' },
+        { key: 'tokens_per_sec',       altKeys: [],         label: 'Token/s',     icon: 'zap',         fmt: 'float', source: 'overall' },
+        { key: 'avg_completion_tokens', altKeys: [],         label: '平均输出Token', icon: 'file-text',   fmt: 'int', source: 'overall' },
+        { key: 'total_cost_usd',       altKeys: [],         label: '总成本',       icon: 'dollar-sign', fmt: 'usd', source: 'cost_estimate' },
     ];
     
     // =========================================================================
@@ -198,16 +204,49 @@ class ResultsVisualizer {
     }
     
     // =========================================================================
+    // Metric value extractor - handles nested registry wrapper output
+    // e.g. metrics.f1_score = {metric: "f1_score", avg_f1: 0.85, total: 100}
+    //      metrics.overall.f1_score = 0.85 (if flattened)
+    // =========================================================================
+    extractMetricValue(metrics, cardKey, altKeys = []) {
+        const overall = metrics.overall || {};
+        
+        // 1. Try overall[key] directly (flat numeric)
+        if (overall[cardKey] !== undefined && typeof overall[cardKey] === 'number') {
+            return overall[cardKey];
+        }
+        
+        // 2. Try top-level metrics[key] as nested dict from registry wrapper
+        const nested = metrics[cardKey];
+        if (nested && typeof nested === 'object') {
+            // Look for altKeys inside the nested dict
+            for (const ak of altKeys) {
+                if (nested[ak] !== undefined && typeof nested[ak] === 'number') return nested[ak];
+            }
+            // Common fallback keys inside wrapper dicts
+            for (const fk of ['accuracy', 'rate', 'avg', 'value', 'score']) {
+                if (nested[fk] !== undefined && typeof nested[fk] === 'number') return nested[fk];
+            }
+        }
+        
+        // 3. Try altKeys directly in overall
+        for (const ak of altKeys) {
+            if (overall[ak] !== undefined && typeof overall[ak] === 'number') return overall[ak];
+        }
+        
+        return undefined;
+    }
+    
+    // =========================================================================
     // Region B: Performance Metric Cards (task-type aware)
     // =========================================================================
     renderPerformanceCards(metrics, taskType) {
         if (!this.perfContainer) return;
         
         const cards = ResultsVisualizer.METRIC_CARDS_BY_TASK[taskType] || ResultsVisualizer.METRIC_CARDS_BY_TASK.qa;
-        const overall = metrics.overall || {};
         
         const html = cards.map(card => {
-            const value = overall[card.key];
+            const value = this.extractMetricValue(metrics, card.key, card.altKeys || []);
             const displayValue = value !== undefined ? this.formatValue(value, card.fmt) : '-';
             const rawDetail = this.getMetricDetail(metrics, card.key);
             
@@ -229,14 +268,17 @@ class ResultsVisualizer {
     }
     
     getMetricDetail(metrics, key) {
+        // Try to extract total from nested registry wrapper or overall
+        const nested = metrics[key];
         const overall = metrics.overall || {};
-        const total = overall.total_samples || metrics.total_samples || 0;
-        const value = overall[key];
+        const total = (nested && nested.total) || overall.total_samples || metrics.total_samples || 0;
+        const value = this.extractMetricValue(metrics, key, []);
         if (value === undefined || total === 0) return '';
         
-        if (['exact_match', 'choice_accuracy', 'f1_score', 'tool_selection_accuracy',
+        if (['exact_match', 'choice_accuracy', 'tool_selection_accuracy',
              'parameter_accuracy', 'end_to_end_success_rate'].includes(key)) {
-            const correct = Math.round(value * total);
+            // Nested wrapper may have 'correct' field
+            const correct = (nested && nested.correct !== undefined) ? nested.correct : Math.round(value * total);
             return `${correct}/${total} 样本`;
         }
         return '';
@@ -252,7 +294,23 @@ class ResultsVisualizer {
         const cards = ResultsVisualizer.EFFICIENCY_CARDS;
         
         const html = cards.map(card => {
-            const value = overall[card.key];
+            // Look up value from the appropriate source section
+            let value;
+            const src = card.source;
+            if (src && src !== 'overall' && metrics[src] && typeof metrics[src] === 'object') {
+                value = metrics[src][card.key];
+                if (value === undefined) {
+                    for (const ak of (card.altKeys || [])) {
+                        if (metrics[src][ak] !== undefined) { value = metrics[src][ak]; break; }
+                    }
+                }
+            }
+            if (value === undefined) value = overall[card.key];
+            if (value === undefined) {
+                for (const ak of (card.altKeys || [])) {
+                    if (overall[ak] !== undefined) { value = overall[ak]; break; }
+                }
+            }
             const displayValue = value !== undefined ? this.formatValue(value, card.fmt) : '-';
             
             return `
@@ -307,7 +365,6 @@ class ResultsVisualizer {
     }
     
     getPerformanceChartData(metrics, taskType) {
-        const overall = metrics.overall || {};
         const cards = ResultsVisualizer.METRIC_CARDS_BY_TASK[taskType] || ResultsVisualizer.METRIC_CARDS_BY_TASK.qa;
         
         const labels = [];
@@ -315,7 +372,7 @@ class ResultsVisualizer {
         const colors = [];
         
         for (const card of cards) {
-            const v = overall[card.key];
+            const v = this.extractMetricValue(metrics, card.key, card.altKeys || []);
             if (v !== undefined && typeof v === 'number') {
                 labels.push(card.label);
                 values.push(v * 100);
@@ -327,13 +384,20 @@ class ResultsVisualizer {
     }
     
     getLatencyChartData(metrics) {
-        const latency = metrics.latency_stats || {};
+        // latency_stats can be top-level or nested inside overall
+        const latency = metrics.latency_stats || metrics.overall?.latency_stats || {};
+        // Also try flattened keys from EfficiencyEvaluator output
+        const overall = metrics.overall || {};
         const labels = [];
         const values = [];
         
-        if (latency.avg_ms) { labels.push('平均延迟'); values.push(latency.avg_ms); }
-        if (latency.p50_ms) { labels.push('P50延迟'); values.push(latency.p50_ms); }
-        if (latency.p95_ms) { labels.push('P95延迟'); values.push(latency.p95_ms); }
+        const avgMs = latency.avg_ms || latency.avg_latency_ms || overall.avg_latency_ms;
+        const p50Ms = latency.p50_ms || latency.p50_latency_ms || overall.p50_latency_ms;
+        const p95Ms = latency.p95_ms || latency.p95_latency_ms || overall.p95_latency_ms;
+        
+        if (avgMs) { labels.push('平均延迟'); values.push(avgMs); }
+        if (p50Ms) { labels.push('P50延迟'); values.push(p50Ms); }
+        if (p95Ms) { labels.push('P95延迟'); values.push(p95Ms); }
         if (latency.min_ms) { labels.push('最小延迟'); values.push(latency.min_ms); }
         if (latency.max_ms) { labels.push('最大延迟'); values.push(latency.max_ms); }
         
@@ -847,6 +911,7 @@ class ResultsVisualizer {
             case 'ms': return value.toFixed(0) + ' ms';
             case 'usd': return '$' + value.toFixed(4);
             case 'int': return Math.round(value).toString();
+            case 'float': return value.toFixed(1);
             default: return typeof value === 'number' ? value.toFixed(2) : String(value);
         }
     }

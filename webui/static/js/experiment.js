@@ -1,44 +1,49 @@
 /**
- * Experiment Management Module - v2.0
+ * Experiment Management Module - v3.0
  * 
  * Inference and Evaluation are separated into two sub-tabs.
- * Inference: 3-step stepper with task_type aware dynamic fields.
+ * Inference: 7-section single-page scroll form with task_type awareness.
  * Evaluation: independent entry to run evaluation on existing predictions.
  */
 
 // =========================================================================
-// Default metrics by task type
+// Default metrics by task type (aligned with registry.py _METRIC_MAP keys)
 // =========================================================================
 const DEFAULT_METRICS_BY_TASK = {
     qa: {
         performance: ['exact_match', 'f1_score', 'rouge_l'],
         efficiency: ['latency_stats', 'token_stats', 'cost_estimate'],
-        optional: ['bleu', 'win_rate'],
+        optional: ['bleu', 'win_rate', 'avg_trace_tokens'],
+        rag: ['retrieval_hit_rate', 'evidence_hit_rate', 'answer_evidence_alignment'],
     },
     text_exam: {
         performance: ['choice_accuracy', 'option_bias'],
         efficiency: ['latency_stats', 'token_stats', 'cost_estimate'],
-        optional: ['win_rate'],
+        optional: ['win_rate', 'avg_trace_tokens'],
+        rag: ['retrieval_hit_rate', 'evidence_hit_rate', 'answer_evidence_alignment'],
     },
     image_mcq: {
         performance: ['choice_accuracy', 'option_bias'],
         efficiency: ['latency_stats', 'token_stats', 'cost_estimate'],
-        optional: ['win_rate'],
+        optional: ['win_rate', 'avg_trace_tokens'],
     },
     api_calling: {
-        performance: ['tool_selection_accuracy', 'parameter_accuracy', 'end_to_end_success_rate', 'invalid_call_rate'],
+        performance: ['tool_selection_accuracy', 'parameter_accuracy', 'end_to_end_success_rate', 'invalid_call_rate', 'avg_tool_calls'],
         efficiency: ['latency_stats', 'token_stats', 'cost_estimate'],
-        optional: ['avg_tool_calls'],
+        optional: ['avg_reasoning_steps', 'avg_trace_tokens'],
     },
 };
 
 const METRIC_LABELS = {
     exact_match: '精确匹配', f1_score: 'F1 分数', rouge_l: 'ROUGE-L', bleu: 'BLEU',
-    choice_accuracy: '选择题准确率', option_bias: '选项偏好', win_rate: '胜率',
+    choice_accuracy: '选择题准确率', option_bias: '选项偏置', win_rate: '胜率',
     tool_selection_accuracy: '工具选择准确率', parameter_accuracy: '参数准确率',
     end_to_end_success_rate: '端到端成功率', invalid_call_rate: '无效调用率',
-    avg_tool_calls: '平均工具调用', latency_stats: '延迟统计', token_stats: 'Token统计',
-    cost_estimate: '成本估算',
+    avg_tool_calls: '平均工具调用', avg_reasoning_steps: '平均推理步数',
+    avg_trace_tokens: '平均 Trace Token',
+    latency_stats: '延迟统计', token_stats: 'Token统计', cost_estimate: '成本估算',
+    retrieval_hit_rate: '检索命中率', evidence_hit_rate: '证据命中率',
+    answer_evidence_alignment: '答案-证据对齐',
 };
 
 const GROUP_OPTIONS = {
@@ -53,6 +58,9 @@ const GROUP_LABELS = {
     call_type: '按调用类型', category: '按类别',
 };
 
+// VLM-capable models (for image_mcq warning)
+const VLM_MODELS = ['gpt-4o', 'gpt-4-vision', 'gpt-4o-mini', 'claude-3-5-sonnet', 'claude-3-opus', 'qwen-vl'];
+
 // =========================================================================
 // ExperimentManager
 // =========================================================================
@@ -64,7 +72,6 @@ class ExperimentManager {
         
         this.currentExperiment = null;
         this.eventSource = null;
-        this.currentStep = 1;
         this.currentTaskType = null;
         this.currentDatasetId = null;
         this.datasetsCache = [];
@@ -177,18 +184,21 @@ class ExperimentManager {
     }
     
     // =====================================================================
-    // 3-Step Stepper for Inference
+    // Create Form (7-section single-page)
     // =====================================================================
     async showCreateForm() {
         const formCard = document.getElementById('create-experiment-form');
         if (formCard) formCard.classList.remove('hidden');
         
-        this.currentStep = 1;
         this.currentTaskType = null;
         this.currentDatasetId = null;
         
         await this.loadFormOptions();
-        this.renderStep(1);
+        this.renderDatasetCards();
+        this.updateTaskTypeSections();
+        this.renderInferMetrics('qa');
+        
+        if (window.lucide) lucide.createIcons();
     }
     
     hideCreateForm() {
@@ -204,75 +214,13 @@ class ExperimentManager {
             ]);
             this.datasetsCache = datasetsResp.datasets || [];
             this.modelsCache = modelsResp.models || [];
-            
-            // Populate model select dropdown
-            const modelSelect = document.getElementById('exp-model-select');
-            if (modelSelect) {
-                modelSelect.innerHTML = '<option value="">选择模型...</option>' +
-                    this.modelsCache.map(m => `<option value="${m.model_id}">${m.model_id} (${m.provider})</option>`).join('');
-            }
         } catch (error) {
             console.error('Failed to load form options:', error);
         }
     }
     
-    renderStep(step) {
-        this.currentStep = step;
-        
-        // Update step indicators
-        document.querySelectorAll('.step-item').forEach(item => {
-            const s = parseInt(item.dataset.step);
-            item.classList.remove('active', 'completed');
-            if (s === step) item.classList.add('active');
-            if (s < step) item.classList.add('completed');
-        });
-        
-        // Update step panels
-        document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
-        const panel = document.getElementById(`step-panel-${step}`);
-        if (panel) panel.classList.add('active');
-        
-        // Update nav buttons
-        const prevBtn = document.getElementById('step-prev-btn');
-        const nextBtn = document.getElementById('step-next-btn');
-        const submitBtn = document.getElementById('step-submit-btn');
-        
-        if (prevBtn) prevBtn.style.display = step > 1 ? '' : 'none';
-        if (nextBtn) nextBtn.style.display = step < 3 ? '' : 'none';
-        if (submitBtn) submitBtn.style.display = step === 3 ? '' : 'none';
-        
-        // Render step-specific content
-        if (step === 1) this.renderStep1();
-        if (step === 2) this.renderStep2();
-        if (step === 3) this.renderStep3();
-        
-        if (window.lucide) lucide.createIcons();
-    }
-    
-    nextStep() {
-        if (this.currentStep === 1) {
-            // Validate step 1
-            const name = document.querySelector('#step-panel-1 [name="name"]')?.value;
-            if (!name) { this.showNotification('error', '请输入实验名称'); return; }
-            if (!this.currentDatasetId) { this.showNotification('error', '请选择数据集'); return; }
-        }
-        if (this.currentStep === 2) {
-            const model = document.querySelector('#step-panel-2 [name="model_id"]')?.value;
-            if (!model) { this.showNotification('error', '请选择模型'); return; }
-        }
-        if (this.currentStep < 3) {
-            this.renderStep(this.currentStep + 1);
-        }
-    }
-    
-    prevStep() {
-        if (this.currentStep > 1) {
-            this.renderStep(this.currentStep - 1);
-        }
-    }
-    
-    // ----- Step 1: Data Selection -----
-    renderStep1() {
+    // ----- Section 1: Data Selection -----
+    renderDatasetCards() {
         const container = document.getElementById('step1-datasets');
         if (!container) return;
         
@@ -290,24 +238,23 @@ class ExperimentManager {
         container.innerHTML = `<div class="dataset-card-grid">
             ${this.datasetsCache.map(ds => `
                 <div class="dataset-select-card${this.currentDatasetId === ds.dataset_id ? ' selected' : ''}" 
-                     onclick="experimentManager.selectDataset('${ds.dataset_id}', '${ds.task_type || 'qa'}')">
+                     onclick="experimentManager.selectDataset('${ds.dataset_id}', '${ds.task_type || 'qa'}', ${ds.total_samples || 0})">
                     <div class="dataset-select-name">${ds.dataset_id}</div>
                     <div class="dataset-select-meta">
                         <span class="badge badge-info">${ds.task_type || 'qa'}</span>
-                        <span>${ds.total_samples} 样本</span>
+                        <span>${ds.total_samples || 0} 样本</span>
                     </div>
                 </div>
             `).join('')}
         </div>`;
     }
     
-    selectDataset(datasetId, taskType) {
+    selectDataset(datasetId, taskType, totalSamples) {
         this.currentDatasetId = datasetId;
         this.currentTaskType = taskType;
         
         // Update visual selection
         document.querySelectorAll('.dataset-select-card').forEach(c => c.classList.remove('selected'));
-        // Find the clicked card by dataset_id and mark it selected
         document.querySelectorAll('.dataset-select-card').forEach(c => {
             if (c.querySelector('.dataset-select-name')?.textContent === datasetId) {
                 c.classList.add('selected');
@@ -315,93 +262,167 @@ class ExperimentManager {
         });
         
         // Update hidden select
-        const hiddenSelect = document.querySelector('#step-panel-1 [name="dataset_id"]');
+        const hiddenSelect = document.querySelector('[name="dataset_id"]');
         if (hiddenSelect) hiddenSelect.value = datasetId;
         
+        // Show task type badge
+        const badge = document.getElementById('task-type-badge');
+        if (badge) {
+            badge.style.display = 'block';
+            badge.innerHTML = `<span class="badge badge-info" style="font-size:13px;">task_type: ${taskType}</span>` +
+                (totalSamples ? ` <span class="text-muted" style="font-size:12px;">共 ${totalSamples} 条</span>` : '');
+        }
+        
         // Auto-fill experiment name
-        const nameInput = document.querySelector('#step-panel-1 [name="name"]');
+        const nameInput = document.querySelector('#experiment-form [name="name"]');
         if (nameInput && !nameInput.value) {
             nameInput.value = `${datasetId}_test`;
         }
+        
+        // Update max_samples placeholder
+        const maxInput = document.querySelector('[name="max_samples"]');
+        if (maxInput && totalSamples) maxInput.placeholder = `全部 (${totalSamples})`;
+        
+        // Update task-type-dependent sections
+        this.updateTaskTypeSections();
+        this.renderInferMetrics(taskType);
+        
+        if (window.lucide) lucide.createIcons();
     }
     
-    // ----- Step 2: Inference Config (task_type aware) -----
-    renderStep2() {
-        const container = document.getElementById('step2-dynamic');
-        if (!container) return;
+    updateTaskTypeSections() {
+        const tt = this.currentTaskType;
         
-        let dynamicHtml = '';
+        // Section 4: RAG (show for text_exam / qa)
+        const ragSection = document.getElementById('section-rag');
+        if (ragSection) ragSection.style.display = (tt === 'text_exam' || tt === 'qa') ? 'block' : 'none';
         
-        // RAG config for text_exam / qa
-        if (this.currentTaskType === 'text_exam' || this.currentTaskType === 'qa') {
-            dynamicHtml += this.renderRAGConfig();
+        // Section 5: Tools (show for api_calling)
+        const toolsSection = document.getElementById('section-tools');
+        if (toolsSection) {
+            toolsSection.style.display = tt === 'api_calling' ? 'block' : 'none';
+            if (tt === 'api_calling') this.loadToolSchemas();
         }
         
-        // Tool config for api_calling
-        if (this.currentTaskType === 'api_calling') {
-            dynamicHtml += this.renderToolConfig();
+        // Strategy: show ReAct only for api_calling
+        const reactCard = document.getElementById('strategy-react-card');
+        if (reactCard) reactCard.style.display = tt === 'api_calling' ? '' : 'none';
+        
+        // VLM warning
+        this.updateVlmWarning();
+    }
+    
+    // ----- Section 2: Provider / Model linking -----
+    onProviderChange(provider) {
+        const modelSelect = document.getElementById('exp-model-select');
+        if (!modelSelect) return;
+        
+        // Filter models by provider
+        const filtered = this.modelsCache.filter(m => m.provider === provider);
+        if (filtered.length > 0) {
+            modelSelect.innerHTML = '<option value="">选择模型...</option>' +
+                filtered.map(m => `<option value="${m.model_id}">${m.model_id}</option>`).join('');
+        } else {
+            modelSelect.innerHTML = '<option value="">该 Provider 暂无配置模型</option>';
         }
         
-        // VLM warning for image_mcq
+        // Hide API key field for Ollama
+        const apiKeyGroup = document.getElementById('api-key-group');
+        if (apiKeyGroup) apiKeyGroup.style.display = provider === 'ollama' ? 'none' : '';
+        
+        // Pre-fill base URL from model config
+        if (filtered.length > 0 && filtered[0].config_file) {
+            // Base URL will be loaded from config if available
+        }
+        
+        this.updateVlmWarning();
+    }
+    
+    updateVlmWarning() {
+        const warning = document.getElementById('vlm-warning');
+        if (!warning) return;
+        
         if (this.currentTaskType === 'image_mcq') {
-            dynamicHtml += `
-                <div class="alert alert-info" id="vlm-warning" style="margin-top:12px;">
-                    <i data-lucide="info" style="width:16px;height:16px;"></i>
-                    图像任务需要支持多模态的模型（VLM）。请选择支持视觉输入的模型。
-                </div>
-            `;
+            const modelId = document.getElementById('exp-model-select')?.value || '';
+            const isVlm = VLM_MODELS.some(v => modelId.toLowerCase().includes(v));
+            warning.style.display = (modelId && !isVlm) ? 'block' : 'none';
+        } else {
+            warning.style.display = 'none';
         }
-        
-        container.innerHTML = dynamicHtml;
     }
     
-    renderRAGConfig() {
-        return `
-            <div class="form-section" style="margin-top:16px;">
-                <div class="form-section-title"><i data-lucide="book-open" style="width:16px;height:16px;"></i> RAG 配置</div>
-                <div class="rag-mode-grid">
-                    <label class="rag-mode-card selected" onclick="experimentManager.selectRAGMode('closed', this)">
-                        <input type="radio" name="rag_mode" value="closed" checked>
-                        <div class="rag-mode-title">Closed-book</div>
-                        <div class="rag-mode-desc">不使用外部知识，直接作答</div>
-                    </label>
-                    <label class="rag-mode-card" onclick="experimentManager.selectRAGMode('oracle', this)">
-                        <input type="radio" name="rag_mode" value="oracle">
-                        <div class="rag-mode-title">Oracle RAG</div>
-                        <div class="rag-mode-desc">使用标注好的正确知识块</div>
-                    </label>
-                    <label class="rag-mode-card" onclick="experimentManager.selectRAGMode('retrieved', this)">
-                        <input type="radio" name="rag_mode" value="retrieved">
-                        <div class="rag-mode-title">Retrieved RAG</div>
-                        <div class="rag-mode-desc">从知识库自动检索</div>
-                    </label>
-                </div>
-                <div id="rag-retrieved-options" style="display:none;margin-top:12px;">
-                    <div class="flex gap-md">
-                        <div class="form-group flex-1">
-                            <label class="form-label">知识库</label>
-                            <select name="kb_name" class="form-select" id="rag-kb-select">
-                                <option value="">选择知识库...</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Top-K 召回数</label>
-                            <input type="number" name="top_k" class="form-input" value="3" min="1" max="20" style="width:80px;">
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
+    async testConnection() {
+        const modelId = document.getElementById('exp-model-select')?.value;
+        const apiKey = document.getElementById('exp-api-key')?.value;
+        const baseUrl = document.getElementById('exp-base-url')?.value;
+        const resultEl = document.getElementById('ping-result');
+        
+        if (!modelId) {
+            this.showNotification('error', '请先选择模型');
+            return;
+        }
+        
+        if (resultEl) {
+            resultEl.style.display = 'block';
+            resultEl.innerHTML = '<span class="text-muted">正在测试连接...</span>';
+        }
+        
+        // Set API key for this session if provided
+        if (apiKey) {
+            const provider = document.getElementById('exp-provider-select')?.value;
+            try {
+                await API.Models.setApiKey(provider, apiKey);
+            } catch (e) {
+                console.warn('Failed to set API key:', e);
+            }
+        }
+        
+        try {
+            const start = Date.now();
+            const resp = await API.Models.ping(modelId);
+            const latency = Date.now() - start;
+            if (resultEl) {
+                resultEl.innerHTML = `<span style="color:var(--success-color);font-weight:600;">✓ 连接成功</span> <span class="text-muted">延迟 ${latency}ms</span>`;
+            }
+        } catch (error) {
+            if (resultEl) {
+                resultEl.innerHTML = `<span style="color:var(--error-color);font-weight:600;">✗ 连接失败</span> <span class="text-muted">${error.message}</span>`;
+            }
+        }
+    }
+    
+    // ----- Section 4: RAG Config -----
+    onRagToggle(checked) {
+        const body = document.getElementById('rag-config-body');
+        if (body) body.style.display = checked ? 'block' : 'none';
     }
     
     selectRAGMode(mode, el) {
         document.querySelectorAll('.rag-mode-card').forEach(c => c.classList.remove('selected'));
         el.classList.add('selected');
         
-        const retrievedOptions = document.getElementById('rag-retrieved-options');
-        if (retrievedOptions) {
-            retrievedOptions.style.display = mode === 'retrieved' ? 'block' : 'none';
-            if (mode === 'retrieved') this.loadKnowledgeBases();
+        const oracleOpts = document.getElementById('rag-oracle-options');
+        const retrievedOpts = document.getElementById('rag-retrieved-options');
+        
+        if (oracleOpts) oracleOpts.style.display = mode === 'oracle' ? 'block' : 'none';
+        if (retrievedOpts) retrievedOpts.style.display = mode === 'retrieved' ? 'block' : 'none';
+        
+        if (mode === 'oracle') this.loadOracleFiles();
+        if (mode === 'retrieved') this.loadKnowledgeBases();
+    }
+    
+    async loadOracleFiles() {
+        // Load JSONL files that contain chunk data from the datasets
+        const select = document.getElementById('rag-oracle-file-select');
+        if (!select) return;
+        
+        try {
+            const resp = await API.Datasets.list();
+            const datasets = resp.datasets || [];
+            select.innerHTML = '<option value="">选择含 chunk 的 JSONL 文件...</option>' +
+                datasets.map(ds => `<option value="${ds.dataset_id}">${ds.dataset_id} (${ds.total_samples} 条)</option>`).join('');
+        } catch (e) {
+            console.warn('Failed to load oracle files:', e);
         }
     }
     
@@ -422,61 +443,148 @@ class ExperimentManager {
         }
     }
     
-    renderToolConfig() {
-        return `
-            <div class="form-section" style="margin-top:16px;">
-                <div class="form-section-title"><i data-lucide="wrench" style="width:16px;height:16px;"></i> 工具配置</div>
-                <div class="tool-checkboxes" id="tool-checkboxes">
-                    <label class="tool-checkbox">
-                        <input type="checkbox" name="tools" value="search_api" checked> search_api
-                    </label>
-                </div>
-                <div class="form-group" style="margin-top:8px;">
-                    <label class="form-label" style="font-size:12px;">
-                        <input type="checkbox" name="mock_mode" checked style="margin-right:6px;"> 使用 Mock responses
-                    </label>
-                </div>
-            </div>
-        `;
+    // ----- Section 5: Tool Config -----
+    async loadToolSchemas() {
+        const container = document.getElementById('tool-checkboxes');
+        if (!container) return;
+        
+        try {
+            // Try to load tool schemas from backend
+            const resp = await fetch('/api/v1/tools');
+            if (resp.ok) {
+                const data = await resp.json();
+                const tools = data.data?.tools || data.tools || [];
+                if (tools.length > 0) {
+                    container.innerHTML = tools.map(t => `
+                        <label><input type="checkbox" name="tools" value="${t.tool_id || t}" checked> <span>${t.tool_id || t}</span></label>
+                    `).join('');
+                    return;
+                }
+            }
+        } catch (e) {
+            // Fallback to defaults
+        }
+        
+        // Fallback: show default tool list
+        const defaultTools = ['search_api', 'tool_elec_0001', 'tool_elec_0002', 'tool_elec_0003'];
+        container.innerHTML = defaultTools.map(t => `
+            <label><input type="checkbox" name="tools" value="${t}" checked> <span>${t}</span></label>
+        `).join('');
     }
     
-    // ----- Step 3: Run Parameters -----
-    renderStep3() {
-        // Step 3 is static HTML, no dynamic rendering needed
+    // ----- Section 7: Metrics auto-fill -----
+    renderInferMetrics(taskType) {
+        const config = DEFAULT_METRICS_BY_TASK[taskType] || DEFAULT_METRICS_BY_TASK.qa;
+        
+        // Performance metrics (auto-checked)
+        const perfContainer = document.getElementById('infer-perf-metrics');
+        if (perfContainer) {
+            perfContainer.innerHTML = config.performance.map(m => `
+                <label><input type="checkbox" name="infer_metrics" value="${m}" checked> <span>${METRIC_LABELS[m] || m}</span></label>
+            `).join('');
+        }
+        
+        // Efficiency metrics (auto-checked)
+        const effContainer = document.getElementById('infer-eff-metrics');
+        if (effContainer) {
+            effContainer.innerHTML = config.efficiency.map(m => `
+                <label><input type="checkbox" name="infer_metrics" value="${m}" checked> <span>${METRIC_LABELS[m] || m}</span></label>
+            `).join('');
+        }
+        
+        // Optional metrics (unchecked by default)
+        const optContainer = document.getElementById('infer-opt-metrics');
+        if (optContainer) {
+            const optional = [...(config.optional || [])];
+            // Add RAG metrics if RAG is enabled
+            const ragToggle = document.getElementById('rag-toggle');
+            const ragMode = document.querySelector('input[name="rag_mode"]:checked')?.value;
+            if (ragToggle?.checked && ragMode === 'retrieved' && config.rag) {
+                optional.push(...config.rag);
+            }
+            optContainer.innerHTML = optional.map(m => `
+                <label><input type="checkbox" name="infer_metrics" value="${m}"> <span>${METRIC_LABELS[m] || m}</span></label>
+            `).join('');
+        }
+        
+        // Group dimensions
+        const groupContainer = document.getElementById('infer-group-dims');
+        if (groupContainer) {
+            const groups = GROUP_OPTIONS[taskType] || GROUP_OPTIONS.qa;
+            groupContainer.innerHTML = groups.map((g, i) => `
+                <label><input type="checkbox" name="infer_groups" value="${g}" ${i === 0 ? 'checked' : ''}> <span>${GROUP_LABELS[g] || g}</span></label>
+            `).join('');
+        }
     }
     
     // =====================================================================
     // Form Submission
     // =====================================================================
     getFormData() {
-        const name = document.querySelector('#step-panel-1 [name="name"]')?.value || '';
-        const description = document.querySelector('#step-panel-1 [name="description"]')?.value || '';
-        const dataset_id = this.currentDatasetId || '';
-        const split = document.querySelector('#step-panel-1 [name="split"]')?.value || 'test';
-        const max_samples = parseInt(document.querySelector('#step-panel-1 [name="max_samples"]')?.value) || null;
+        const form = document.getElementById('experiment-form');
+        if (!form) return {};
         
-        const model_id = document.querySelector('#step-panel-2 [name="model_id"]')?.value || '';
+        const val = (name) => form.querySelector(`[name="${name}"]`)?.value || '';
+        const intVal = (name, def) => {
+            const v = form.querySelector(`[name="${name}"]`)?.value;
+            return v ? parseInt(v) : def;
+        };
+        const floatVal = (name, def) => {
+            const v = form.querySelector(`[name="${name}"]`)?.value;
+            return v !== '' && v !== undefined ? parseFloat(v) : def;
+        };
+        
         const strategyCard = document.querySelector('.strategy-card.selected');
         const strategy = strategyCard?.dataset.strategy || 'direct';
         
-        const concurrency = parseInt(document.querySelector('#step-panel-3 [name="concurrency"]')?.value) || 5;
-        const retry_times = parseInt(document.querySelector('#step-panel-3 [name="retry_times"]')?.value) || 3;
-        
         // RAG config
-        const ragMode = document.querySelector('input[name="rag_mode"]:checked')?.value || 'closed';
+        const ragToggle = document.getElementById('rag-toggle');
+        const ragEnabled = ragToggle?.checked || false;
+        const ragMode = ragEnabled ? (document.querySelector('input[name="rag_mode"]:checked')?.value || 'closed') : 'closed';
         const rag = {
-            enabled: ragMode !== 'closed',
+            enabled: ragEnabled && ragMode !== 'closed',
             mode: ragMode,
-            kb_name: document.querySelector('[name="kb_name"]')?.value || null,
-            top_k: parseInt(document.querySelector('[name="top_k"]')?.value) || 3,
+            kb_name: val('kb_name') || null,
+            top_k: intVal('top_k', 3),
+            oracle_chunks_file: val('oracle_chunks_file') || null,
         };
         
+        // Tool config
+        const tools = Array.from(form.querySelectorAll('input[name="tools"]:checked')).map(cb => cb.value);
+        const toolExecMode = document.querySelector('input[name="tool_exec_mode"]:checked')?.value || 'mock';
+        const maxToolSteps = intVal('max_tool_steps', 10);
+        
+        // Eval metrics and groups
+        const metrics = Array.from(form.querySelectorAll('input[name="infer_metrics"]:checked')).map(cb => cb.value);
+        const groupBy = Array.from(form.querySelectorAll('input[name="infer_groups"]:checked')).map(cb => cb.value);
+        
+        // API key / base_url (session-only)
+        const apiKey = val('api_key');
+        const baseUrl = val('base_url');
+        
         return {
-            name, description, dataset_id, split, max_samples,
-            model_id, strategy,
+            name: val('name'),
+            description: val('description'),
+            dataset_id: this.currentDatasetId || '',
+            split: val('split') || 'test',
+            max_samples: intVal('max_samples', null),
+            model_id: val('model_id'),
+            strategy,
             rag,
-            runner: { concurrency, retry_times, resume: true },
-            eval: { metrics: [], group_by: [] },
+            tools: this.currentTaskType === 'api_calling' ? { available_tools: tools, exec_mode: toolExecMode, max_steps: maxToolSteps } : undefined,
+            runner: {
+                concurrency: intVal('concurrency', 5),
+                retry_times: intVal('retry_times', 3),
+                seed: intVal('seed', null),
+                resume: form.querySelector('[name="resume"]')?.checked ?? true,
+                request_timeout_s: intVal('request_timeout_s', 60),
+                temperature: floatVal('temperature', 0.0),
+                max_tokens: intVal('max_tokens', 2048),
+                batch_size: intVal('batch_size', 10),
+            },
+            eval: { metrics, group_by: groupBy },
+            _api_key: apiKey || undefined,
+            _base_url: baseUrl || undefined,
         };
     }
     
@@ -486,6 +594,12 @@ class ExperimentManager {
         if (!config.dataset_id) { this.showNotification('error', '请选择数据集'); return; }
         if (!config.model_id) { this.showNotification('error', '请选择模型'); return; }
         
+        // Set API key if provided
+        if (config._api_key) {
+            const provider = document.getElementById('exp-provider-select')?.value;
+            try { await API.Models.setApiKey(provider, config._api_key); } catch (e) { /* ignore */ }
+        }
+        
         await this.createExperiment(config);
     }
     
@@ -494,6 +608,12 @@ class ExperimentManager {
         if (!config.name) { this.showNotification('error', '请输入实验名称'); return; }
         if (!config.dataset_id) { this.showNotification('error', '请选择数据集'); return; }
         if (!config.model_id) { this.showNotification('error', '请选择模型'); return; }
+        
+        // Set API key if provided
+        if (config._api_key) {
+            const provider = document.getElementById('exp-provider-select')?.value;
+            try { await API.Models.setApiKey(provider, config._api_key); } catch (e) { /* ignore */ }
+        }
         
         try {
             const result = await this.createExperiment(config);
@@ -680,12 +800,13 @@ class ExperimentManager {
         if (evalBtn) evalBtn.classList.add('active');
         if (evalPanel) evalPanel.classList.add('active');
         
-        // Pre-fill the experiment select
-        const select = document.getElementById('eval-experiment-select');
-        if (select) {
-            select.value = experimentId;
-            this.onEvalExperimentChange(experimentId);
-        }
+        this.loadEvalExperiments().then(() => {
+            const select = document.getElementById('eval-experiment-select');
+            if (select) {
+                select.value = experimentId;
+                this.onEvalExperimentChange(experimentId);
+            }
+        });
     }
     
     async loadEvalExperiments() {
@@ -704,7 +825,6 @@ class ExperimentManager {
     async onEvalExperimentChange(experimentId) {
         if (!experimentId) return;
         
-        // Infer task type from experiment
         try {
             const exp = await API.Experiments.get(experimentId);
             const taskType = this.inferTaskTypeFromDatasetId(exp.dataset_id);
@@ -735,10 +855,7 @@ class ExperimentManager {
         const defaultChecked = new Set([...config.performance, ...config.efficiency]);
         
         container.innerHTML = allMetrics.map(m => `
-            <label class="eval-checkbox">
-                <input type="checkbox" name="eval_metrics" value="${m}" ${defaultChecked.has(m) ? 'checked' : ''}>
-                <span>${METRIC_LABELS[m] || m}</span>
-            </label>
+            <label><input type="checkbox" name="eval_metrics" value="${m}" ${defaultChecked.has(m) ? 'checked' : ''}> <span>${METRIC_LABELS[m] || m}</span></label>
         `).join('');
     }
     
@@ -749,10 +866,7 @@ class ExperimentManager {
         const groups = GROUP_OPTIONS[taskType] || GROUP_OPTIONS.qa;
         
         container.innerHTML = groups.map((g, i) => `
-            <label class="eval-checkbox">
-                <input type="checkbox" name="eval_groups" value="${g}" ${i < 2 ? 'checked' : ''}>
-                <span>${GROUP_LABELS[g] || g}</span>
-            </label>
+            <label><input type="checkbox" name="eval_groups" value="${g}" ${i < 2 ? 'checked' : ''}> <span>${GROUP_LABELS[g] || g}</span></label>
         `).join('');
     }
     

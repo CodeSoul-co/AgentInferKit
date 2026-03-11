@@ -506,6 +506,15 @@ const Models = {
     async ping(modelId) {
         return post(`/models/${modelId}/ping`);
     },
+    
+    /**
+     * Set API key for a provider (session-only)
+     * @param {string} provider - Provider name (e.g. 'openai')
+     * @param {string} apiKey - API key value
+     */
+    async setApiKey(provider, apiKey) {
+        return post('/models/api-key', { provider, api_key: apiKey });
+    },
 };
 
 // =============================================================================

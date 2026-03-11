@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Body, HTTPException
 
 from .schemas import (
     ModelInfo,
@@ -154,6 +154,43 @@ async def list_models():
     
     return ResponseEnvelope(
         data=ModelListResponse(models=model_infos)
+    )
+
+
+@router.post(
+    "/api-key",
+    response_model=ResponseEnvelope[Dict[str, Any]],
+    summary="Set API key for a provider (session-only)",
+)
+async def set_api_key(body: Dict[str, Any] = Body(...)):
+    """
+    Set an API key for a provider in the current process environment.
+    This is session-only and does NOT persist to .env file.
+    """
+    import os
+
+    provider = body.get("provider", "")
+    api_key = body.get("api_key", "")
+
+    if not provider or not api_key:
+        raise HTTPException(status_code=400, detail="provider and api_key are required")
+
+    env_var_map = {
+        "deepseek": "DEEPSEEK_API_KEY",
+        "openai": "OPENAI_API_KEY",
+        "anthropic": "ANTHROPIC_API_KEY",
+        "qwen": "DASHSCOPE_API_KEY",
+        "huggingface": "HF_TOKEN",
+    }
+
+    env_var = env_var_map.get(provider)
+    if not env_var:
+        raise HTTPException(status_code=400, detail=f"Unknown provider: {provider}")
+
+    os.environ[env_var] = api_key
+
+    return ResponseEnvelope(
+        data={"provider": provider, "env_var": env_var, "status": "set"}
     )
 
 
