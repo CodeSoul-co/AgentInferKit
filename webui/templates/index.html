@@ -102,7 +102,7 @@
             <div class="flex gap-md">
                 <div class="form-group flex-1">
                     <label class="form-label" data-i18n="datasets.task_type">任务类型</label>
-                    <select id="task-type" class="form-select">
+                    <select id="task-type" class="form-select" onchange="updateTaskTypeHint(this.value)">
                         <option value="qa" data-i18n="datasets.task_type.qa">问答 (QA)</option>
                         <option value="text_exam" data-i18n="datasets.task_type.text_exam">文本选择题</option>
                         <option value="image_mcq" data-i18n="datasets.task_type.image_mcq">图片选择题</option>
@@ -114,6 +114,7 @@
                     <input type="text" id="dataset-name" class="form-input" placeholder="留空则使用文件名" data-i18n-placeholder="datasets.name_placeholder">
                 </div>
             </div>
+            <div id="task-type-hint" class="form-hint" style="margin-bottom:12px;padding:10px 14px;background:var(--bg-secondary);border-radius:var(--border-radius-md);font-size:13px;line-height:1.6;"></div>
             <div class="form-group">
                 <label class="form-label" data-i18n="datasets.upload_file">上传文件</label>
                 <div id="drop-zone" class="drop-zone">
@@ -747,6 +748,49 @@
 
 {% block extra_js %}
 <script>
+    // Task type hint for dataset upload
+    const TASK_TYPE_HINTS = {
+        qa: {
+            required: ['sample_id', 'question', 'answer'],
+            optional: ['difficulty', 'topic', 'explanation', 'context'],
+            desc: '开放式问答任务，模型需生成文本答案',
+            example: '{"sample_id":"q1", "question":"什么是RAG？", "answer":"检索增强生成", "difficulty":"easy"}'
+        },
+        text_exam: {
+            required: ['sample_id', 'question', 'options', 'answer'],
+            optional: ['difficulty', 'topic', 'explanation'],
+            desc: '文本选择题，模型需从选项中选择正确答案（A/B/C/D）',
+            example: '{"sample_id":"e1", "question":"1+1=?", "options":{"A":"1","B":"2","C":"3","D":"4"}, "answer":"B"}'
+        },
+        image_mcq: {
+            required: ['sample_id', 'image_path', 'question', 'options', 'answer'],
+            optional: ['difficulty', 'topic'],
+            desc: '图片选择题，需要支持多模态的模型（VLM），数据集须包含图片路径',
+            example: '{"sample_id":"i1", "image_path":"images/001.png", "question":"图中是什么？", "options":{"A":"猫","B":"狗"}, "answer":"A"}'
+        },
+        api_calling: {
+            required: ['sample_id', 'instruction', 'tools'],
+            optional: ['difficulty', 'expected_calls', 'category'],
+            desc: 'API/工具调用任务，模型需要选择正确的工具并填入参数',
+            example: '{"sample_id":"a1", "instruction":"查询北京天气", "tools":[{"name":"get_weather","parameters":{...}}]}'
+        }
+    };
+
+    function updateTaskTypeHint(taskType) {
+        const hint = TASK_TYPE_HINTS[taskType];
+        const el = document.getElementById('task-type-hint');
+        if (!el || !hint) return;
+        el.innerHTML = `
+            <div style="margin-bottom:6px;"><strong>${hint.desc}</strong></div>
+            <div style="color:var(--text-secondary);">
+                <span style="color:var(--error-color);font-weight:600;">必填：</span>${hint.required.map(f => '<code style="background:var(--bg-tertiary);padding:1px 5px;border-radius:3px;font-size:12px;">' + f + '</code>').join(' ')}
+                &nbsp;&nbsp;
+                <span style="color:var(--text-muted);font-weight:500;">可选：</span>${hint.optional.map(f => '<code style="background:var(--bg-tertiary);padding:1px 5px;border-radius:3px;font-size:12px;">' + f + '</code>').join(' ')}
+            </div>
+            <div style="margin-top:6px;font-family:monospace;font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${hint.example.replace(/"/g, '&quot;')}">示例: ${hint.example}</div>
+        `;
+    }
+
     // Strategy card selection
     function selectStrategy(card) {
         document.querySelectorAll('.strategy-card').forEach(c => c.classList.remove('selected'));
@@ -1251,6 +1295,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         refreshDashboard();
         refreshDatasetsList();
+        updateTaskTypeHint(document.getElementById('task-type')?.value || 'qa');
 
         // Initialize uploader manually if not already initialized
         if (typeof initUploader === 'function') {
