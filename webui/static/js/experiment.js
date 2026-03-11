@@ -170,6 +170,9 @@ class ExperimentManager {
                                     <button class="btn btn-secondary btn-sm" onclick="viewResults('${exp.experiment_id}')">
                                         <i data-lucide="eye" style="width:14px;height:14px;"></i> 结果
                                     </button>
+                                    <button class="btn btn-secondary btn-sm" onclick="experimentManager.showPredictionDetail('${exp.experiment_id}')">
+                                        <i data-lucide="file-search" style="width:14px;height:14px;"></i> 详情
+                                    </button>
                                 ` : ''}
                                 <button class="btn btn-danger btn-sm" onclick="experimentManager.deleteExperiment('${exp.experiment_id}')">
                                     <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
@@ -810,6 +813,116 @@ class ExperimentManager {
         }
     }
     
+    // =====================================================================
+    // Prediction Detail Panel (reasoning trace, params, RAG trace)
+    // =====================================================================
+    async showPredictionDetail(experimentId) {
+        // Show detail panel below the experiment list
+        let panel = document.getElementById('exp-detail-panel');
+        if (!panel) {
+            panel = document.createElement('div');
+            panel.id = 'exp-detail-panel';
+            panel.className = 'card mb-lg';
+            if (this.listContainer) this.listContainer.parentNode.insertBefore(panel, this.listContainer.nextSibling);
+        }
+        panel.innerHTML = `
+            <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                <span><i data-lucide="file-search" style="width:16px;height:16px;"></i> 推理详情 — ${experimentId}</span>
+                <button class="btn btn-secondary btn-sm" onclick="document.getElementById('exp-detail-panel').remove()">关闭</button>
+            </div>
+            <div class="card-body" id="exp-detail-body">
+                <div style="padding:20px;text-align:center;color:var(--text-muted);">加载中...</div>
+            </div>`;
+        if (window.lucide) lucide.createIcons();
+
+        try {
+            const result = await API.Results.getPredictions(experimentId, { offset: 0, limit: 50 });
+            const predictions = result.items || result.predictions || [];
+            const body = document.getElementById('exp-detail-body');
+            if (!body) return;
+
+            if (predictions.length === 0) {
+                body.innerHTML = '<div style="padding:20px;color:var(--text-muted);">暂无推理结果</div>';
+                return;
+            }
+
+            body.innerHTML = predictions.map((p, idx) => {
+                const sid = p.sample_id || '-';
+                const hasTrace = p.reasoning_trace && (typeof p.reasoning_trace === 'string' ? p.reasoning_trace.trim() : true);
+                const traceText = hasTrace ? (typeof p.reasoning_trace === 'string' ? p.reasoning_trace : JSON.stringify(p.reasoning_trace, null, 2)) : '';
+                const rawOutput = p.raw_output || '';
+                const hasRag = p.rag_context && p.rag_context.mode;
+                const latency = p.usage?.latency_ms || 0;
+                const tokens = p.usage?.total_tokens || 0;
+
+                let ragHtml = '';
+                if (hasRag) {
+                    const rc = p.rag_context;
+                    const chunks = (rc.retrieved_chunks || []).map((c, ci) =>
+                        `<div style="margin-bottom:8px;padding:8px;background:var(--bg-primary);border-radius:4px;border:1px solid var(--border-color);">
+                            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-bottom:4px;">
+                                <span><strong>${this._escHtml(c.chunk_id || 'chunk_' + ci)}</strong></span>
+                                <span>score: ${c.score != null ? c.score.toFixed(4) : '-'}${c.topic ? ' | topic: ' + this._escHtml(c.topic) : ''}</span>
+                            </div>
+                            <div style="font-size:12px;line-height:1.5;color:var(--text-secondary);max-height:120px;overflow-y:auto;">${this._escHtml(c.text || '').substring(0, 500)}</div>
+                        </div>`
+                    ).join('');
+                    ragHtml = `
+                        <div style="margin-top:6px;">
+                            <div style="cursor:pointer;font-size:12px;color:var(--primary-color);font-weight:600;"
+                                 onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('.arrow').textContent = this.nextElementSibling.style.display === 'none' ? '▶' : '▼';">
+                                <span class="arrow">▶</span> RAG 轨迹 (mode: ${this._escHtml(rc.mode)}${rc.retrieval_latency_ms ? ', ' + rc.retrieval_latency_ms.toFixed(0) + 'ms' : ''}, ${(rc.retrieved_chunks || []).length} chunks)
+                            </div>
+                            <div style="display:none;margin-top:6px;">
+                                ${rc.query_text ? '<div style="font-size:12px;margin-bottom:6px;"><strong>Query:</strong> ' + this._escHtml(rc.query_text) + '</div>' : ''}
+                                ${rc.source_qa_ids ? '<div style="font-size:12px;margin-bottom:6px;"><strong>Source QA IDs:</strong> ' + this._escHtml(JSON.stringify(rc.source_qa_ids)) + '</div>' : ''}
+                                ${chunks}
+                            </div>
+                        </div>`;
+                }
+
+                return `
+                    <div style="border:1px solid var(--border-color);border-radius:8px;padding:12px;margin-bottom:10px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                            <span style="font-family:monospace;font-size:13px;font-weight:600;">${this._escHtml(sid)}</span>
+                            <span style="font-size:12px;color:var(--text-muted);">
+                                ${p.model ? 'Model: ' + this._escHtml(p.model) : ''} ${p.strategy ? '| Strategy: ' + this._escHtml(p.strategy) : ''}
+                                | ${tokens} tokens | ${latency}ms
+                                ${p.correct === true ? ' <span style="color:var(--success-color);">✓</span>' : p.correct === false ? ' <span style="color:var(--error-color);">✗</span>' : ''}
+                            </span>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;margin-bottom:6px;">
+                            <div><strong>预测:</strong> ${this._escHtml(p.parsed_answer || '-')}</div>
+                            <div><strong>正确答案:</strong> ${this._escHtml(p.ground_truth || '-')}</div>
+                        </div>
+                        ${hasTrace ? `
+                            <div style="cursor:pointer;font-size:12px;color:var(--primary-color);font-weight:600;"
+                                 onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('.arrow').textContent = this.nextElementSibling.style.display === 'none' ? '▶' : '▼';">
+                                <span class="arrow">▶</span> 思维链 / Reasoning Trace
+                            </div>
+                            <pre style="display:none;margin-top:6px;padding:8px;background:var(--bg-secondary);border-radius:6px;font-size:12px;line-height:1.5;white-space:pre-wrap;word-break:break-word;max-height:300px;overflow-y:auto;color:var(--text-secondary);">${this._escHtml(traceText)}</pre>
+                        ` : ''}
+                        ${rawOutput ? `
+                            <div style="cursor:pointer;font-size:12px;color:var(--text-muted);margin-top:4px;"
+                                 onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('.arrow').textContent = this.nextElementSibling.style.display === 'none' ? '▶' : '▼';">
+                                <span class="arrow">▶</span> 原始输出
+                            </div>
+                            <pre style="display:none;margin-top:6px;padding:8px;background:var(--bg-secondary);border-radius:6px;font-size:12px;line-height:1.5;white-space:pre-wrap;word-break:break-word;max-height:200px;overflow-y:auto;color:var(--text-secondary);">${this._escHtml(rawOutput)}</pre>
+                        ` : ''}
+                        ${ragHtml}
+                    </div>`;
+            }).join('');
+        } catch (err) {
+            const body = document.getElementById('exp-detail-body');
+            if (body) body.innerHTML = `<div style="color:var(--error-color);padding:12px;">加载失败: ${err.message}</div>`;
+        }
+    }
+
+    _escHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
     // =====================================================================
     // Evaluation Sub-Tab
     // =====================================================================

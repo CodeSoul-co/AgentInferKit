@@ -766,7 +766,32 @@ class ResultsVisualizer {
                             const tokens = p.usage?.total_tokens || p.total_tokens;
                             const hasTrace = p.reasoning_trace && (typeof p.reasoning_trace === 'string' ? p.reasoning_trace.trim() : true);
                             const traceText = hasTrace ? (typeof p.reasoning_trace === 'string' ? p.reasoning_trace : JSON.stringify(p.reasoning_trace, null, 2)) : '';
-                            const traceId = `trace-row-${idx}`;
+                            const hasRag = p.rag_context && p.rag_context.mode;
+                            const hasDetail = hasTrace || hasRag;
+                            const detailId = `detail-row-${idx}`;
+
+                            let ragSection = '';
+                            if (hasRag) {
+                                const rc = p.rag_context;
+                                const chunkHtml = (rc.retrieved_chunks || []).map((c, ci) =>
+                                    `<div style="margin-bottom:6px;padding:6px 8px;background:var(--bg-primary);border-radius:4px;border:1px solid var(--border-color);">
+                                        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-bottom:2px;">
+                                            <strong>${this.escapeHtml(c.chunk_id || 'chunk_' + ci)}</strong>
+                                            <span>score: ${c.score != null ? Number(c.score).toFixed(4) : '-'}${c.topic ? ' | ' + this.escapeHtml(c.topic) : ''}</span>
+                                        </div>
+                                        <div style="font-size:12px;line-height:1.4;color:var(--text-secondary);max-height:100px;overflow-y:auto;">${this.escapeHtml((c.text || '').substring(0, 400))}</div>
+                                    </div>`
+                                ).join('');
+                                ragSection = `
+                                    <div style="margin-top:8px;">
+                                        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;font-weight:600;">
+                                            RAG 轨迹 (mode: ${this.escapeHtml(rc.mode)}${rc.retrieval_latency_ms ? ', ' + Number(rc.retrieval_latency_ms).toFixed(0) + 'ms' : ''}, ${(rc.retrieved_chunks || []).length} chunks)
+                                        </div>
+                                        ${rc.query_text ? '<div style="font-size:12px;margin-bottom:4px;"><strong>Query:</strong> ' + this.escapeHtml(rc.query_text) + '</div>' : ''}
+                                        ${chunkHtml}
+                                    </div>`;
+                            }
+
                             return `
                                 <tr>
                                     <td style="font-family:monospace;font-size:12px;">${p.sample_id || '-'}</td>
@@ -775,9 +800,12 @@ class ResultsVisualizer {
                                     <td>${correct === true ? '<span style="color:var(--success-color);">✓</span>' : correct === false ? '<span style="color:var(--error-color);">✗</span>' : '-'}</td>
                                     <td>${latency ? latency.toFixed(0) + 'ms' : '-'}</td>
                                     <td>${tokens || '-'}</td>
-                                    <td>${hasTrace ? `<button class="btn btn-secondary btn-sm" style="padding:2px 8px;font-size:11px;" onclick="document.getElementById('${traceId}').style.display = document.getElementById('${traceId}').style.display === 'none' ? 'table-row' : 'none'">查看</button>` : '-'}</td>
+                                    <td>${hasDetail ? `<button class="btn btn-secondary btn-sm" style="padding:2px 8px;font-size:11px;" onclick="document.getElementById('${detailId}').style.display = document.getElementById('${detailId}').style.display === 'none' ? 'table-row' : 'none'">${hasRag ? '详情' : '思维链'}</button>` : '-'}</td>
                                 </tr>
-                                ${hasTrace ? `<tr id="${traceId}" style="display:none;"><td colspan="7" style="padding:12px;background:var(--bg-secondary);"><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;font-weight:600;">Reasoning Trace:</div><pre style="margin:0;white-space:pre-wrap;word-break:break-word;font-size:12px;line-height:1.5;max-height:300px;overflow-y:auto;color:var(--text-secondary);">${this.escapeHtml(traceText)}</pre></td></tr>` : ''}
+                                ${hasDetail ? `<tr id="${detailId}" style="display:none;"><td colspan="7" style="padding:12px;background:var(--bg-secondary);">
+                                    ${hasTrace ? `<div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;font-weight:600;">Reasoning Trace:</div><pre style="margin:0 0 8px 0;white-space:pre-wrap;word-break:break-word;font-size:12px;line-height:1.5;max-height:300px;overflow-y:auto;color:var(--text-secondary);">${this.escapeHtml(traceText)}</pre>` : ''}
+                                    ${ragSection}
+                                </td></tr>` : ''}
                             `;
                         }).join('')}
                     </tbody>

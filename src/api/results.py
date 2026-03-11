@@ -22,6 +22,8 @@ from .schemas import (
     MetricsResponse,
     PredictionItem,
     PredictionListResponse,
+    RAGTrace,
+    RAGTraceChunk,
     ResponseEnvelope,
     UsageInfo,
 )
@@ -168,14 +170,40 @@ async def get_predictions(
     items = []
     for pred in paginated:
         usage_data = pred.get("usage", {})
+        # Build RAG trace if present
+        rag_trace = None
+        rag_raw = pred.get("rag_context")
+        if rag_raw and isinstance(rag_raw, dict) and rag_raw.get("mode"):
+            chunks = [
+                RAGTraceChunk(
+                    chunk_id=c.get("chunk_id"),
+                    text=c.get("text"),
+                    score=c.get("score"),
+                    topic=c.get("topic"),
+                    source_qa_ids=c.get("source_qa_ids"),
+                )
+                for c in rag_raw.get("retrieved_chunks", [])
+            ]
+            rag_trace = RAGTrace(
+                mode=rag_raw.get("mode"),
+                query_text=rag_raw.get("query_text"),
+                retrieval_latency_ms=rag_raw.get("retrieval_latency_ms"),
+                retrieved_chunks=chunks,
+                source_qa_ids=rag_raw.get("source_qa_ids"),
+                topic=rag_raw.get("topic"),
+            )
         items.append(PredictionItem(
             sample_id=pred.get("sample_id", ""),
             question=pred.get("question", ""),
             options=pred.get("options"),
             ground_truth=pred.get("ground_truth", ""),
             parsed_answer=pred.get("parsed_answer"),
+            raw_output=pred.get("raw_output"),
             correct=pred.get("correct", False),
             reasoning_trace=pred.get("reasoning_trace"),
+            rag_context=rag_trace,
+            model=pred.get("model"),
+            strategy=pred.get("strategy"),
             usage=UsageInfo(
                 total_tokens=usage_data.get("total_tokens", 0),
                 latency_ms=usage_data.get("latency_ms", 0),

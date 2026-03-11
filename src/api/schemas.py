@@ -211,6 +211,25 @@ class UsageInfo(BaseModel):
     latency_ms: int = Field(default=0, ge=0, description="Request latency in milliseconds")
 
 
+class RAGTraceChunk(BaseModel):
+    """Single retrieved chunk in the RAG trace."""
+    chunk_id: Optional[str] = None
+    text: Optional[str] = None
+    score: Optional[float] = None
+    topic: Optional[str] = None
+    source_qa_ids: Optional[List[str]] = None
+
+
+class RAGTrace(BaseModel):
+    """RAG context trace attached to a prediction."""
+    mode: Optional[str] = Field(default=None, description="RAG mode: retrieved, oracle, or None")
+    query_text: Optional[str] = Field(default=None, description="Query sent to retriever")
+    retrieval_latency_ms: Optional[float] = Field(default=None, description="Retrieval latency")
+    retrieved_chunks: List[RAGTraceChunk] = Field(default_factory=list, description="Retrieved evidence chunks")
+    source_qa_ids: Optional[List[str]] = Field(default=None, description="Oracle source QA IDs")
+    topic: Optional[str] = Field(default=None, description="Topic label")
+
+
 class PredictionItem(BaseModel):
     """Single prediction result."""
     sample_id: str = Field(..., description="Sample ID")
@@ -218,8 +237,12 @@ class PredictionItem(BaseModel):
     options: Optional[Dict[str, str]] = Field(default=None, description="Answer options (for MCQ tasks)")
     ground_truth: str = Field(..., description="Ground truth answer")
     parsed_answer: Optional[str] = Field(default=None, description="Model's parsed answer")
+    raw_output: Optional[str] = Field(default=None, description="Raw model output before parsing")
     correct: bool = Field(..., description="Whether the answer is correct")
-    reasoning_trace: Optional[str] = Field(default=None, description="Model's reasoning process")
+    reasoning_trace: Optional[Any] = Field(default=None, description="Model's reasoning process (string or structured)")
+    rag_context: Optional[RAGTrace] = Field(default=None, description="RAG retrieval trace")
+    model: Optional[str] = Field(default=None, description="Model used")
+    strategy: Optional[str] = Field(default=None, description="Inference strategy used")
     usage: UsageInfo = Field(default_factory=UsageInfo, description="Token usage and latency")
 
 
