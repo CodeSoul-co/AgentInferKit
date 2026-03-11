@@ -1,0 +1,23 @@
+# 实验A 实验组: text_exam + CoT + RAG retrieved模式 (需要Milvus)
+experiment_id: expA_exam_rag_retrieved_cot
+model:
+  provider: deepseek
+  model: deepseek-chat
+strategy: cot
+prompt_id: text_exam.cot
+dataset_path: data/benchmark/text_exam/demo_exam_v1.jsonl
+concurrency: 3
+rag:
+  enabled: true
+  mode: retrieved
+  kb_name: qa_chunks_v1
+  top_k: 3
+evaluators:
+  - choice_accuracy
+  - option_bias
+  - latency_stats
+  - token_stats
+  - avg_trace_tokens
+group_by:
+  - difficulty
+  - metadata.topic

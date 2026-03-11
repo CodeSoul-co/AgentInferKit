@@ -1,0 +1,16 @@
+# API Calling + CoT策略
+experiment_id: test_agent_cot_001
+model:
+  provider: deepseek
+  model: deepseek-chat
+strategy: cot
+prompt_id: api_calling.cot
+dataset_path: data/benchmark/api_calling/demo_agent_v1.jsonl
+concurrency: 2
+evaluators:
+  - tool_selection_accuracy
+  - parameter_accuracy
+  - latency_stats
+  - token_stats
+group_by:
+  - metadata.call_steps

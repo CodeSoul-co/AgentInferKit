@@ -1,0 +1,17 @@
+# 实验A 对照组: text_exam + direct + 无RAG
+experiment_id: expA_exam_norag_direct
+model:
+  provider: deepseek
+  model: deepseek-chat
+strategy: direct
+prompt_id: text_exam.direct
+dataset_path: data/benchmark/text_exam/demo_exam_v1.jsonl
+concurrency: 3
+evaluators:
+  - choice_accuracy
+  - option_bias
+  - latency_stats
+  - token_stats
+group_by:
+  - difficulty
+  - metadata.topic

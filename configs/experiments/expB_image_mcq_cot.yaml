@@ -1,0 +1,18 @@
+# 实验B: image_mcq + CoT (图像理解基准)
+experiment_id: expB_image_mcq_cot
+model:
+  provider: deepseek
+  model: deepseek-chat
+strategy: cot
+prompt_id: image_mcq.cot
+dataset_path: data/benchmark/image_mcq/demo_image_mcq_v1.jsonl
+concurrency: 2
+evaluators:
+  - choice_accuracy
+  - option_bias
+  - latency_stats
+  - token_stats
+  - avg_trace_tokens
+group_by:
+  - difficulty
+  - metadata.topic

@@ -1,0 +1,15 @@
+{"sample_id": "exam_cs_001", "chunks": [{"chunk_id": "chunk_cs_001", "text": "数据结构基础：队列（Queue）遵循先进先出（FIFO）原则，栈（Stack）遵循后进先出（LIFO）原则。", "topic": "computer_science", "score": 1.0}]}
+{"sample_id": "exam_cs_002", "chunks": [{"chunk_id": "chunk_cs_001", "text": "排序算法复杂度：快速排序（QuickSort）和归并排序（MergeSort）平均时间复杂度均为 O(n log n)。冒泡、插入、选择排序平均为 O(n²)。", "topic": "computer_science", "score": 1.0}]}
+{"sample_id": "exam_cs_003", "chunks": [{"chunk_id": "chunk_cs_002", "text": "TCP协议：三次握手过程为 SYN → SYN+ACK → ACK。第一步客户端发送SYN报文段，服务端回复SYN+ACK，客户端再发送ACK完成连接建立。", "topic": "computer_science", "score": 1.0}]}
+{"sample_id": "exam_cs_004", "chunks": [{"chunk_id": "chunk_cs_db", "text": "数据库范式：1NF消除重复组，2NF消除非主属性对候选码的部分依赖，3NF消除传递依赖，BCNF要求所有决定因素都是候选码。", "topic": "computer_science", "score": 1.0}]}
+{"sample_id": "exam_cs_005", "chunks": [{"chunk_id": "chunk_cs_004", "text": "分布式系统：CAP定理指出，分布式系统在分区容错（P）确定的情况下，只能在一致性（C）和可用性（A）间二选一，最多同时保证2个特性。", "topic": "computer_science", "score": 1.0}]}
+{"sample_id": "exam_math_001", "chunks": [{"chunk_id": "chunk_math_001", "text": "二次函数求值：f(x)=2x²+3x-5，代入x=2得 f(2)=2(4)+3(2)-5=8+6-5=9。", "topic": "mathematics", "score": 1.0}]}
+{"sample_id": "exam_math_002", "chunks": [{"chunk_id": "chunk_math_002", "text": "等差数列公式：通项 a_n = a_1 + (n-1)d。首项2，公差3，第10项 = 2 + 9×3 = 29。", "topic": "mathematics", "score": 1.0}]}
+{"sample_id": "exam_math_003", "chunks": [{"chunk_id": "chunk_math_003", "text": "对数函数定义域：y=ln(x²-4) 要求 x²-4>0，即 x<-2 或 x>2，定义域为 (-∞,-2)∪(2,+∞)。", "topic": "mathematics", "score": 1.0}]}
+{"sample_id": "exam_math_004", "chunks": [{"chunk_id": "chunk_math_004", "text": "行列式计算：2阶矩阵 [[a,b],[c,d]] 的行列式 det = ad - bc。[[1,2],[3,4]] 的行列式 = 1×4-2×3 = -2。", "topic": "mathematics", "score": 1.0}]}
+{"sample_id": "exam_math_005", "chunks": [{"chunk_id": "chunk_stat_002", "text": "贝叶斯定理：P(A|B) = P(B|A)·P(A)/P(B)，即后验正比于似然乘先验。", "topic": "statistics", "score": 1.0}]}
+{"sample_id": "exam_stat_001", "chunks": [{"chunk_id": "chunk_stat_basic", "text": "统计学基础：样本均值是总体均值的无偏估计量，即 E(X̄) = μ。", "topic": "statistics", "score": 1.0}]}
+{"sample_id": "exam_stat_002", "chunks": [{"chunk_id": "chunk_stat_001", "text": "假设检验：第一类错误（α错误/弃真错误）指在原假设H₀为真时错误地拒绝H₀。", "topic": "statistics", "score": 1.0}]}
+{"sample_id": "exam_stat_003", "chunks": [{"chunk_id": "chunk_stat_001", "text": "正态分布中均值±1σ包含约68.27%数据，±2σ约95.45%，±3σ约99.73%。", "topic": "statistics", "score": 1.0}]}
+{"sample_id": "exam_stat_004", "chunks": [{"chunk_id": "chunk_stat_reg", "text": "正则化回归：Ridge（L2）不会使系数为零，Lasso（L1）可使部分系数为零从而实现特征选择。", "topic": "statistics", "score": 1.0}]}
+{"sample_id": "exam_stat_005", "chunks": [{"chunk_id": "chunk_stat_002", "text": "EM算法两步骤：E步计算隐变量条件期望（后验分布），M步最大化期望完整数据对数似然更新参数。", "topic": "statistics", "score": 1.0}]}
