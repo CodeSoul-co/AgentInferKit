@@ -6,7 +6,7 @@ from src.adapters.base import BaseModelAdapter
 from src.api.schemas import Message
 from src.runners.base import BaseRunner
 from src.strategies.base import BaseStrategy
-from src.rag.retriever import retrieve as rag_retrieve
+from src.rag.context import inject_rag_context
 
 
 class QARunner(BaseRunner):
@@ -44,27 +44,8 @@ class QARunner(BaseRunner):
         # Build prompt via strategy
         messages = self._strategy.build_prompt(sample)
 
-        # Optional RAG context injection
-        rag_context = {"mode": None, "retrieved_chunks": []}
-        if self._rag_config.get("enabled"):
-            query = sample.get("question", "")
-            kb_name = self._rag_config.get("kb_name", "")
-            top_k = self._rag_config.get("top_k", 3)
-            chunks = rag_retrieve(query, kb_name, top_k=top_k)
-            rag_context = {
-                "mode": self._rag_config.get("mode", "retrieved"),
-                "retrieved_chunks": [
-                    {"chunk_id": c["chunk_id"], "score": c["score"], "text": c["text"]}
-                    for c in chunks
-                ],
-            }
-            # Inject retrieved context into the last user message
-            context_text = "\n\n".join(c["text"] for c in chunks)
-            if messages and messages[-1].role == "user":
-                messages[-1] = Message(
-                    role="user",
-                    content=f"Reference:\n{context_text}\n\n{messages[-1].content}",
-                )
+        # Optional RAG context injection (supports retrieved + oracle modes)
+        messages, rag_context = inject_rag_context(messages, sample, self._rag_config)
 
         # Call model
         result = await self._adapter.generate(messages)
@@ -171,7 +152,7 @@ class QARunner(BaseRunner):
             "raw_output": result.get("raw_output", ""),
             "parsed_answer": result.get("parsed_answer", ""),
             "reasoning_trace": reasoning_trace,
-            "rag_context": {"mode": None, "retrieved_chunks": []},
+            "rag_context": result.get("rag_context", {"mode": None, "query_text": None, "retrieved_chunks": [], "retrieval_latency_ms": 0}),
             "tool_trace": result.get("tool_trace", []),
             "usage": {
                 "prompt_tokens": usage.get("prompt_tokens", 0),

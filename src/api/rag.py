@@ -81,6 +81,7 @@ async def build_knowledge_base(
     chunk_strategy: str = Form("by_topic", description="Chunking strategy: by_topic, by_sentence, by_token"),
     chunk_size: int = Form(256, ge=64, le=2048, description="Chunk size in tokens"),
     embedder: str = Form("BAAI/bge-m3", description="Embedding model name"),
+    force_rebuild: bool = Form(False, description="Force rebuild if KB already exists"),
 ):
     """
     Build a knowledge base from uploaded documents.
@@ -97,8 +98,19 @@ async def build_knowledge_base(
         raise HTTPException(status_code=400, detail="File must be a JSONL file")
     
     # Check if KB already exists
-    if kb_name in _knowledge_bases:
-        raise HTTPException(status_code=409, detail=f"Knowledge base '{kb_name}' already exists")
+    if kb_name in _knowledge_bases and not force_rebuild:
+        raise HTTPException(status_code=409, detail=f"Knowledge base '{kb_name}' already exists. Use force_rebuild=true to overwrite.")
+    
+    # If force rebuild, clean up old data first
+    if kb_name in _knowledge_bases and force_rebuild:
+        old_kb = _knowledge_bases[kb_name]
+        try:
+            from src.rag.milvus_store import drop_collection
+            drop_collection(old_kb["collection"])
+        except Exception as e:
+            logger.warning(f"Failed to drop old collection during rebuild: {e}")
+        del _knowledge_bases[kb_name]
+        _save_knowledge_bases()
     
     # Ensure RAG data directory exists
     RAG_DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -268,7 +280,7 @@ async def search_knowledge_base(request: RAGSearchRequest):
                 score=r.get("score", 0.0),
                 text=r.get("text", ""),
                 topic=r.get("topic"),
-                source_qa_ids=[],
+                source_qa_ids=r.get("source_qa_ids", []),
             )
             for r in raw_results
         ]
@@ -278,6 +290,46 @@ async def search_knowledge_base(request: RAGSearchRequest):
 
     return ResponseEnvelope(
         data=RAGSearchResponse(results=results)
+    )
+
+
+@router.get(
+    "/{kb_name}/chunks",
+    summary="Export all chunks from a knowledge base",
+)
+async def export_chunks(kb_name: str):
+    """
+    Export all chunks from a knowledge base as a JSON list.
+    Useful for evidence visualization and debugging.
+    """
+    kb = _get_kb_or_404(kb_name)
+    
+    # Read from the chunk JSONL file
+    chunks_dir = Path("data/processed/knowledge_chunks")
+    chunks_path = chunks_dir / f"{kb_name}.jsonl"
+    
+    if not chunks_path.exists():
+        raise HTTPException(status_code=404, detail=f"Chunk file not found for '{kb_name}'")
+    
+    chunks = []
+    with open(chunks_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                chunks.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    
+    return ResponseEnvelope(
+        data={
+            "kb_name": kb_name,
+            "total_chunks": len(chunks),
+            "collection": kb.get("collection", ""),
+            "chunk_strategy": kb.get("chunk_strategy", ""),
+            "chunks": chunks,
+        }
     )
 
 

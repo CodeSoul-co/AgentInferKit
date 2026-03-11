@@ -191,7 +191,7 @@ class AgentRunner(BaseRunner):
             "raw_output": raw_output,
             "parsed_answer": parsed_answer,
             "reasoning_trace": reasoning_trace if isinstance(reasoning_trace, list) else [],
-            "rag_context": {"mode": None, "retrieved_chunks": []},
+            "rag_context": {"mode": None, "query_text": None, "retrieved_chunks": [], "retrieval_latency_ms": 0},
             "tool_trace": tool_trace,
             "usage": tracker.to_usage_dict() if tracker else {
                 "prompt_tokens": 0,

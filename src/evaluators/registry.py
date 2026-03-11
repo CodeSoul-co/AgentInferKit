@@ -132,6 +132,9 @@ _METRIC_MAP: Dict[str, Callable] = {
     # RAG metrics
     "retrieval_hit_rate": rag_metrics.retrieval_hit_rate,
     "context_relevance": rag_metrics.context_relevance,
+    "retrieval_recall_at_k": rag_metrics.retrieval_recall_at_k,
+    "answer_evidence_consistency": rag_metrics.answer_evidence_consistency,
+    "hallucination_rate": rag_metrics.hallucination_rate,
     # Efficiency metrics
     "latency_stats": efficiency.latency_stats,
     "token_stats": efficiency.token_stats,

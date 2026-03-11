@@ -60,6 +60,9 @@ def create_collection(kb_name: str, version: str, dim: int, *, force: bool = Fal
         FieldSchema(name="chunk_id", dtype=DataType.VARCHAR, max_length=128),
         FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=65535),
         FieldSchema(name="topic", dtype=DataType.VARCHAR, max_length=512),
+        FieldSchema(name="source_qa_ids", dtype=DataType.VARCHAR, max_length=8192),
+        FieldSchema(name="chunk_strategy", dtype=DataType.VARCHAR, max_length=64),
+        FieldSchema(name="token_count", dtype=DataType.INT64),
         FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=dim),
     ]
     schema = CollectionSchema(fields=fields, description=f"RAG index for {kb_name}")
@@ -94,12 +97,16 @@ def insert(
     _ensure_connection()
     collection = Collection(name=collection_name)
 
+    import json as _json
     chunk_ids = [c["chunk_id"] for c in chunks]
     texts = [c["text"][:65535] for c in chunks]
     topics = [c.get("topic", "")[:512] for c in chunks]
+    source_qa_ids = [_json.dumps(c.get("source_qa_ids", []))[:8192] for c in chunks]
+    chunk_strategies = [c.get("chunk_strategy", "")[:64] for c in chunks]
+    token_counts = [c.get("token_count", 0) for c in chunks]
     vectors = embeddings.tolist()
 
-    data = [chunk_ids, texts, topics, vectors]
+    data = [chunk_ids, texts, topics, source_qa_ids, chunk_strategies, token_counts, vectors]
     result = collection.insert(data)
     collection.flush()
     logger.info(f"Inserted {result.insert_count} entities into '{collection_name}'")
@@ -133,15 +140,24 @@ def search(
         anns_field="embedding",
         param=search_params,
         limit=top_k,
-        output_fields=["chunk_id", "text", "topic"],
+        output_fields=["chunk_id", "text", "topic", "source_qa_ids", "chunk_strategy", "token_count"],
     )
 
+    import json as _json
     hits = []
     for hit in results[0]:
+        raw_ids = hit.entity.get("source_qa_ids", "[]")
+        try:
+            parsed_ids = _json.loads(raw_ids) if isinstance(raw_ids, str) else raw_ids
+        except (ValueError, TypeError):
+            parsed_ids = []
         hits.append({
             "chunk_id": hit.entity.get("chunk_id"),
             "text": hit.entity.get("text"),
             "topic": hit.entity.get("topic"),
+            "source_qa_ids": parsed_ids,
+            "chunk_strategy": hit.entity.get("chunk_strategy", ""),
+            "token_count": hit.entity.get("token_count", 0),
             "score": float(hit.score),
         })
     return hits

@@ -599,7 +599,7 @@
         </div>
     </div>
 
-    <div class="card">
+    <div class="card mb-lg">
         <div class="card-header"><i data-lucide="library"></i> <span data-i18n="rag.list">知识库列表</span></div>
         <div class="card-body">
             <div id="kb-list" class="table-container">
@@ -609,6 +609,33 @@
                     <div class="empty-state-description" data-i18n="rag.no_kb_desc">上传文档并构建您的第一个知识库</div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Evidence Search & Visualization -->
+    <div class="card mb-lg">
+        <div class="card-header"><i data-lucide="search"></i> 证据检索与可视化</div>
+        <div class="card-body">
+            <div class="flex gap-md" style="margin-bottom:var(--spacing-md);">
+                <div class="form-group flex-1" style="margin-bottom:0;">
+                    <select id="rag-search-kb" class="form-select">
+                        <option value="">选择知识库...</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex:2;margin-bottom:0;">
+                    <input type="text" id="rag-search-query" class="form-input" placeholder="输入检索查询...">
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <input type="number" id="rag-search-topk" class="form-input" value="5" min="1" max="50" style="width:70px;" title="Top-K">
+                </div>
+                <button class="btn btn-primary" onclick="searchRAGEvidence()">
+                    <i data-lucide="search"></i> 检索
+                </button>
+                <button class="btn btn-secondary" onclick="exportKBChunks()">
+                    <i data-lucide="download"></i> 导出全部
+                </button>
+            </div>
+            <div id="rag-search-results"></div>
         </div>
     </div>
 </div>
@@ -1182,6 +1209,7 @@
                     </table>`;
             }
             if (window.lucide) lucide.createIcons();
+            updateRAGSearchKBSelector(kbs);
         } catch (error) {
             console.error('Failed to load KB list:', error);
         }
@@ -1194,6 +1222,78 @@
             refreshKBList();
         } catch (error) {
             alert('删除失败: ' + error.message);
+        }
+    }
+
+    function updateRAGSearchKBSelector(kbs) {
+        const sel = document.getElementById('rag-search-kb');
+        if (!sel) return;
+        const cur = sel.value;
+        sel.innerHTML = '<option value="">选择知识库...</option>';
+        (kbs || []).forEach(kb => {
+            sel.innerHTML += `<option value="${kb.kb_name}">${kb.kb_name} (${kb.total_chunks} chunks)</option>`;
+        });
+        if (cur) sel.value = cur;
+    }
+
+    async function searchRAGEvidence() {
+        const kbName = document.getElementById('rag-search-kb')?.value;
+        const query = document.getElementById('rag-search-query')?.value?.trim();
+        const topK = parseInt(document.getElementById('rag-search-topk')?.value) || 5;
+        const container = document.getElementById('rag-search-results');
+        if (!container) return;
+
+        if (!kbName) { alert('请选择知识库'); return; }
+        if (!query) { alert('请输入检索查询'); return; }
+
+        container.innerHTML = '<div style="padding:var(--spacing-md);color:var(--text-secondary);">检索中...</div>';
+        try {
+            const data = await API.RAG.search(kbName, query, topK);
+            const results = data.results || [];
+            if (results.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-title">未找到相关结果</div></div>';
+                return;
+            }
+            container.innerHTML = results.map((r, i) => `
+                <div style="border:1px solid var(--border-light);border-radius:var(--radius-md);padding:var(--spacing-md);margin-bottom:var(--spacing-sm);background:var(--bg-primary);">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:var(--spacing-xs);">
+                        <span style="font-weight:600;color:var(--text-primary);">#${i+1} ${r.chunk_id || ''}</span>
+                        <span style="display:flex;gap:var(--spacing-sm);align-items:center;">
+                            ${r.topic ? `<span style="background:var(--bg-tertiary);padding:2px 8px;border-radius:var(--radius-sm);font-size:12px;">${r.topic}</span>` : ''}
+                            <span style="color:var(--accent-primary);font-weight:600;">Score: ${(r.score || 0).toFixed(4)}</span>
+                        </span>
+                    </div>
+                    <div style="white-space:pre-wrap;font-size:13px;color:var(--text-secondary);max-height:200px;overflow-y:auto;line-height:1.6;">${escapeHtml(r.text || '')}</div>
+                    ${r.source_qa_ids && r.source_qa_ids.length ? `<div style="margin-top:var(--spacing-xs);font-size:11px;color:var(--text-tertiary);">Sources: ${r.source_qa_ids.join(', ')}</div>` : ''}
+                </div>
+            `).join('');
+        } catch (error) {
+            container.innerHTML = `<div style="padding:var(--spacing-md);color:var(--danger);">检索失败: ${error.message}</div>`;
+        }
+    }
+
+    function escapeHtml(text) {
+        const d = document.createElement('div');
+        d.textContent = text;
+        return d.innerHTML;
+    }
+
+    async function exportKBChunks() {
+        const kbName = document.getElementById('rag-search-kb')?.value;
+        if (!kbName) { alert('请先选择知识库'); return; }
+        try {
+            const resp = await fetch(`/api/v1/rag/${kbName}/chunks`);
+            const json = await resp.json();
+            const data = json.data || json;
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${kbName}_chunks.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            alert('导出失败: ' + error.message);
         }
     }
 

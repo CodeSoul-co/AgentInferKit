@@ -619,6 +619,7 @@ class ExperimentManager {
     
     async submitAndRun() {
         const config = this.getFormData();
+        console.log('[submitAndRun] config:', JSON.stringify({name: config.name, dataset_id: config.dataset_id, model_id: config.model_id, strategy: config.strategy}));
         if (!config.name) { this.showNotification('error', '请输入实验名称'); return; }
         if (!config.dataset_id) { this.showNotification('error', '请选择数据集'); return; }
         if (!config.model_id) { this.showNotification('error', '请选择模型'); return; }
