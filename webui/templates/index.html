@@ -888,7 +888,7 @@
     
     async function viewDataset(datasetId) {
         try {
-            const preview = await API.Datasets.preview(datasetId, 0, 20);
+            const preview = await API.Datasets.preview(datasetId, 0, 10);
             console.log('Dataset preview:', preview);
             
             // Show in a modal-like overlay

@@ -159,6 +159,12 @@ async def upload_dataset(
     
     dataset_id = f"{dataset_name}_v{version.replace('.', '_')}"
     
+    if dataset_id in datasets_store:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Dataset '{dataset_id}' already exists. Please use a different name or version."
+        )
+    
     task_dir = DATA_DIR / task_type
     task_dir.mkdir(parents=True, exist_ok=True)
     file_path = task_dir / f"{dataset_id}.jsonl"

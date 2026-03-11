@@ -83,7 +83,7 @@ class DatasetUploader {
         this.currentFile = file;
         
         // Auto-fill dataset name if empty
-        if (this.datasetNameInput && !this.datasetNameInput.value) {
+        if (this.datasetNameInput) {
             this.datasetNameInput.value = file.name.replace(/\.jsonl?$/, '');
         }
         
@@ -268,6 +268,9 @@ class DatasetUploader {
             
             this.currentFile = null;
             this.isUploading = false;
+            // Reset form inputs so next upload gets a fresh name
+            if (this.fileInput) this.fileInput.value = '';
+            if (this.datasetNameInput) this.datasetNameInput.value = '';
             if (window.lucide) lucide.createIcons();
             
             return result;
