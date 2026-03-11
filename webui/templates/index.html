@@ -1379,6 +1379,25 @@
             },
             onDone: (data) => {
                 console.log('Chat done:', data);
+                const el = document.getElementById(assistantId);
+                if (el && data.reasoning_trace) {
+                    const trace = typeof data.reasoning_trace === 'string'
+                        ? data.reasoning_trace
+                        : JSON.stringify(data.reasoning_trace, null, 2);
+                    const traceHtml = `
+                        <div class="reasoning-trace-block" style="margin-top:8px;border-top:1px solid var(--border-color);padding-top:8px;">
+                            <div style="cursor:pointer;font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:4px;"
+                                 onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('.arrow').textContent = this.nextElementSibling.style.display === 'none' ? '▶' : '▼';">
+                                <span class="arrow">▶</span> 思维链 / Reasoning Trace
+                            </div>
+                            <pre style="display:none;margin-top:6px;padding:8px;background:var(--bg-secondary);border-radius:6px;font-size:12px;line-height:1.5;white-space:pre-wrap;word-break:break-word;max-height:300px;overflow-y:auto;color:var(--text-secondary);">${trace.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
+                        </div>`;
+                    el.querySelector('.chat-bubble').insertAdjacentHTML('beforeend', traceHtml);
+                }
+                if (el && data.usage) {
+                    const usageHtml = `<div style="margin-top:4px;font-size:11px;color:var(--text-muted);">Tokens: ${data.usage.total_tokens || '?'} | Latency: ${data.usage.latency_ms || '?'}ms</div>`;
+                    el.querySelector('.chat-bubble').insertAdjacentHTML('beforeend', usageHtml);
+                }
             },
             onError: (error) => {
                 const el = document.getElementById(assistantId);

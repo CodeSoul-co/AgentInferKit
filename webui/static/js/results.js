@@ -756,13 +756,17 @@ class ResultsVisualizer {
                             <th>结果</th>
                             <th>延迟</th>
                             <th>Token</th>
+                            <th>思维链</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${predictions.map(p => {
+                        ${predictions.map((p, idx) => {
                             const correct = p.correct;
                             const latency = p.usage?.latency_ms || p.latency_ms;
                             const tokens = p.usage?.total_tokens || p.total_tokens;
+                            const hasTrace = p.reasoning_trace && (typeof p.reasoning_trace === 'string' ? p.reasoning_trace.trim() : true);
+                            const traceText = hasTrace ? (typeof p.reasoning_trace === 'string' ? p.reasoning_trace : JSON.stringify(p.reasoning_trace, null, 2)) : '';
+                            const traceId = `trace-row-${idx}`;
                             return `
                                 <tr>
                                     <td style="font-family:monospace;font-size:12px;">${p.sample_id || '-'}</td>
@@ -771,7 +775,9 @@ class ResultsVisualizer {
                                     <td>${correct === true ? '<span style="color:var(--success-color);">✓</span>' : correct === false ? '<span style="color:var(--error-color);">✗</span>' : '-'}</td>
                                     <td>${latency ? latency.toFixed(0) + 'ms' : '-'}</td>
                                     <td>${tokens || '-'}</td>
+                                    <td>${hasTrace ? `<button class="btn btn-secondary btn-sm" style="padding:2px 8px;font-size:11px;" onclick="document.getElementById('${traceId}').style.display = document.getElementById('${traceId}').style.display === 'none' ? 'table-row' : 'none'">查看</button>` : '-'}</td>
                                 </tr>
+                                ${hasTrace ? `<tr id="${traceId}" style="display:none;"><td colspan="7" style="padding:12px;background:var(--bg-secondary);"><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;font-weight:600;">Reasoning Trace:</div><pre style="margin:0;white-space:pre-wrap;word-break:break-word;font-size:12px;line-height:1.5;max-height:300px;overflow-y:auto;color:var(--text-secondary);">${this.escapeHtml(traceText)}</pre></td></tr>` : ''}
                             `;
                         }).join('')}
                     </tbody>
