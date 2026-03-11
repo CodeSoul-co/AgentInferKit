@@ -8,6 +8,7 @@ from .rag import router as rag_router
 from .models import router as models_router
 from .system import router as system_router
 from .custom_agent import router as agent_router
+from .settings import router as settings_router
 
 __all__ = [
     "datasets_router",
@@ -18,4 +19,5 @@ __all__ = [
     "models_router",
     "system_router",
     "agent_router",
+    "settings_router",
 ]

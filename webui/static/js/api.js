@@ -529,6 +529,78 @@ const System = {
 };
 
 // =============================================================================
+// Settings API
+// =============================================================================
+
+const Settings = {
+    /**
+     * List all model configurations with full parameters
+     */
+    async listModelConfigs() {
+        return get('/settings/models');
+    },
+
+    /**
+     * Get model config for a provider
+     * @param {string} provider - Provider name
+     */
+    async getModelConfig(provider) {
+        return get(`/settings/models/${provider}`);
+    },
+
+    /**
+     * Update model config for a provider
+     * @param {string} provider - Provider name
+     * @param {Object} config - Full config object
+     */
+    async updateModelConfig(provider, config) {
+        const response = await fetch(API_BASE + `/settings/models/${provider}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(config),
+        });
+        return handleResponse(response);
+    },
+
+    /**
+     * Create a new model config
+     * @param {string} provider - Provider name
+     * @param {Object} config - Full config object
+     */
+    async createModelConfig(provider, config) {
+        return post(`/settings/models/${provider}`, config);
+    },
+
+    /**
+     * Delete model config
+     * @param {string} provider - Provider name
+     */
+    async deleteModelConfig(provider) {
+        return del(`/settings/models/${provider}`);
+    },
+
+    /**
+     * List environment variables (API keys masked)
+     */
+    async listEnv() {
+        return get('/settings/env');
+    },
+
+    /**
+     * Update environment variables
+     * @param {Object} variables - Key-value pairs
+     */
+    async updateEnv(variables) {
+        const response = await fetch(API_BASE + '/settings/env', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ variables }),
+        });
+        return handleResponse(response);
+    },
+};
+
+// =============================================================================
 // Convenience Functions (用户要求的便捷函数)
 // =============================================================================
 
@@ -661,6 +733,7 @@ window.API = {
     Chat,
     Models,
     System,
+    Settings,
     // 便捷函数
     fetchExperiments,
     runExperiment,

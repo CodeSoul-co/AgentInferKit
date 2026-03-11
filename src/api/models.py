@@ -46,17 +46,23 @@ def _load_model_configs() -> List[Dict[str, Any]]:
             with open(config_file, "r", encoding="utf-8") as f:
                 config = yaml.safe_load(f) or {}
             
-            # Extract model IDs from config
+            # Support both formats:
+            # 1. Single model: { provider, model, ... }
+            # 2. Multi-model: { models: [id1, id2, ...] }
             model_ids = config.get("models", [])
             if isinstance(model_ids, dict):
                 model_ids = list(model_ids.keys())
             
+            # If no "models" key, use "model" (single model config)
+            if not model_ids and "model" in config:
+                model_ids = [config["model"]]
+            
             for model_id in model_ids:
                 models.append({
                     "model_id": model_id,
-                    "provider": provider,
+                    "provider": config.get("provider", provider),
                     "config_file": str(config_file),
-                    "available": _check_api_key_configured(provider),
+                    "available": _check_api_key_configured(config.get("provider", provider)),
                 })
         except Exception:
             # Skip invalid config files

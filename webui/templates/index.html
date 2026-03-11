@@ -491,6 +491,88 @@
         </div>
     </div>
 </div>
+
+<!-- ================================================================
+     Settings Tab
+     ================================================================ -->
+<div id="tab-settings" class="tab-content">
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1 class="page-title">设置</h1>
+            <span class="page-subtitle">管理 API 密钥和模型配置参数</span>
+        </div>
+    </div>
+
+    <!-- Section 1: API Keys -->
+    <div class="card mb-lg">
+        <div class="card-header"><i data-lucide="key" style="width:16px;height:16px;"></i> API 密钥配置</div>
+        <div class="card-body">
+            <p style="color:var(--text-secondary);font-size:13px;margin-bottom:var(--spacing-md);">
+                配置各模型提供商的 API 密钥和 Base URL。修改后即时生效，无需重启服务。
+            </p>
+            <div id="env-vars-container">
+                <div style="color:var(--text-muted);padding:20px;text-align:center;">加载中...</div>
+            </div>
+            <div style="margin-top:var(--spacing-md);text-align:right;">
+                <button class="btn btn-primary" onclick="saveEnvVars()">
+                    <i data-lucide="save" style="width:14px;height:14px;"></i> 保存密钥
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 2: Model Configs -->
+    <div class="card mb-lg">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+            <span><i data-lucide="cpu" style="width:16px;height:16px;"></i> 模型配置</span>
+            <button class="btn btn-secondary btn-sm" onclick="refreshModelConfigs()">
+                <i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> 刷新
+            </button>
+        </div>
+        <div class="card-body">
+            <p style="color:var(--text-secondary);font-size:13px;margin-bottom:var(--spacing-md);">
+                编辑各模型的推理参数。每个 Provider 对应一个 YAML 配置文件。
+            </p>
+            <div id="model-configs-container">
+                <div style="color:var(--text-muted);padding:20px;text-align:center;">加载中...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 3: Add New Model -->
+    <div class="card">
+        <div class="card-header"><i data-lucide="plus-circle" style="width:16px;height:16px;"></i> 添加新模型配置</div>
+        <div class="card-body">
+            <div class="flex gap-md" style="flex-wrap:wrap;">
+                <div class="form-group flex-1" style="min-width:180px;">
+                    <label class="form-label">Provider</label>
+                    <select id="new-model-provider" class="form-select">
+                        <option value="">选择 Provider...</option>
+                        <option value="deepseek">DeepSeek</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="anthropic">Anthropic</option>
+                        <option value="qwen">Qwen (DashScope)</option>
+                        <option value="ollama">Ollama (本地)</option>
+                        <option value="huggingface">HuggingFace</option>
+                    </select>
+                </div>
+                <div class="form-group flex-1" style="min-width:200px;">
+                    <label class="form-label">Model ID</label>
+                    <input type="text" id="new-model-id" class="form-input" placeholder="例如: gpt-4o-mini">
+                </div>
+                <div class="form-group flex-1" style="min-width:250px;">
+                    <label class="form-label">Base URL</label>
+                    <input type="text" id="new-model-baseurl" class="form-input" placeholder="例如: https://api.openai.com/v1">
+                </div>
+            </div>
+            <div style="text-align:right;">
+                <button class="btn btn-primary" onclick="addNewModelConfig()">
+                    <i data-lucide="plus" style="width:14px;height:14px;"></i> 创建配置
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -770,6 +852,231 @@
         });
     }
 
+    // =========================================================================
+    // Settings functions
+    // =========================================================================
+    var _envVarsCache = [];
+
+    async function loadEnvVars() {
+        const container = document.getElementById('env-vars-container');
+        if (!container) return;
+        try {
+            const resp = await API.Settings.listEnv();
+            _envVarsCache = resp.variables || [];
+            // Group by provider prefix
+            const groups = {};
+            _envVarsCache.forEach(v => {
+                const prefix = v.key.split('_')[0];
+                if (!groups[prefix]) groups[prefix] = [];
+                groups[prefix].push(v);
+            });
+            container.innerHTML = Object.entries(groups).map(([prefix, vars]) => `
+                <div style="margin-bottom:var(--spacing-md);">
+                    <div style="font-weight:600;font-size:13px;color:var(--text-secondary);margin-bottom:8px;text-transform:uppercase;">${prefix}</div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;">
+                        ${vars.map(v => `
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label class="form-label" style="font-size:12px;">${v.key}</label>
+                                <input type="${v.masked ? 'password' : 'text'}" 
+                                       class="form-input env-input" 
+                                       data-key="${v.key}" 
+                                       data-masked="${v.masked}"
+                                       value="${v.masked ? '' : (v.value || '')}" 
+                                       placeholder="${v.masked ? '••••' + (v.value ? v.value.slice(-4) : '') : '未设置'}"
+                                       style="font-size:13px;">
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        } catch (error) {
+            container.innerHTML = '<div class="alert alert-error">加载环境变量失败: ' + error.message + '</div>';
+        }
+    }
+
+    async function saveEnvVars() {
+        const inputs = document.querySelectorAll('.env-input');
+        const updates = {};
+        inputs.forEach(input => {
+            const key = input.dataset.key;
+            const val = input.value.trim();
+            const wasMasked = input.dataset.masked === 'true';
+            // Only save if user actually typed something (not empty masked fields)
+            if (val && !(wasMasked && val === '')) {
+                updates[key] = val;
+            }
+        });
+        if (Object.keys(updates).length === 0) {
+            alert('没有需要保存的修改');
+            return;
+        }
+        try {
+            await API.Settings.updateEnv(updates);
+            alert('密钥已保存，已即时生效！');
+            loadEnvVars();
+        } catch (error) {
+            alert('保存失败: ' + error.message);
+        }
+    }
+
+    async function loadModelConfigs() {
+        const container = document.getElementById('model-configs-container');
+        if (!container) return;
+        try {
+            const resp = await API.Settings.listModelConfigs();
+            const configs = resp.configs || [];
+            if (configs.length === 0) {
+                container.innerHTML = '<div style="color:var(--text-muted);padding:20px;text-align:center;">暂无模型配置，请在下方添加。</div>';
+                return;
+            }
+            container.innerHTML = configs.map(cfg => {
+                const provider = cfg._provider_file || cfg.provider || 'unknown';
+                const apiOk = cfg._api_key_configured;
+                return `
+                <div class="card mb-md" style="border:1px solid var(--border-color);">
+                    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;">
+                        <span style="font-weight:600;">
+                            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${apiOk ? 'var(--success-color)' : 'var(--error-color)'};margin-right:8px;"></span>
+                            ${provider} — ${cfg.model || '(未设置)'}
+                        </span>
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn btn-secondary btn-sm" onclick="saveModelConfig('${provider}')">
+                                <i data-lucide="save" style="width:12px;height:12px;"></i> 保存
+                            </button>
+                            <button class="btn btn-sm" style="color:var(--error-color);border:1px solid var(--error-color);background:transparent;" onclick="deleteModelConfig('${provider}')">
+                                <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body" style="padding:12px 16px;">
+                        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label class="form-label" style="font-size:11px;">Model ID</label>
+                                <input type="text" class="form-input model-cfg-input" data-provider="${provider}" data-field="model" value="${cfg.model || ''}" style="font-size:13px;">
+                            </div>
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label class="form-label" style="font-size:11px;">Base URL</label>
+                                <input type="text" class="form-input model-cfg-input" data-provider="${provider}" data-field="base_url" value="${cfg.base_url || ''}" style="font-size:13px;">
+                            </div>
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label class="form-label" style="font-size:11px;">Temperature</label>
+                                <input type="number" class="form-input model-cfg-input" data-provider="${provider}" data-field="temperature" value="${cfg.temperature ?? 0.0}" min="0" max="2" step="0.1" style="font-size:13px;">
+                            </div>
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label class="form-label" style="font-size:11px;">Top P</label>
+                                <input type="number" class="form-input model-cfg-input" data-provider="${provider}" data-field="top_p" value="${cfg.top_p ?? 1.0}" min="0" max="1" step="0.05" style="font-size:13px;">
+                            </div>
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label class="form-label" style="font-size:11px;">Max Tokens</label>
+                                <input type="number" class="form-input model-cfg-input" data-provider="${provider}" data-field="max_tokens" value="${cfg.max_tokens ?? 2048}" min="1" max="128000" style="font-size:13px;">
+                            </div>
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label class="form-label" style="font-size:11px;">Seed</label>
+                                <input type="number" class="form-input model-cfg-input" data-provider="${provider}" data-field="seed" value="${cfg.seed ?? ''}" placeholder="可选" style="font-size:13px;">
+                            </div>
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label class="form-label" style="font-size:11px;">Batch Size</label>
+                                <input type="number" class="form-input model-cfg-input" data-provider="${provider}" data-field="batch_size" value="${cfg.batch_size ?? 10}" min="1" max="100" style="font-size:13px;">
+                            </div>
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label class="form-label" style="font-size:11px;">Timeout (s)</label>
+                                <input type="number" class="form-input model-cfg-input" data-provider="${provider}" data-field="request_timeout_s" value="${cfg.request_timeout_s ?? 60}" min="5" max="600" style="font-size:13px;">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-top:12px;margin-bottom:0;">
+                            <label class="form-label" style="font-size:11px;">System Prompt</label>
+                            <textarea class="form-input model-cfg-input" data-provider="${provider}" data-field="system_prompt" rows="2" style="font-size:13px;resize:vertical;">${cfg.system_prompt || 'You are a helpful assistant.'}</textarea>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+            if (window.lucide) lucide.createIcons();
+        } catch (error) {
+            container.innerHTML = '<div class="alert alert-error">加载模型配置失败: ' + error.message + '</div>';
+        }
+    }
+
+    function refreshModelConfigs() {
+        loadModelConfigs();
+    }
+
+    async function saveModelConfig(provider) {
+        const inputs = document.querySelectorAll(`.model-cfg-input[data-provider="${provider}"]`);
+        const config = { provider: provider };
+        inputs.forEach(input => {
+            const field = input.dataset.field;
+            let val = input.value.trim();
+            if (field === 'temperature' || field === 'top_p') val = parseFloat(val) || 0;
+            else if (field === 'max_tokens' || field === 'batch_size' || field === 'request_timeout_s') val = parseInt(val) || 0;
+            else if (field === 'seed') val = val ? parseInt(val) : null;
+            if (val !== null && val !== '') config[field] = val;
+        });
+        try {
+            await API.Settings.updateModelConfig(provider, config);
+            alert(`${provider} 配置已保存！`);
+        } catch (error) {
+            alert('保存失败: ' + error.message);
+        }
+    }
+
+    async function deleteModelConfig(provider) {
+        if (!confirm(`确定要删除 ${provider} 的配置？`)) return;
+        try {
+            await API.Settings.deleteModelConfig(provider);
+            loadModelConfigs();
+        } catch (error) {
+            alert('删除失败: ' + error.message);
+        }
+    }
+
+    async function addNewModelConfig() {
+        const provider = document.getElementById('new-model-provider').value;
+        const modelId = document.getElementById('new-model-id').value.trim();
+        const baseUrl = document.getElementById('new-model-baseurl').value.trim();
+        if (!provider) { alert('请选择 Provider'); return; }
+        if (!modelId) { alert('请填写 Model ID'); return; }
+
+        const config = {
+            provider: provider,
+            model: modelId,
+            temperature: 0.0,
+            top_p: 1.0,
+            max_tokens: 2048,
+            seed: 42,
+            system_prompt: 'You are a helpful assistant.',
+            batch_size: 10,
+            request_timeout_s: 60,
+        };
+        if (baseUrl) config.base_url = baseUrl;
+
+        // Set default env var references for api_key
+        const envMap = {
+            deepseek: { api_key: '${DEEPSEEK_API_KEY}', base_url: '${DEEPSEEK_BASE_URL}' },
+            openai: { api_key: '${OPENAI_API_KEY}', base_url: '${OPENAI_BASE_URL}' },
+            anthropic: { api_key: '${ANTHROPIC_API_KEY}' },
+            qwen: { api_key: '${QWEN_API_KEY}', base_url: '${QWEN_BASE_URL}' },
+            huggingface: { api_key: '${HF_TOKEN}' },
+        };
+        const defaults = envMap[provider] || {};
+        if (defaults.api_key) config.api_key = defaults.api_key;
+        if (!baseUrl && defaults.base_url) config.base_url = defaults.base_url;
+
+        try {
+            await API.Settings.createModelConfig(provider, config);
+            alert(`${provider} 配置已创建！`);
+            document.getElementById('new-model-provider').value = '';
+            document.getElementById('new-model-id').value = '';
+            document.getElementById('new-model-baseurl').value = '';
+            loadModelConfigs();
+        } catch (error) {
+            if (error.message && error.message.includes('already exists')) {
+                alert(`${provider} 配置已存在，请在上方直接编辑。`);
+            } else {
+                alert('创建失败: ' + error.message);
+            }
+        }
+    }
+
     // Initialize on load
     document.addEventListener('DOMContentLoaded', () => {
         refreshDashboard();
@@ -806,6 +1113,10 @@
                 }
             });
         }
+
+        // Load settings data
+        loadEnvVars();
+        loadModelConfigs();
 
         API.fetchExperiments({ status: 'finished' }).then(experiments => {
             const select = document.getElementById('results-experiment-select');
