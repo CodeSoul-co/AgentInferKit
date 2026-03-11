@@ -408,10 +408,17 @@ const RAG = {
             body: formData,
         });
         
+        if (!response.ok) {
+            const text = await response.text();
+            try { const j = JSON.parse(text); throw new APIError(response.status, j.detail || j.message || 'Build failed'); }
+            catch (e) { if (e instanceof APIError) throw e; throw new APIError(response.status, text || 'Build failed'); }
+        }
+        
         // Handle SSE response
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
+        let currentEvent = 'message';
         
         while (true) {
             const { done, value } = await reader.read();
@@ -422,13 +429,28 @@ const RAG = {
             buffer = lines.pop() || '';
             
             for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                    const data = JSON.parse(line.slice(6));
-                    if (data.stage && handlers.onProgress) {
-                        handlers.onProgress(data);
-                    } else if (data.kb_name && handlers.onDone) {
-                        handlers.onDone(data);
-                    }
+                if (line.startsWith('event: ')) {
+                    currentEvent = line.slice(7).trim();
+                } else if (line.startsWith('data: ')) {
+                    try {
+                        const data = JSON.parse(line.slice(6));
+                        if (currentEvent === 'error' && handlers.onError) {
+                            handlers.onError(data);
+                        } else if (currentEvent === 'done' && handlers.onDone) {
+                            handlers.onDone(data);
+                        } else if (currentEvent === 'progress' && handlers.onProgress) {
+                            handlers.onProgress(data);
+                        } else if (data.stage && handlers.onProgress) {
+                            handlers.onProgress(data);
+                        } else if (data.kb_name && handlers.onDone) {
+                            handlers.onDone(data);
+                        } else if (data.message && handlers.onError) {
+                            handlers.onError(data);
+                        }
+                    } catch (e) { console.warn('SSE parse error:', e); }
+                    currentEvent = 'message';
+                } else if (line.trim() === '') {
+                    currentEvent = 'message';
                 }
             }
         }
@@ -438,7 +460,7 @@ const RAG = {
      * List all knowledge bases
      */
     async list() {
-        return get('/rag/kbs');
+        return get('/rag');
     },
     
     /**
@@ -460,7 +482,7 @@ const RAG = {
      * @param {string} kbName - Knowledge base name
      */
     async delete(kbName) {
-        return del(`/rag/kbs/${kbName}`);
+        return del(`/rag/${kbName}`);
     },
 };
 

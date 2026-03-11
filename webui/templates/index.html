@@ -1072,6 +1072,132 @@
     }
 
     // =========================================================================
+    // RAG Knowledge Base functions
+    // =========================================================================
+    async function buildKnowledgeBase() {
+        const kbName = document.getElementById('kb-name')?.value?.trim();
+        const fileInput = document.getElementById('rag-file-input');
+        const chunkStrategy = document.getElementById('chunk-strategy')?.value || 'by_topic';
+        const chunkSize = document.getElementById('chunk-size')?.value || 256;
+        const progressEl = document.getElementById('rag-build-progress');
+
+        if (!kbName) { alert('请输入知识库名称'); return; }
+        if (!fileInput?.files?.length) { alert('请选择 JSONL 文档文件'); return; }
+
+        const file = fileInput.files[0];
+        if (!file.name.endsWith('.jsonl') && !file.name.endsWith('.json')) {
+            alert('请上传 JSONL 格式的文件');
+            return;
+        }
+
+        // Show progress
+        if (progressEl) {
+            progressEl.classList.remove('hidden');
+            progressEl.innerHTML = `
+                <div class="alert alert-info">
+                    <i data-lucide="loader" style="width:14px;height:14px;animation:spin 1s linear infinite;"></i>
+                    正在构建知识库 <strong>${kbName}</strong> ...
+                    <div id="rag-build-stage" style="margin-top:4px;font-size:12px;color:var(--text-muted);"></div>
+                </div>`;
+            if (window.lucide) lucide.createIcons();
+        }
+
+        try {
+            await API.RAG.build(file, {
+                kb_name: kbName,
+                chunk_strategy: chunkStrategy,
+                chunk_size: chunkSize,
+            }, {
+                onProgress(data) {
+                    const stageEl = document.getElementById('rag-build-stage');
+                    if (stageEl) {
+                        const pct = data.total ? Math.round(data.progress / data.total * 100) : 0;
+                        stageEl.textContent = `阶段: ${data.stage} — ${data.progress}/${data.total} (${pct}%)`;
+                    }
+                },
+                onDone(data) {
+                    if (progressEl) {
+                        progressEl.innerHTML = `
+                            <div class="alert alert-success">
+                                <i data-lucide="check-circle" style="width:14px;height:14px;"></i>
+                                知识库 <strong>${data.kb_name}</strong> 构建完成！共 ${data.total_chunks} 个分块。
+                            </div>`;
+                        if (window.lucide) lucide.createIcons();
+                    }
+                    // Reset form
+                    document.getElementById('kb-name').value = '';
+                    fileInput.value = '';
+                    refreshKBList();
+                },
+                onError(data) {
+                    if (progressEl) {
+                        progressEl.innerHTML = `
+                            <div class="alert alert-error">
+                                构建失败: ${data.message || '未知错误'}
+                            </div>`;
+                    }
+                },
+            });
+        } catch (error) {
+            if (progressEl) {
+                progressEl.innerHTML = `
+                    <div class="alert alert-error">
+                        构建失败: ${error.message || '未知错误'}
+                    </div>`;
+            }
+        }
+    }
+
+    async function refreshKBList() {
+        const container = document.getElementById('kb-list');
+        if (!container) return;
+        try {
+            const data = await API.RAG.list();
+            const kbs = data.kbs || [];
+            if (kbs.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon"><i data-lucide="book-open"></i></div>
+                        <div class="empty-state-title">暂无知识库</div>
+                        <div class="empty-state-description">上传文档并构建您的第一个知识库</div>
+                    </div>`;
+            } else {
+                container.innerHTML = `
+                    <table class="data-table">
+                        <thead><tr>
+                            <th>名称</th><th>分块数</th><th>向量集合</th><th>Embedder</th><th>创建时间</th><th>操作</th>
+                        </tr></thead>
+                        <tbody>
+                            ${kbs.map(kb => `<tr>
+                                <td><strong>${kb.kb_name}</strong></td>
+                                <td>${kb.total_chunks}</td>
+                                <td><code style="font-size:12px;">${kb.collection || '-'}</code></td>
+                                <td>${kb.embedder || '-'}</td>
+                                <td>${kb.created_at ? new Date(kb.created_at).toLocaleString('zh-CN') : '-'}</td>
+                                <td><button class="btn btn-secondary btn-sm" onclick="deleteKB('${kb.kb_name}')">
+                                    <i data-lucide="trash-2" style="width:12px;height:12px;"></i> 删除
+                                </button></td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>`;
+            }
+            if (window.lucide) lucide.createIcons();
+        } catch (error) {
+            console.error('Failed to load KB list:', error);
+        }
+    }
+
+    async function deleteKB(kbName) {
+        if (!confirm(`确定要删除知识库 "${kbName}" 吗？此操作不可恢复。`)) return;
+        try {
+            await API.RAG.delete(kbName);
+            refreshKBList();
+        } catch (error) {
+            alert('删除失败: ' + error.message);
+        }
+    }
+
+    // =========================================================================
     // Settings functions
     // =========================================================================
     var _envVarsCache = [];
@@ -1337,6 +1463,7 @@
         // Load settings data
         loadEnvVars();
         loadModelConfigs();
+        refreshKBList();
 
         API.fetchExperiments({ status: 'finished' }).then(experiments => {
             const select = document.getElementById('results-experiment-select');
