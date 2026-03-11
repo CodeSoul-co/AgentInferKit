@@ -3,6 +3,7 @@ from typing import Any, Callable, Dict, List
 
 from src.evaluators import text_metrics, choice_metrics, rag_metrics, efficiency
 from src.evaluators import agent_metrics
+from src.evaluators.llm_judge import llm_judge_sync
 
 
 # ---------------------------------------------------------------------------
@@ -147,7 +148,39 @@ _METRIC_MAP: Dict[str, Callable] = {
     "avg_reasoning_steps": agent_metrics.avg_reasoning_steps,
     "tool_selection_accuracy": _wrap_tool_selection_accuracy,
     "parameter_accuracy": _wrap_parameter_accuracy,
+    # LLM-as-Judge
+    "llm_judge": llm_judge_sync,
 }
+
+
+def register_custom_metric(
+    name: str,
+    fn: Callable[[List[Dict[str, Any]]], Dict[str, Any]],
+) -> None:
+    """Register a user-defined evaluation metric at runtime.
+
+    The callable must accept ``List[Dict[str, Any]]`` (predictions) and
+    return a ``Dict[str, Any]`` result.  This enables user-defined
+    evaluation matrices without modifying core code.
+
+    Args:
+        name: Metric name (must not collide with built-in names).
+        fn: Evaluation function.
+
+    Raises:
+        ValueError: If *name* is already registered.
+    """
+    if name in _METRIC_MAP:
+        raise ValueError(f"Metric '{name}' already registered")
+    _METRIC_MAP[name] = fn
+
+
+def unregister_custom_metric(name: str) -> bool:
+    """Remove a previously registered custom metric.
+
+    Returns True if the metric was removed, False if it did not exist.
+    """
+    return _METRIC_MAP.pop(name, None) is not None
 
 
 def evaluate(

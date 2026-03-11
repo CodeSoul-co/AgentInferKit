@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Universal Sample Schema",
+  "description": "Base schema for all benchmark samples (method.md §5.3.1)",
+  "type": "object",
+  "required": ["sample_id", "task_type"],
+  "properties": {
+    "sample_id": {
+      "type": "string",
+      "description": "Unique identifier for the sample"
+    },
+    "task_type": {
+      "type": "string",
+      "enum": ["qa", "text_exam", "image_mcq", "api_calling"],
+      "description": "Task type classification"
+    },
+    "split": {
+      "type": "string",
+      "enum": ["train", "dev", "test"],
+      "default": "test",
+      "description": "Dataset split"
+    },
+    "source": {
+      "type": "string",
+      "description": "Origin dataset tag"
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": ["easy", "medium", "hard"],
+      "description": "Difficulty level"
+    },
+    "modality": {
+      "type": "string",
+      "enum": ["text", "image"],
+      "default": "text",
+      "description": "Input modality"
+    },
+    "version": {
+      "type": "string",
+      "description": "Dataset version string (e.g. v1.0, benchmark_release)"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Task-specific extension fields"
+    }
+  }
+}

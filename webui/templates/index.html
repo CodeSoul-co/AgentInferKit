@@ -554,6 +554,37 @@
 
     <!-- Compare Mode Container (hidden by default) -->
     <div id="results-compare" style="display:none;" class="mb-lg"></div>
+
+    <!-- Paper Figure Export Panel -->
+    <div class="card mb-lg">
+        <div class="card-header"><i data-lucide="bar-chart-3"></i> 论文出图面板</div>
+        <div class="card-body">
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:var(--spacing-md);">
+                选择多个已完成实验，在线生成对比图表并下载 PNG。
+            </p>
+            <div class="flex gap-md" style="margin-bottom:var(--spacing-md);flex-wrap:wrap;">
+                <div class="form-group" style="flex:2;margin-bottom:0;">
+                    <select id="figure-exp-select" class="form-select" multiple style="height:100px;">
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">图表类型</label>
+                    <select id="figure-chart-type" class="form-select">
+                        <option value="accuracy_bar">准确率对比柱状图</option>
+                        <option value="token_vs_accuracy">Token-Accuracy 散点图</option>
+                        <option value="by_difficulty">按难度分组柱状图</option>
+                        <option value="radar">多维雷达图</option>
+                    </select>
+                </div>
+                <div style="display:flex;align-items:flex-end;">
+                    <button class="btn btn-primary" onclick="generatePaperFigure()">
+                        <i data-lucide="image"></i> 生成图表
+                    </button>
+                </div>
+            </div>
+            <div id="figure-canvas-wrap" style="text-align:center;"></div>
+        </div>
+    </div>
 </div>
 
 <!-- ================================================================
@@ -1034,6 +1065,266 @@
             console.error('loadSelectedResults failed:', error);
             const meta = document.getElementById('results-meta');
             if (meta) meta.innerHTML = '<div class="alert alert-error">加载结果失败: ' + error.message + '</div>';
+        }
+    }
+
+    // Paper Figure Panel functions
+    async function populateFigureExpSelect() {
+        const sel = document.getElementById('figure-exp-select');
+        if (!sel) return;
+        try {
+            const experiments = await API.fetchExperiments({ status: 'finished' });
+            sel.innerHTML = '';
+            (experiments || []).forEach(e => {
+                const opt = document.createElement('option');
+                opt.value = e.experiment_id;
+                opt.textContent = `${e.name || e.experiment_id} (${e.strategy || '?'})`;
+                sel.appendChild(opt);
+            });
+        } catch (err) { console.error('populateFigureExpSelect:', err); }
+    }
+
+    async function generatePaperFigure() {
+        const sel = document.getElementById('figure-exp-select');
+        const chartType = document.getElementById('figure-chart-type')?.value || 'accuracy_bar';
+        const wrap = document.getElementById('figure-canvas-wrap');
+        if (!sel || !wrap) return;
+
+        const ids = Array.from(sel.selectedOptions).map(o => o.value);
+        if (ids.length < 1) { alert('请至少选择 1 个实验'); return; }
+
+        wrap.innerHTML = '<div style="padding:20px;color:var(--text-secondary);">加载数据中...</div>';
+
+        try {
+            const allMetrics = [];
+            for (const eid of ids) {
+                const m = await API.Results.getMetrics(eid);
+                allMetrics.push(m);
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = 800; canvas.height = 500;
+            canvas.style.maxWidth = '100%';
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 800, 500);
+
+            if (chartType === 'accuracy_bar') {
+                drawBarChart(ctx, allMetrics, 800, 500);
+            } else if (chartType === 'token_vs_accuracy') {
+                drawScatterChart(ctx, allMetrics, 800, 500);
+            } else if (chartType === 'by_difficulty') {
+                drawDifficultyChart(ctx, allMetrics, 800, 500);
+            } else if (chartType === 'radar') {
+                drawRadarChart(ctx, allMetrics, 800, 500);
+            }
+
+            wrap.innerHTML = '';
+            wrap.appendChild(canvas);
+
+            const dlBtn = document.createElement('button');
+            dlBtn.className = 'btn btn-secondary';
+            dlBtn.style.marginTop = '12px';
+            dlBtn.innerHTML = '<i data-lucide="download"></i> 下载 PNG';
+            dlBtn.onclick = () => {
+                const a = document.createElement('a');
+                a.download = `figure_${chartType}.png`;
+                a.href = canvas.toDataURL('image/png');
+                a.click();
+            };
+            wrap.appendChild(dlBtn);
+            if (window.lucide) lucide.createIcons();
+        } catch (err) {
+            wrap.innerHTML = `<div style="color:var(--danger);">生成失败: ${err.message}</div>`;
+        }
+    }
+
+    function _getColors() {
+        return ['#4C72B0','#DD8452','#55A868','#C44E52','#8172B2','#937860','#DA8BC3','#8C8C8C'];
+    }
+
+    function _getLabel(m) {
+        return `${m.strategy || '?'} (${(m.model || '?').split('/').pop()})`;
+    }
+
+    function _getAcc(m) {
+        const o = m.overall || {};
+        return o.accuracy || o.choice_accuracy || o.exact_match || o.avg_f1 || 0;
+    }
+
+    function drawBarChart(ctx, metrics, w, h) {
+        const colors = _getColors();
+        const pad = { t: 50, b: 80, l: 60, r: 30 };
+        const cw = w - pad.l - pad.r;
+        const ch = h - pad.t - pad.b;
+
+        ctx.font = 'bold 16px sans-serif'; ctx.fillStyle = '#333';
+        ctx.textAlign = 'center'; ctx.fillText('Accuracy Comparison', w / 2, 30);
+
+        const n = metrics.length;
+        const barW = Math.min(cw / n * 0.6, 80);
+        const gap = cw / n;
+
+        for (let i = 0; i < n; i++) {
+            const acc = _getAcc(metrics[i]);
+            const barH = acc * ch;
+            const x = pad.l + gap * i + (gap - barW) / 2;
+            const y = pad.t + ch - barH;
+
+            ctx.fillStyle = colors[i % colors.length];
+            ctx.fillRect(x, y, barW, barH);
+
+            ctx.fillStyle = '#333'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText((acc * 100).toFixed(1) + '%', x + barW / 2, y - 6);
+
+            ctx.save(); ctx.translate(x + barW / 2, pad.t + ch + 10);
+            ctx.rotate(Math.PI / 6); ctx.textAlign = 'left'; ctx.font = '11px sans-serif';
+            ctx.fillText(_getLabel(metrics[i]).substring(0, 20), 0, 0);
+            ctx.restore();
+        }
+
+        // Y axis
+        ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1;
+        for (let v = 0; v <= 1; v += 0.25) {
+            const y = pad.t + ch - v * ch;
+            ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+            ctx.fillStyle = '#999'; ctx.font = '11px sans-serif'; ctx.textAlign = 'right';
+            ctx.fillText((v * 100).toFixed(0) + '%', pad.l - 6, y + 4);
+        }
+    }
+
+    function drawScatterChart(ctx, metrics, w, h) {
+        const colors = _getColors();
+        const pad = { t: 50, b: 50, l: 70, r: 30 };
+        const cw = w - pad.l - pad.r;
+        const ch = h - pad.t - pad.b;
+
+        ctx.font = 'bold 16px sans-serif'; ctx.fillStyle = '#333';
+        ctx.textAlign = 'center'; ctx.fillText('Token Cost vs Accuracy', w / 2, 30);
+
+        const points = metrics.map(m => ({
+            x: (m.overall || {}).avg_tokens || 0,
+            y: _getAcc(m),
+            label: _getLabel(m),
+        }));
+        const maxX = Math.max(...points.map(p => p.x), 1) * 1.1;
+
+        for (let i = 0; i < points.length; i++) {
+            const px = pad.l + (points[i].x / maxX) * cw;
+            const py = pad.t + ch - points[i].y * ch;
+            ctx.fillStyle = colors[i % colors.length];
+            ctx.beginPath(); ctx.arc(px, py, 8, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#333'; ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
+            ctx.fillText(points[i].label.substring(0, 18), px + 12, py + 4);
+        }
+
+        ctx.fillStyle = '#999'; ctx.font = '11px sans-serif';
+        ctx.textAlign = 'center'; ctx.fillText('Avg Tokens', w / 2, h - 10);
+        ctx.save(); ctx.translate(15, h / 2); ctx.rotate(-Math.PI / 2);
+        ctx.fillText('Accuracy', 0, 0); ctx.restore();
+    }
+
+    function drawDifficultyChart(ctx, metrics, w, h) {
+        const colors = _getColors();
+        const diffs = ['easy', 'medium', 'hard'];
+        const pad = { t: 50, b: 60, l: 60, r: 30 };
+        const cw = w - pad.l - pad.r;
+        const ch = h - pad.t - pad.b;
+
+        ctx.font = 'bold 16px sans-serif'; ctx.fillStyle = '#333';
+        ctx.textAlign = 'center'; ctx.fillText('Accuracy by Difficulty', w / 2, 30);
+
+        const groupW = cw / diffs.length;
+        const n = metrics.length;
+        const barW = Math.min(groupW / (n + 1), 40);
+
+        for (let d = 0; d < diffs.length; d++) {
+            for (let i = 0; i < n; i++) {
+                const diffData = (metrics[i].by_difficulty || {})[diffs[d]] || {};
+                const acc = diffData.accuracy || 0;
+                const barH = acc * ch;
+                const x = pad.l + groupW * d + (groupW - n * barW) / 2 + i * barW;
+                const y = pad.t + ch - barH;
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.fillRect(x, y, barW - 2, barH);
+            }
+            ctx.fillStyle = '#333'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText(diffs[d], pad.l + groupW * d + groupW / 2, pad.t + ch + 20);
+        }
+
+        // Legend
+        for (let i = 0; i < n; i++) {
+            const lx = pad.l + i * 140;
+            ctx.fillStyle = colors[i % colors.length];
+            ctx.fillRect(lx, h - 30, 12, 12);
+            ctx.fillStyle = '#333'; ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
+            ctx.fillText(_getLabel(metrics[i]).substring(0, 16), lx + 16, h - 20);
+        }
+    }
+
+    function drawRadarChart(ctx, metrics, w, h) {
+        const colors = _getColors();
+        const cx = w / 2, cy = h / 2 + 10, r = Math.min(w, h) / 2 - 60;
+        const dims = ['accuracy', 'avg_latency_ms', 'avg_tokens', 'total_cost_usd'];
+        const dimLabels = ['Accuracy', 'Latency(inv)', 'Tokens(inv)', 'Cost(inv)'];
+        const n = dims.length;
+
+        ctx.font = 'bold 16px sans-serif'; ctx.fillStyle = '#333';
+        ctx.textAlign = 'center'; ctx.fillText('Multi-Dimension Radar', w / 2, 25);
+
+        // Draw grid
+        for (let ring = 1; ring <= 4; ring++) {
+            const rr = r * ring / 4;
+            ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let i = 0; i <= n; i++) {
+                const angle = (Math.PI * 2 / n) * i - Math.PI / 2;
+                const px = cx + rr * Math.cos(angle);
+                const py = cy + rr * Math.sin(angle);
+                i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+        }
+
+        // Axis labels
+        for (let i = 0; i < n; i++) {
+            const angle = (Math.PI * 2 / n) * i - Math.PI / 2;
+            const lx = cx + (r + 20) * Math.cos(angle);
+            const ly = cy + (r + 20) * Math.sin(angle);
+            ctx.fillStyle = '#666'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText(dimLabels[i], lx, ly + 4);
+        }
+
+        // Normalize and draw polygons
+        for (let mi = 0; mi < metrics.length; mi++) {
+            const o = metrics[mi].overall || {};
+            const vals = dims.map((d, idx) => {
+                if (idx === 0) return _getAcc(metrics[mi]); // accuracy: 0-1
+                // Invert efficiency (lower is better) to 0-1 scale
+                const raw = o[d] || 0;
+                if (d === 'avg_latency_ms') return raw > 0 ? Math.min(1, 5000 / raw) : 0;
+                if (d === 'avg_tokens') return raw > 0 ? Math.min(1, 2000 / raw) : 0;
+                if (d === 'total_cost_usd') return raw > 0 ? Math.min(1, 1 / raw) : 0;
+                return 0;
+            });
+
+            ctx.strokeStyle = colors[mi % colors.length]; ctx.lineWidth = 2;
+            ctx.fillStyle = colors[mi % colors.length] + '30';
+            ctx.beginPath();
+            for (let i = 0; i <= n; i++) {
+                const angle = (Math.PI * 2 / n) * (i % n) - Math.PI / 2;
+                const px = cx + r * vals[i % n] * Math.cos(angle);
+                const py = cy + r * vals[i % n] * Math.sin(angle);
+                i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+            }
+            ctx.fill(); ctx.stroke();
+        }
+
+        // Legend
+        for (let i = 0; i < metrics.length; i++) {
+            ctx.fillStyle = colors[i % colors.length];
+            ctx.fillRect(20, h - 30 - i * 18, 12, 12);
+            ctx.fillStyle = '#333'; ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
+            ctx.fillText(_getLabel(metrics[i]).substring(0, 25), 36, h - 20 - i * 18);
         }
     }
 

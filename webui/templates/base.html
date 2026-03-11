@@ -87,10 +87,10 @@
     </div>
 
     <!-- Core Scripts -->
-    <script src="/static/js/api.js?v=20260311b"></script>
-    <script src="/static/js/upload.js?v=20260311b"></script>
-    <script src="/static/js/experiment.js?v=20260311b"></script>
-    <script src="/static/js/results.js?v=20260311b"></script>
+    <script src="/static/js/api.js?v=20260311c"></script>
+    <script src="/static/js/upload.js?v=20260311c"></script>
+    <script src="/static/js/experiment.js?v=20260311c"></script>
+    <script src="/static/js/results.js?v=20260311c"></script>
     
     <!-- Tab Navigation & System Status -->
     <script>
@@ -133,6 +133,8 @@
                         if (current) select.value = current;
                     }
                 }).catch(err => console.warn('Failed to refresh results dropdown:', err));
+                // Also populate figure export experiment selector
+                if (typeof populateFigureExpSelect === 'function') populateFigureExpSelect();
             }
             
             // Refresh experiment list when switching to experiments tab

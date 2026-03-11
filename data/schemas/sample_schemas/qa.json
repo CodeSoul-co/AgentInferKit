@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "QA Sample Schema",
+  "description": "Schema for open-domain question answering samples (method.md §5.4)",
+  "allOf": [{ "$ref": "universal.json" }],
+  "properties": {
+    "task_type": { "const": "qa" },
+    "question": {
+      "type": "string",
+      "description": "The question text"
+    },
+    "answer": {
+      "type": "string",
+      "description": "Reference answer"
+    },
+    "reference_answer": {
+      "type": "string",
+      "description": "Alternative reference answer field"
+    },
+    "topic": {
+      "type": "string",
+      "description": "Topic or domain label"
+    },
+    "entities": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Named entities or knowledge points"
+    },
+    "chunk_ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Related knowledge chunk IDs for RAG traceability"
+    }
+  },
+  "required": ["sample_id", "task_type", "question", "answer"]
+}

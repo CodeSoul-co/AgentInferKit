@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Text Exam Sample Schema",
+  "description": "Schema for text-exam / multiple-choice samples (method.md §5.5)",
+  "allOf": [{ "$ref": "universal.json" }],
+  "properties": {
+    "task_type": { "const": "text_exam" },
+    "question": {
+      "type": "string",
+      "description": "Question stem"
+    },
+    "options": {
+      "type": "object",
+      "description": "Option map, e.g. {\"A\": \"...\", \"B\": \"...\"}",
+      "additionalProperties": { "type": "string" }
+    },
+    "answer": {
+      "type": "string",
+      "description": "Correct option letter (e.g. A, B, C, D)"
+    },
+    "explanation": {
+      "type": "string",
+      "description": "Explanation of the correct answer"
+    },
+    "topic": {
+      "type": "string",
+      "description": "Knowledge topic label"
+    },
+    "chunk_ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Mapped knowledge chunk IDs for RAG experiments"
+    },
+    "question_type": {
+      "type": "string",
+      "description": "Question type classification"
+    },
+    "knowledge_dependency": {
+      "type": "string",
+      "enum": ["low", "medium", "high"],
+      "description": "How much external knowledge is needed"
+    },
+    "reasoning_depth": {
+      "type": "string",
+      "enum": ["shallow", "moderate", "deep"],
+      "description": "Required reasoning depth"
+    }
+  },
+  "required": ["sample_id", "task_type", "question", "options", "answer"]
+}

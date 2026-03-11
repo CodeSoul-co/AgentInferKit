@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Image MCQ Sample Schema",
+  "description": "Schema for image understanding multiple-choice samples (method.md §5.6)",
+  "allOf": [{ "$ref": "universal.json" }],
+  "properties": {
+    "task_type": { "const": "image_mcq" },
+    "modality": { "const": "image" },
+    "image_path": {
+      "type": "string",
+      "description": "Path to the image file"
+    },
+    "original_description": {
+      "type": "string",
+      "description": "Original descriptive text for the image"
+    },
+    "question": {
+      "type": "string",
+      "description": "MCQ question stem"
+    },
+    "options": {
+      "type": "object",
+      "description": "Option map, e.g. {\"A\": \"...\", \"B\": \"...\"}",
+      "additionalProperties": { "type": "string" }
+    },
+    "answer": {
+      "type": "string",
+      "description": "Correct option letter"
+    },
+    "question_type": {
+      "type": "string",
+      "enum": ["object_recognition", "attribute", "relation", "scene", "ocr", "chart", "other"],
+      "description": "Visual question type classification"
+    }
+  },
+  "required": ["sample_id", "task_type", "image_path", "question", "options", "answer"]
+}

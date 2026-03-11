@@ -33,6 +33,7 @@ class BatchRunner:
         samples: List[Dict[str, Any]],
         experiment_id: str,
         concurrency: int = 5,
+        max_retries: int = 2,
         on_progress: Optional[Callable[[int, int, int], None]] = None,
     ) -> str:
         """Run batch inference with checkpoint resume support.
@@ -89,26 +90,40 @@ class BatchRunner:
         async def _process(sample: Dict[str, Any]) -> None:
             nonlocal completed, failed
             async with semaphore:
-                try:
-                    prediction = await runner.run_single(sample)
-                    # Fill in experiment-level fields
-                    prediction["experiment_id"] = experiment_id
-                    prediction["model"] = self._model_name
-                    prediction["strategy"] = self._strategy_name
+                sid = sample.get("sample_id", "?")
+                last_err = None
+                for attempt in range(1, max_retries + 1):
+                    try:
+                        prediction = await runner.run_single(sample)
+                        # Fill in experiment-level fields
+                        prediction["experiment_id"] = experiment_id
+                        prediction["model"] = self._model_name
+                        prediction["strategy"] = self._strategy_name
 
-                    async with lock:
-                        # Append to predictions JSONL
-                        write_jsonl(str(predictions_path), [prediction], mode="a")
-                        # Update completed set
-                        completed_ids.add(sample.get("sample_id", ""))
-                        completed += 1
-                        # Write progress checkpoint
-                        self._save_progress(progress_path, completed_ids, total, failed)
+                        async with lock:
+                            # Append to predictions JSONL
+                            write_jsonl(str(predictions_path), [prediction], mode="a")
+                            # Update completed set
+                            completed_ids.add(sample.get("sample_id", ""))
+                            completed += 1
+                            # Write progress checkpoint
+                            self._save_progress(progress_path, completed_ids, total, failed)
+                        last_err = None
+                        break  # success
 
-                except Exception as e:
-                    logger.error(
-                        f"Failed sample {sample.get('sample_id', '?')}: {e}"
-                    )
+                    except Exception as e:
+                        last_err = e
+                        if attempt < max_retries:
+                            logger.warning(
+                                f"Retry {attempt}/{max_retries} for sample {sid}: {e}"
+                            )
+                            await asyncio.sleep(min(attempt * 2, 10))
+                        else:
+                            logger.error(
+                                f"Failed sample {sid} after {max_retries} attempts: {e}"
+                            )
+
+                if last_err is not None:
                     async with lock:
                         failed += 1
 

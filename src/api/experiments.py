@@ -455,14 +455,18 @@ async def run_experiment(experiment_id: str):
     
     if exp["status"] == "running":
         raise HTTPException(status_code=409, detail="Experiment is already running")
-    if exp["status"] == "finished":
-        raise HTTPException(status_code=409, detail="Experiment has already finished")
     
-    # Allow re-running failed experiments
-    if exp["status"] == "failed":
+    # Allow re-running finished or failed experiments (reset state)
+    if exp["status"] in ("finished", "failed"):
         exp["completed"] = 0
         exp["total_samples"] = 0
         exp["finished_at"] = None
+        # Clean up old predictions and progress so batch starts fresh
+        old_pred = Path("outputs/predictions") / f"{experiment_id}.jsonl"
+        old_prog = Path("outputs/predictions") / f"{experiment_id}_progress.json"
+        for p in (old_pred, old_prog):
+            if p.exists():
+                p.unlink()
     
     # Update status to running
     exp["status"] = "running"

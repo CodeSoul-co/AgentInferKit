@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "API Function Calling Sample Schema",
+  "description": "Schema for agent API function calling samples (method.md §5.7)",
+  "allOf": [{ "$ref": "universal.json" }],
+  "properties": {
+    "task_type": { "const": "api_calling" },
+    "user_goal": {
+      "type": "string",
+      "description": "User's task description / goal"
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "parameters": { "type": "object" }
+        },
+        "required": ["name"]
+      },
+      "description": "Available tool set for this sample"
+    },
+    "expected_calls": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "tool": { "type": "string" },
+          "parameters": { "type": "object" },
+          "expected_return": {}
+        }
+      },
+      "description": "Standard call path with correct parameters"
+    },
+    "answer": {
+      "type": "string",
+      "description": "Expected final answer after tool execution"
+    },
+    "sub_task_type": {
+      "type": "string",
+      "enum": ["single_tool_single_round", "single_tool_multi_step", "multi_tool_combination", "parameter_sensitive", "ambiguous_selection", "post_call_integration"],
+      "description": "Function calling sub-task category (method.md §6.3.4)"
+    },
+    "requires_planning": {
+      "type": "boolean",
+      "description": "Whether explicit planning is needed"
+    },
+    "has_ambiguity": {
+      "type": "boolean",
+      "description": "Whether tool selection is ambiguous"
+    }
+  },
+  "required": ["sample_id", "task_type", "user_goal", "tools"]
+}
