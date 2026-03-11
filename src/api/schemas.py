@@ -233,12 +233,12 @@ class RAGTrace(BaseModel):
 class PredictionItem(BaseModel):
     """Single prediction result."""
     sample_id: str = Field(..., description="Sample ID")
-    question: str = Field(..., description="Original question text")
+    question: Optional[str] = Field(default=None, description="Original question text")
     options: Optional[Dict[str, str]] = Field(default=None, description="Answer options (for MCQ tasks)")
-    ground_truth: str = Field(..., description="Ground truth answer")
+    ground_truth: Optional[str] = Field(default=None, description="Ground truth answer")
     parsed_answer: Optional[str] = Field(default=None, description="Model's parsed answer")
     raw_output: Optional[str] = Field(default=None, description="Raw model output before parsing")
-    correct: bool = Field(..., description="Whether the answer is correct")
+    correct: Optional[bool] = Field(default=None, description="Whether the answer is correct")
     reasoning_trace: Optional[Any] = Field(default=None, description="Model's reasoning process (string or structured)")
     rag_context: Optional[RAGTrace] = Field(default=None, description="RAG retrieval trace")
     model: Optional[str] = Field(default=None, description="Model used")

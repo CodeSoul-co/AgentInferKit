@@ -194,19 +194,19 @@ async def get_predictions(
             )
         items.append(PredictionItem(
             sample_id=pred.get("sample_id", ""),
-            question=pred.get("question", ""),
+            question=pred.get("question") or pred.get("input_prompt"),
             options=pred.get("options"),
-            ground_truth=pred.get("ground_truth", ""),
+            ground_truth=pred.get("ground_truth") or pred.get("answer") or pred.get("reference_answer"),
             parsed_answer=pred.get("parsed_answer"),
             raw_output=pred.get("raw_output"),
-            correct=pred.get("correct", False),
+            correct=pred.get("correct"),
             reasoning_trace=pred.get("reasoning_trace"),
             rag_context=rag_trace,
             model=pred.get("model"),
             strategy=pred.get("strategy"),
             usage=UsageInfo(
                 total_tokens=usage_data.get("total_tokens", 0),
-                latency_ms=usage_data.get("latency_ms", 0),
+                latency_ms=int(usage_data.get("latency_ms", 0)),
             ),
         ))
     
