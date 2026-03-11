@@ -88,23 +88,44 @@ def _load_jsonl(file_path: Path) -> List[Dict[str, Any]]:
 def _validate_samples(samples: List[Dict[str, Any]], task_type: str) -> List[str]:
     """Validate samples and return warnings."""
     warnings = []
-    required_fields = {
-        "qa": ["sample_id", "question", "answer"],
-        "text_exam": ["sample_id", "question", "options", "answer"],
-        "image_mcq": ["sample_id", "image_path", "question", "options", "answer"],
-        "api_calling": ["sample_id", "instruction", "tools"],
+    # Task-specific required fields per ARCHITECTURE.md
+    task_required = {
+        "qa": ["question", "answer", "eval_type"],
+        "text_exam": ["question", "options", "answer", "eval_type"],
+        "image_mcq": ["image_path", "question", "options", "answer"],
+        "api_calling": ["user_goal", "available_tools", "ground_truth"],
+    }
+    # Auto-fill defaults per ARCHITECTURE.md schema_filler
+    auto_fill_defaults = {
+        "split": "test",
+        "difficulty": "medium",
+        "version": "1.0.0",
+        "modality": "text",
+    }
+    eval_type_defaults = {
+        "qa": "em_or_f1",
+        "text_exam": "choice_accuracy",
+        "image_mcq": "choice_accuracy",
+        "api_calling": "function_calling",
     }
     
-    fields = required_fields.get(task_type, [])
+    fields = task_required.get(task_type, [])
     
     for i, sample in enumerate(samples):
         for field in fields:
             if field not in sample:
                 warnings.append(f"第 {i + 1} 行缺少 {field} 字段")
         
-        if "difficulty" not in sample:
-            warnings.append(f"第 {i + 1} 行缺少 difficulty 字段，已填充默认值 medium")
-            sample["difficulty"] = "medium"
+        # Auto-fill base fields
+        if "sample_id" not in sample:
+            sample["sample_id"] = f"s_{i + 1:05d}"
+        if "task_type" not in sample:
+            sample["task_type"] = task_type
+        for key, default in auto_fill_defaults.items():
+            if key not in sample:
+                sample[key] = default
+        if "eval_type" not in sample and task_type in eval_type_defaults:
+            sample["eval_type"] = eval_type_defaults[task_type]
     
     return warnings
 

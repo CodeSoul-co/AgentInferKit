@@ -751,28 +751,32 @@
     // Task type hint for dataset upload
     const TASK_TYPE_HINTS = {
         qa: {
-            required: ['sample_id', 'question', 'answer'],
+            required: ['question', 'answer', 'eval_type'],
             optional: ['difficulty', 'topic', 'explanation', 'context'],
+            autofill: ['sample_id', 'task_type', 'split', 'source', 'modality', 'version', 'difficulty'],
             desc: '开放式问答任务，模型需生成文本答案',
-            example: '{"sample_id":"q1", "question":"什么是RAG？", "answer":"检索增强生成", "difficulty":"easy"}'
+            example: '{"question":"什么是RAG？", "answer":"检索增强生成", "eval_type":"em_or_f1", "difficulty":"easy"}'
         },
         text_exam: {
-            required: ['sample_id', 'question', 'options', 'answer'],
+            required: ['question', 'options', 'answer', 'eval_type'],
             optional: ['difficulty', 'topic', 'explanation'],
+            autofill: ['sample_id', 'task_type', 'split', 'source', 'modality', 'version', 'difficulty'],
             desc: '文本选择题，模型需从选项中选择正确答案（A/B/C/D）',
-            example: '{"sample_id":"e1", "question":"1+1=?", "options":{"A":"1","B":"2","C":"3","D":"4"}, "answer":"B"}'
+            example: '{"question":"1+1=?", "options":{"A":"1","B":"2","C":"3","D":"4"}, "answer":"B", "eval_type":"choice_accuracy"}'
         },
         image_mcq: {
-            required: ['sample_id', 'image_path', 'question', 'options', 'answer'],
+            required: ['image_path', 'question', 'options', 'answer'],
             optional: ['difficulty', 'topic'],
+            autofill: ['sample_id', 'task_type', 'split', 'source', 'modality', 'version', 'difficulty'],
             desc: '图片选择题，需要支持多模态的模型（VLM），数据集须包含图片路径',
-            example: '{"sample_id":"i1", "image_path":"images/001.png", "question":"图中是什么？", "options":{"A":"猫","B":"狗"}, "answer":"A"}'
+            example: '{"image_path":"images/001.png", "question":"图中是什么？", "options":{"A":"猫","B":"狗"}, "answer":"A"}'
         },
         api_calling: {
-            required: ['sample_id', 'instruction', 'tools'],
-            optional: ['difficulty', 'expected_calls', 'category'],
+            required: ['user_goal', 'available_tools', 'ground_truth'],
+            optional: ['difficulty', 'category'],
+            autofill: ['sample_id', 'task_type', 'split', 'source', 'modality', 'version', 'difficulty'],
             desc: 'API/工具调用任务，模型需要选择正确的工具并填入参数',
-            example: '{"sample_id":"a1", "instruction":"查询北京天气", "tools":[{"name":"get_weather","parameters":{...}}]}'
+            example: '{"user_goal":"查询北京天气", "available_tools":["get_weather"], "ground_truth":[{"tool_id":"get_weather","parameters":{"city":"北京"}}]}'
         }
     };
 
@@ -788,6 +792,7 @@
                 <span style="color:var(--text-muted);font-weight:500;">可选：</span>${hint.optional.map(f => '<code style="background:var(--bg-tertiary);padding:1px 5px;border-radius:3px;font-size:12px;">' + f + '</code>').join(' ')}
             </div>
             <div style="margin-top:6px;font-family:monospace;font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${hint.example.replace(/"/g, '&quot;')}">示例: ${hint.example}</div>
+            <div style="margin-top:4px;font-size:11px;color:var(--text-muted);">💡 <code>sample_id</code>、<code>split</code>、<code>difficulty</code>、<code>version</code> 等基础字段缺失时会自动补全</div>
         `;
     }
 

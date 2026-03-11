@@ -246,14 +246,14 @@ class DatasetUploader {
         this.isUploading = true;
         this.showUploadProgress(0);
         
+        // Simulate progress (actual progress would need XHR)
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            progress = Math.min(progress + 10, 90);
+            this.showUploadProgress(progress);
+        }, 200);
+        
         try {
-            // Simulate progress (actual progress would need XHR)
-            let progress = 0;
-            const progressInterval = setInterval(() => {
-                progress = Math.min(progress + 10, 90);
-                this.showUploadProgress(progress);
-            }, 200);
-            
             const result = await API.uploadDataset(this.currentFile, taskType, {
                 dataset_name: datasetName,
             });
@@ -276,6 +276,7 @@ class DatasetUploader {
             return result;
             
         } catch (error) {
+            clearInterval(progressInterval);
             this.isUploading = false;
             this.showStatus('error', `上传失败: ${error.message}`);
             return null;
