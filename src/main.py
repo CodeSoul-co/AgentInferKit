@@ -5,17 +5,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 
-from src.api import (
-    datasets_router,
-    results_router,
-    chat_router,
-    experiments_router,
-    rag_router,
-    models_router,
-    system_router,
-    agent_router,
-    settings_router,
-)
+from src.api import _load_routers
 from src.utils.logger import setup_logger
 
 setup_logger()
@@ -35,16 +25,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register API routers with full /api/v1/{module} prefix
-app.include_router(system_router, prefix="/api/v1/system", tags=["System"])
-app.include_router(datasets_router, prefix="/api/v1/datasets", tags=["Datasets"])
-app.include_router(experiments_router, prefix="/api/v1/experiments", tags=["Experiments"])
-app.include_router(results_router, prefix="/api/v1/results", tags=["Results"])
-app.include_router(rag_router, prefix="/api/v1/rag", tags=["RAG"])
-app.include_router(models_router, prefix="/api/v1/models", tags=["Models"])
-app.include_router(chat_router, prefix="/api/v1/chat", tags=["Chat"])
-app.include_router(agent_router, prefix="/api/v1/agent", tags=["Custom Agent"])
-app.include_router(settings_router, prefix="/api/v1/settings", tags=["Settings"])
+# Register API routers with full /api/v1/{module} prefix (lazy load to avoid circular imports)
+routers = _load_routers()
+app.include_router(routers["system_router"], prefix="/api/v1/system", tags=["System"])
+app.include_router(routers["datasets_router"], prefix="/api/v1/datasets", tags=["Datasets"])
+app.include_router(routers["experiments_router"], prefix="/api/v1/experiments", tags=["Experiments"])
+app.include_router(routers["results_router"], prefix="/api/v1/results", tags=["Results"])
+app.include_router(routers["rag_router"], prefix="/api/v1/rag", tags=["RAG"])
+app.include_router(routers["models_router"], prefix="/api/v1/models", tags=["Models"])
+app.include_router(routers["chat_router"], prefix="/api/v1/chat", tags=["Chat"])
+app.include_router(routers["agent_router"], prefix="/api/v1/agent", tags=["Custom Agent"])
+app.include_router(routers["settings_router"], prefix="/api/v1/settings", tags=["Settings"])
 
 # WebUI paths
 WEBUI_DIR = Path("webui")
