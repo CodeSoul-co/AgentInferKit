@@ -16,6 +16,7 @@ def _load_routers():
     from .system import router as system_router
     from .custom_agent import router as agent_router
     from .settings import router as settings_router
+    from .uploads import router as uploads_router
 
     return {
         "datasets_router": datasets_router,
@@ -27,6 +28,7 @@ def _load_routers():
         "system_router": system_router,
         "agent_router": agent_router,
         "settings_router": settings_router,
+        "uploads_router": uploads_router,
     }
 
 
@@ -40,5 +42,6 @@ __all__ = [
     "system_router",
     "agent_router",
     "settings_router",
+    "uploads_router",
     "_load_routers",
 ]

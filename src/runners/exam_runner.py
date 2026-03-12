@@ -45,6 +45,7 @@ class ExamRunner(BaseRunner):
         # Inject image URL for image_mcq tasks into the last user message
         image_url = sample.get("image_url")
         if image_url:
+            image_url = _resolve_image_url(image_url)
             for i in range(len(messages) - 1, -1, -1):
                 if messages[i].role == "user":
                     messages[i] = Message(
@@ -178,3 +179,28 @@ class ExamRunner(BaseRunner):
         raise NotImplementedError(
             "ExamRunner.run_batch() should be called via BatchRunner."
         )
+
+
+def _resolve_image_url(image_ref: str) -> str:
+    """Resolve an image reference to a usable URL.
+
+    Supports:
+    - ``uploads://images/photo.jpg`` -> convert to absolute ``file://`` URI
+      or keep as-is for API models that accept local paths.
+    - ``http://`` / ``https://`` -> returned as-is.
+    """
+    if image_ref.startswith(("http://", "https://")):
+        return image_ref
+
+    from pathlib import Path
+    uploads_scheme = "uploads://"
+    if image_ref.startswith(uploads_scheme):
+        rel = image_ref[len(uploads_scheme):]
+        local_path = Path("data/uploads") / rel
+    else:
+        local_path = Path(image_ref)
+
+    if local_path.exists():
+        return str(local_path.resolve())
+
+    return image_ref

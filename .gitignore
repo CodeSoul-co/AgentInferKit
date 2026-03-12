@@ -18,6 +18,12 @@ data/experiments/
 # Uploaded dataset files and metadata
 data/processed/
 
+# User uploads (images and datasets placed locally after git clone)
+data/uploads/images/*
+!data/uploads/images/.gitkeep
+data/uploads/datasets/*
+!data/uploads/datasets/.gitkeep
+
 # Milvus Docker volumes (runtime data)
 volumes/
 

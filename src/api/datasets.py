@@ -54,20 +54,22 @@ def _delete_meta(meta: Dict[str, Any]) -> None:
 
 
 def _scan_existing_datasets() -> None:
-    """Scan data/processed/ on startup to rebuild datasets_store from disk."""
-    if not DATA_DIR.exists():
-        return
-    for meta_path in DATA_DIR.rglob("*" + META_SUFFIX):
-        try:
-            with open(meta_path, "r", encoding="utf-8") as f:
-                meta = json.load(f)
-            dataset_id = meta.get("dataset_id")
-            if dataset_id and dataset_id not in datasets_store:
-                # Verify the JSONL file still exists
-                if Path(meta["file_path"]).exists():
-                    datasets_store[dataset_id] = meta
-        except Exception:
+    """Scan data/processed/ and data/uploads/datasets/ on startup to rebuild datasets_store from disk."""
+    scan_dirs = [DATA_DIR, Path("data/uploads/datasets")]
+    for scan_dir in scan_dirs:
+        if not scan_dir.exists():
             continue
+        for meta_path in scan_dir.rglob("*" + META_SUFFIX):
+            try:
+                with open(meta_path, "r", encoding="utf-8") as f:
+                    meta = json.load(f)
+                dataset_id = meta.get("dataset_id")
+                if dataset_id and dataset_id not in datasets_store:
+                    # Verify the JSONL file still exists
+                    if Path(meta["file_path"]).exists():
+                        datasets_store[dataset_id] = meta
+            except Exception:
+                continue
 
 
 # Rebuild store from disk on module load
@@ -92,7 +94,7 @@ def _validate_samples(samples: List[Dict[str, Any]], task_type: str) -> List[str
     task_required = {
         "qa": ["question", "answer", "eval_type"],
         "text_exam": ["question", "options", "answer", "eval_type"],
-        "image_mcq": ["image_path", "question", "options", "answer"],
+        "image_mcq": ["question", "options", "answer"],
         "api_calling": ["user_goal", "available_tools", "ground_truth"],
     }
     # Auto-fill defaults per ARCHITECTURE.md schema_filler
@@ -115,6 +117,10 @@ def _validate_samples(samples: List[Dict[str, Any]], task_type: str) -> List[str
         for field in fields:
             if field not in sample:
                 warnings.append(f"第 {i + 1} 行缺少 {field} 字段")
+        
+        # Warn if image_mcq sample has no image reference at all
+        if task_type == "image_mcq" and not sample.get("image_url") and not sample.get("image_path"):
+            warnings.append(f"第 {i + 1} 行缺少 image_url 或 image_path 字段")
         
         # Auto-fill base fields
         if "sample_id" not in sample:
