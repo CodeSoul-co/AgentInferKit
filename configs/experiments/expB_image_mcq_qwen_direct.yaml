@@ -1,0 +1,15 @@
+experiment_id: expB_image_mcq_qwen_direct
+model:
+  provider: qwen
+  model: qwen-vl-plus
+  request_timeout_s: 300
+strategy: direct
+dataset_path: data/benchmark/image_mcq/demo_image_mcq_v1.jsonl
+concurrency: 2
+evaluators:
+  - choice_accuracy
+  - option_bias
+  - latency_stats
+group_by:
+  - difficulty
+  - topic

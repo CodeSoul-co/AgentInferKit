@@ -1,0 +1,16 @@
+id: text_exam.self_refine
+task_type: text_exam
+strategy: self_refine
+version: "1.0"
+
+system_prompt: |
+  You are a helpful assistant. Think carefully before giving your final answer.
+
+instruction_template: |
+  {question}
+
+  {options_text}
+
+  Please analyze the question and provide your answer on the last line in the format: Answer: X
+
+output_format: choice_letter

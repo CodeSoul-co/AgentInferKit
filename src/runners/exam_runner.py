@@ -42,6 +42,18 @@ class ExamRunner(BaseRunner):
 
         messages = self._strategy.build_prompt(sample)
 
+        # Inject image URL for image_mcq tasks into the last user message
+        image_url = sample.get("image_url")
+        if image_url:
+            for i in range(len(messages) - 1, -1, -1):
+                if messages[i].role == "user":
+                    messages[i] = Message(
+                        role="user",
+                        content=messages[i].content,
+                        image_url=image_url,
+                    )
+                    break
+
         # Optional RAG context injection (supports retrieved + oracle modes)
         messages, rag_context = inject_rag_context(messages, sample, self._rag_config)
 

@@ -19,6 +19,7 @@ class Message(BaseModel):
     """Chat message used throughout the inference pipeline."""
     role: str = Field(..., description="Message role: system, user, or assistant")
     content: str = Field(..., description="Message content")
+    image_url: Optional[str] = Field(default=None, description="Optional image URL for vision models")
 
 
 class GenerateResult(BaseModel):

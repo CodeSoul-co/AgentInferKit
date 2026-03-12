@@ -48,9 +48,14 @@ class OpenAICompatAdapter(BaseModelAdapter):
 
     def _build_messages(
         self, messages: List[Message]
-    ) -> List[Dict[str, str]]:
-        """Convert Message objects to OpenAI-format dicts, prepending system prompt if set."""
-        api_messages: List[Dict[str, str]] = []
+    ) -> List[Dict[str, Any]]:
+        """Convert Message objects to OpenAI-format dicts, prepending system prompt if set.
+
+        When a message carries an ``image_url``, the content is formatted as a
+        list of content parts (text + image_url) following the OpenAI Vision API
+        spec, which is also supported by Qwen VL via DashScope compatible mode.
+        """
+        api_messages: List[Dict[str, Any]] = []
         if self._system_prompt:
             has_system = any(m.role == "system" for m in messages)
             if not has_system:
@@ -58,7 +63,14 @@ class OpenAICompatAdapter(BaseModelAdapter):
                     {"role": "system", "content": self._system_prompt}
                 )
         for m in messages:
-            api_messages.append({"role": m.role, "content": m.content})
+            if m.image_url:
+                content_parts = [
+                    {"type": "image_url", "image_url": {"url": m.image_url}},
+                    {"type": "text", "text": m.content},
+                ]
+                api_messages.append({"role": m.role, "content": content_parts})
+            else:
+                api_messages.append({"role": m.role, "content": m.content})
         return api_messages
 
     async def generate(

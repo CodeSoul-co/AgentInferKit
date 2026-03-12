@@ -6,12 +6,15 @@ text_exam.direct: text_exam/direct.yaml
 text_exam.cot: text_exam/cot.yaml
 text_exam.long_cot: text_exam/long_cot.yaml
 text_exam.tot: text_exam/tot.yaml
+text_exam.self_refine: text_exam/self_refine.yaml
+text_exam.self_consistency: text_exam/self_consistency.yaml
 
 text_qa.direct: text_qa/direct.yaml
 text_qa.cot: text_qa/cot.yaml
 text_qa.long_cot: text_qa/long_cot.yaml
 
 image_mcq.direct: image_mcq/direct.yaml
+image_mcq.cot: image_mcq/cot.yaml
 
 api_calling.direct: api_calling/direct.yaml
 api_calling.cot: api_calling/cot.yaml
