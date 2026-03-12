@@ -146,18 +146,19 @@ def search(
     import json as _json
     hits = []
     for hit in results[0]:
-        raw_ids = hit.entity.get("source_qa_ids", "[]")
+        entity = hit.entity
+        raw_ids = entity.get("source_qa_ids") or "[]"
         try:
             parsed_ids = _json.loads(raw_ids) if isinstance(raw_ids, str) else raw_ids
         except (ValueError, TypeError):
             parsed_ids = []
         hits.append({
-            "chunk_id": hit.entity.get("chunk_id"),
-            "text": hit.entity.get("text"),
-            "topic": hit.entity.get("topic"),
+            "chunk_id": entity.get("chunk_id"),
+            "text": entity.get("text"),
+            "topic": entity.get("topic"),
             "source_qa_ids": parsed_ids,
-            "chunk_strategy": hit.entity.get("chunk_strategy", ""),
-            "token_count": hit.entity.get("token_count", 0),
+            "chunk_strategy": entity.get("chunk_strategy") or "",
+            "token_count": entity.get("token_count") or 0,
             "score": float(hit.score),
         })
     return hits
