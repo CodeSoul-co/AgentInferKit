@@ -71,7 +71,7 @@ class SelfRefineStrategy(BaseStrategy):
 
         response = llm.invoke(lc_messages, config={"callbacks": [tracker]})
         current_answer = response.content if hasattr(response, "content") else str(response)
-        reasoning_trace.append({"step": 0, "phase": "generate", "output": current_answer})
+        reasoning_trace.append({"step": 0, "type": "generate", "content": current_answer, "phase": "generate", "output": current_answer})
 
         # Phases 2-3: Feedback + Refine loop
         for round_i in range(self._max_rounds):
@@ -82,6 +82,8 @@ class SelfRefineStrategy(BaseStrategy):
             feedback_text = fb_response.content if hasattr(fb_response, "content") else str(fb_response)
             reasoning_trace.append({
                 "step": round_i + 1,
+                "type": "feedback",
+                "content": feedback_text,
                 "phase": "feedback",
                 "output": feedback_text,
             })
@@ -99,6 +101,8 @@ class SelfRefineStrategy(BaseStrategy):
             current_answer = ref_response.content if hasattr(ref_response, "content") else str(ref_response)
             reasoning_trace.append({
                 "step": round_i + 1,
+                "type": "refine",
+                "content": current_answer,
                 "phase": "refine",
                 "output": current_answer,
             })

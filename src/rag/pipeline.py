@@ -14,6 +14,7 @@ def build_index(
     kb_name: str,
     strategy: str = "by_topic",
     chunk_size: int = 256,
+    chunk_overlap: int = 0,
     embedder_name: Optional[str] = None,
     version: str = "v1",
     on_progress: Optional[Any] = None,
@@ -25,6 +26,7 @@ def build_index(
         kb_name: Knowledge base name.
         strategy: Chunk strategy name (by_topic, by_sentence, by_token, by_paragraph).
         chunk_size: Target chunk size.
+        chunk_overlap: Overlap between consecutive chunks (chars or tokens).
         embedder_name: Embedding model name override.
         version: Version string for the collection.
         on_progress: Optional callback fn(stage, done, total) for progress reporting.
@@ -35,8 +37,8 @@ def build_index(
     chunk_strategy = ChunkStrategy(strategy)
 
     # Stage 1: chunking
-    logger.info(f"Chunking {len(records)} records with strategy={strategy}, chunk_size={chunk_size}")
-    chunks = chunk(records, strategy=chunk_strategy, chunk_size=chunk_size)
+    logger.info(f"Chunking {len(records)} records with strategy={strategy}, chunk_size={chunk_size}, overlap={chunk_overlap}")
+    chunks = chunk(records, strategy=chunk_strategy, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
 
     # Fill kb_name into each chunk
     for c in chunks:

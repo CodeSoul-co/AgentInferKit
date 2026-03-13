@@ -91,9 +91,10 @@ def _retrieve_chunks(
 
     kb_name = rag_config.get("kb_name", "")
     top_k = rag_config.get("top_k", 3)
+    score_threshold = rag_config.get("score_threshold", 0.0)
 
     t0 = time.perf_counter()
-    chunks = rag_retrieve(query, kb_name, top_k=top_k)
+    chunks = rag_retrieve(query, kb_name, top_k=top_k, score_threshold=score_threshold)
     latency_ms = round((time.perf_counter() - t0) * 1000, 2)
 
     return chunks, latency_ms

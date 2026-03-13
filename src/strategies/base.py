@@ -151,37 +151,153 @@ class BaseStrategy(ABC):
     # Common parse logic (subclasses can override)
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _strip_markdown(text: str) -> str:
+        """Strip common markdown formatting that interferes with parsing."""
+        # Remove bold: **text** or __text__
+        text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+        text = re.sub(r'__(.+?)__', r'\1', text)
+        # Remove italic: *text* or _text_ (single)
+        text = re.sub(r'(?<!\*)\*([^*]+?)\*(?!\*)', r'\1', text)
+        # Remove backtick code: `text`
+        text = re.sub(r'`([^`]+?)`', r'\1', text)
+        return text.strip()
+
     def _extract_answer(self, raw_output: str, task_type: str) -> str:
-        """Extract answer using patterns from YAML parse config."""
+        """Extract answer using patterns from YAML parse config.
+
+        Priority order:
+        1. GSM8K #### pattern (most reliable for math QA)
+        2. Answer: pattern (explicit CoT final answer)
+        3. Fallback: choice letter / last number / last line
+        """
         answer_pattern = self._parse_cfg.get("answer_pattern", r"[Aa]nswer\s*[：:]\s*(.+)")
         choice_pattern = self._parse_cfg.get("choice_pattern", r"\b([A-D])\b")
 
-        match = re.search(answer_pattern, raw_output)
-        if match:
-            parsed = match.group(1).strip()
+        # Pre-process: strip markdown from the raw output for parsing
+        cleaned = self._strip_markdown(raw_output)
+
+        # Priority 1: GSM8K #### pattern (most unambiguous)
+        if task_type in ("qa", "text_qa"):
+            hash_match = re.search(r"####\s*(.+)", cleaned)
+            if hash_match:
+                num = self._extract_final_number(hash_match.group(1))
+                if num is not None:
+                    return num
+
+        # Priority 2: Explicit "Answer:" line (search from end for last occurrence)
+        matches = list(re.finditer(answer_pattern, cleaned))
+        if matches:
+            parsed = matches[-1].group(1).strip()
+            # Strip any remaining markdown from the captured answer
+            parsed = self._strip_markdown(parsed)
             if task_type in ("text_exam", "image_mcq"):
                 letter = re.search(choice_pattern, parsed)
                 if letter:
                     return letter.group(1)
+            if task_type in ("qa", "text_qa"):
+                num = self._extract_final_number(parsed)
+                if num is not None:
+                    return num
             return parsed
 
-        # Fallback for choice tasks
+        # Fallback for choice tasks: scan entire output for a letter
         if task_type in ("text_exam", "image_mcq"):
-            letter = re.search(choice_pattern, raw_output)
+            letter = re.search(choice_pattern, cleaned)
             if letter:
                 return letter.group(1)
 
-        # Fallback: last line
-        lines = raw_output.strip().split("\n")
-        return lines[-1].strip() if lines else raw_output.strip()
+        # Fallback for QA: try last line number
+        if task_type in ("qa", "text_qa"):
+            lines = cleaned.strip().split("\n")
+            last_line = lines[-1].strip() if lines else ""
+            num = self._extract_final_number(last_line)
+            if num is not None:
+                return num
 
-    def _extract_trace(self, raw_output: str) -> Optional[str]:
-        """Extract reasoning trace (everything except the Answer line)."""
+        # Ultimate fallback: last non-empty line
+        lines = cleaned.strip().split("\n")
+        return lines[-1].strip() if lines else cleaned.strip()
+
+    @staticmethod
+    def _extract_final_number(text: str) -> Optional[str]:
+        """Extract the last number from text, handling currency, commas, markdown."""
+        # Strip markdown bold/italic wrapping first
+        text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+        text = re.sub(r'__(.+?)__', r'\1', text)
+        text = re.sub(r'`([^`]+?)`', r'\1', text)
+        # Match integers or decimals, possibly preceded by $ or other currency symbols
+        numbers = re.findall(r'[-+]?\$?\s*[\d,]+\.?\d*', text)
+        if numbers:
+            num_str = numbers[-1].strip().replace('$', '').replace(',', '').strip()
+            try:
+                val = float(num_str)
+                if val == int(val):
+                    return str(int(val))
+                return str(val)
+            except ValueError:
+                pass
+        return None
+
+    # ------------------------------------------------------------------
+    # Step-splitting patterns for structured trace extraction
+    # ------------------------------------------------------------------
+    _STEP_PATTERNS = [
+        # "Step 1:", "Step 1.", "Step 1)"
+        re.compile(r'^(?:Step\s+\d+[.:)]\s*)', re.IGNORECASE | re.MULTILINE),
+        # "1. ", "1) ", "1: " at line start (numbered list)
+        re.compile(r'^(\d+)[.:)]\s+', re.MULTILINE),
+        # "Thought:" / "Thought 1:" (ReAct style)
+        re.compile(r'^Thought(?:\s+\d+)?\s*[.:]\s*', re.IGNORECASE | re.MULTILINE),
+        # "First," / "Second," / "Third," etc.
+        re.compile(r'^(?:First|Second|Third|Fourth|Fifth|Sixth|Next|Then|Finally)[,.:]\s*', re.IGNORECASE | re.MULTILINE),
+    ]
+
+    def _extract_trace(self, raw_output: str) -> List[Dict[str, Any]]:
+        """Extract reasoning trace as a structured list of steps.
+
+        Splits on recognized step boundaries (Step N:, numbered lists, etc.)
+        and returns a list of {step, type, content} dicts.
+        Falls back to paragraph splitting if no explicit step markers found.
+        """
         answer_pattern = self._parse_cfg.get("answer_pattern", r"[Aa]nswer\s*[：:]\s*(.+)")
+
+        # Remove the final Answer: line(s) from the trace
         lines = raw_output.strip().split("\n")
         trace_lines = [l for l in lines if not re.search(answer_pattern, l)]
-        trace = "\n".join(trace_lines).strip()
-        return trace if trace else None
+        # Also remove GSM8K #### lines
+        trace_lines = [l for l in trace_lines if not re.match(r'\s*####\s', l)]
+        trace_text = "\n".join(trace_lines).strip()
+        if not trace_text:
+            return []
+
+        # Try each step pattern to find split points
+        for pattern in self._STEP_PATTERNS:
+            split_positions = [m.start() for m in pattern.finditer(trace_text)]
+            if len(split_positions) >= 2:
+                # Found multiple step markers -> split into steps
+                steps = []
+                for i, pos in enumerate(split_positions):
+                    end = split_positions[i + 1] if i + 1 < len(split_positions) else len(trace_text)
+                    step_text = trace_text[pos:end].strip()
+                    if step_text:
+                        steps.append({
+                            "step": i + 1,
+                            "type": "thought",
+                            "content": step_text,
+                        })
+                return steps
+
+        # Fallback: split by double-newline (paragraph boundaries)
+        paragraphs = [p.strip() for p in re.split(r'\n\s*\n', trace_text) if p.strip()]
+        if len(paragraphs) >= 2:
+            return [
+                {"step": i + 1, "type": "thought", "content": p}
+                for i, p in enumerate(paragraphs)
+            ]
+
+        # Last resort: single step containing all the reasoning
+        return [{"step": 1, "type": "thought", "content": trace_text}]
 
     # ------------------------------------------------------------------
     # Abstract interface for subclasses
@@ -196,6 +312,8 @@ class BaseStrategy(ABC):
         """Parse the model's raw output into a structured result.
 
         Default implementation uses YAML parse config. Subclasses can override.
+        Returns:
+            dict with 'parsed_answer' (str) and 'reasoning_trace' (List[Dict]).
         """
         task_type = sample.get("task_type", "text_qa")
         return {

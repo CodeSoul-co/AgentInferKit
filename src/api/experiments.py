@@ -34,7 +34,7 @@ from ..adapters.registry import load_adapter
 from ..strategies.registry import load_strategy
 from ..evaluators.registry import evaluate_all
 from ..evaluators.group_stats import multi_group_stats
-from ..config import OUTPUTS_METRICS_DIR
+from ..config import OUTPUTS_METRICS_DIR, OUTPUTS_PREDICTIONS_DIR
 from ..utils.file_io import read_jsonl
 
 
@@ -188,7 +188,7 @@ async def _run_experiment_task(experiment_id: str, exp: Dict[str, Any]):
         logger.info(f"Evaluating experiment {experiment_id}...")
         pred_results = read_jsonl(predictions_path)
         
-        # Merge reference data from samples into predictions
+        # Merge reference data from samples into predictions and compute correctness
         sample_map = {s["sample_id"]: s for s in samples}
         for pred in pred_results:
             sid = pred.get("sample_id", "")
@@ -196,8 +196,22 @@ async def _run_experiment_task(experiment_id: str, exp: Dict[str, Any]):
                 orig = sample_map[sid]
                 pred.setdefault("answer", orig.get("answer", ""))
                 pred.setdefault("reference_answer", orig.get("reference_answer", ""))
+                pred.setdefault("question", orig.get("question", ""))
                 pred.setdefault("difficulty", orig.get("difficulty", ""))
                 pred.setdefault("metadata", orig.get("metadata", {}))
+            # Compute per-sample correctness
+            parsed = str(pred.get("parsed_answer", "")).strip()
+            ref = str(pred.get("answer", pred.get("reference_answer", ""))).strip()
+            if parsed and ref:
+                is_correct = parsed.lower() == ref.lower()
+                if not is_correct:
+                    try:
+                        is_correct = abs(float(parsed.replace(',', '')) - float(ref.replace(',', ''))) < 1e-6
+                    except (ValueError, AttributeError):
+                        pass
+                pred["correct"] = is_correct
+            else:
+                pred["correct"] = False
         
         # Determine evaluators based on task type
         from ..evaluators.registry import list_metrics
@@ -215,9 +229,26 @@ async def _run_experiment_task(experiment_id: str, exp: Dict[str, Any]):
                 evaluator_names = ["tool_selection_accuracy", "parameter_accuracy", "end_to_end_success_rate", "invalid_call_rate", "avg_tool_calls", "latency_stats", "token_stats", "cost_estimate"]
             else:
                 evaluator_names = ["exact_match", "f1_score", "bleu", "rouge_l", "latency_stats", "token_stats", "cost_estimate"]
+            # Auto-add reasoning step metric for non-direct strategies
+            strategy_name = exp.get("strategy", "direct")
+            if strategy_name in ("cot", "long_cot", "tot", "self_refine", "self_consistency", "react"):
+                evaluator_names.append("avg_reasoning_steps")
+            # Auto-add RAG metrics when RAG retrieval is enabled
+            rag_cfg = exp.get("rag", {})
+            if rag_cfg.get("enabled") and rag_cfg.get("mode") == "retrieved":
+                evaluator_names.extend(["retrieval_hit_rate", "context_relevance", "retrieval_recall_at_k", "answer_evidence_consistency", "hallucination_rate"])
+        
+        # Deduplicate while preserving order
+        seen = set()
+        evaluator_names = [m for m in evaluator_names if m in available_metrics and not (m in seen or seen.add(m))]
         
         logger.info(f"Using evaluators: {evaluator_names}")
         metric_results = evaluate_all(pred_results, evaluator_names, {})
+        
+        # Write enriched predictions back (with correct, answer, question fields)
+        with open(predictions_path, "w", encoding="utf-8") as f:
+            for pred in pred_results:
+                f.write(json.dumps(pred, ensure_ascii=False) + "\n")
         
         # Build overall summary
         valid_samples = sum(1 for p in pred_results if not p.get("error"))
@@ -560,12 +591,13 @@ async def stop_experiment(experiment_id: str):
     if exp["status"] != "running":
         raise HTTPException(status_code=409, detail=f"Experiment is not running (status: {exp['status']})")
     
+    # Signal batch runner to stop processing new samples
+    from src.runners.batch_runner import cancel_experiment
+    cancel_experiment(experiment_id)
+    
     # Update status
     exp["status"] = "stopped"
     _save_experiments()
-    
-    # TODO: Integrate with A组's Runner module to stop execution
-    # runner.stop(experiment_id)
     
     return ResponseEnvelope(
         data=ExperimentStopResponse(
@@ -611,8 +643,22 @@ async def evaluate_experiment(experiment_id: str, body: Dict[str, Any] = Body(de
             orig = sample_map[sid]
             pred.setdefault("answer", orig.get("answer", ""))
             pred.setdefault("reference_answer", orig.get("reference_answer", ""))
+            pred.setdefault("question", orig.get("question", ""))
             pred.setdefault("difficulty", orig.get("difficulty", ""))
             pred.setdefault("metadata", orig.get("metadata", {}))
+        # Compute per-sample correctness
+        parsed = str(pred.get("parsed_answer", "")).strip()
+        ref = str(pred.get("answer", pred.get("reference_answer", ""))).strip()
+        if parsed and ref:
+            is_correct = parsed.lower() == ref.lower()
+            if not is_correct:
+                try:
+                    is_correct = abs(float(parsed.replace(',', '')) - float(ref.replace(',', ''))) < 1e-6
+                except (ValueError, AttributeError):
+                    pass
+            pred["correct"] = is_correct
+        else:
+            pred["correct"] = False
 
     # Determine evaluators
     from ..evaluators.registry import list_metrics
@@ -630,9 +676,28 @@ async def evaluate_experiment(experiment_id: str, body: Dict[str, Any] = Body(de
                                "invalid_call_rate", "avg_tool_calls", "latency_stats", "token_stats", "cost_estimate"]
         else:
             evaluator_names = ["exact_match", "f1_score", "bleu", "rouge_l", "latency_stats", "token_stats", "cost_estimate"]
+        # Auto-add reasoning step metric for non-direct strategies
+        strategy_name = exp.get("strategy", "direct")
+        if strategy_name in ("cot", "long_cot", "tot", "self_refine", "self_consistency", "react"):
+            evaluator_names.append("avg_reasoning_steps")
+        # Auto-add RAG metrics when RAG retrieval is enabled
+        rag_cfg = exp.get("rag", {})
+        if rag_cfg.get("enabled") and rag_cfg.get("mode") == "retrieved":
+            evaluator_names.extend(["retrieval_hit_rate", "context_relevance", "retrieval_recall_at_k", "answer_evidence_consistency", "hallucination_rate"])
+
+    # Deduplicate while preserving order
+    seen = set()
+    evaluator_names = [m for m in evaluator_names if m in available_metrics and not (m in seen or seen.add(m))]
 
     logger.info(f"Evaluate {experiment_id} with: {evaluator_names}")
     metric_results = evaluate_all(pred_results, evaluator_names, {})
+
+    # Write enriched predictions back (with correct, answer, question fields)
+    pred_file = OUTPUTS_PREDICTIONS_DIR / f"{experiment_id}.jsonl"
+    if pred_file.exists():
+        with open(pred_file, "w", encoding="utf-8") as f:
+            for pred in pred_results:
+                f.write(json.dumps(pred, ensure_ascii=False) + "\n")
 
     # Build overall summary
     valid_samples = sum(1 for p in pred_results if not p.get("error"))
@@ -703,19 +768,35 @@ async def evaluate_experiment(experiment_id: str, body: Dict[str, Any] = Body(de
 )
 async def delete_experiment(experiment_id: str):
     """
-    Delete an experiment and its associated data.
+    Delete an experiment and all associated data (config, predictions, metrics, progress).
     
-    Running experiments must be stopped first.
+    Running experiments are automatically stopped before deletion.
     """
     exp = _get_experiment_or_404(experiment_id)
     
+    # Auto-stop running experiments instead of blocking deletion
     if exp["status"] == "running":
-        raise HTTPException(status_code=409, detail="Cannot delete a running experiment. Stop it first.")
+        from src.runners.batch_runner import cancel_experiment
+        cancel_experiment(experiment_id)
+        exp["status"] = "stopped"
+        logger.info(f"Auto-stopped running experiment {experiment_id} for deletion")
     
-    # Delete config file if exists
+    # Delete config file
     config_path = Path(exp.get("config_path", ""))
     if config_path.exists():
         config_path.unlink()
+    
+    # Delete prediction files
+    pred_file = OUTPUTS_PREDICTIONS_DIR / f"{experiment_id}.jsonl"
+    prog_file = OUTPUTS_PREDICTIONS_DIR / f"{experiment_id}_progress.json"
+    for p in (pred_file, prog_file):
+        if p.exists():
+            p.unlink()
+    
+    # Delete metrics file
+    metrics_file = OUTPUTS_METRICS_DIR / f"{experiment_id}.json"
+    if metrics_file.exists():
+        metrics_file.unlink()
     
     # Remove from memory and persist
     del _experiments[experiment_id]

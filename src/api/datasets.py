@@ -10,7 +10,7 @@ Endpoints:
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -54,20 +54,48 @@ def _delete_meta(meta: Dict[str, Any]) -> None:
 
 
 def _scan_existing_datasets() -> None:
-    """Scan data/processed/ and data/uploads/datasets/ on startup to rebuild datasets_store from disk."""
-    scan_dirs = [DATA_DIR, Path("data/uploads/datasets")]
+    """Scan data/processed/, data/uploads/datasets/, and data/benchmark/ on startup to rebuild datasets_store from disk."""
+    scan_dirs = [DATA_DIR, Path("data/uploads/datasets"), Path("data/benchmark")]
     for scan_dir in scan_dirs:
         if not scan_dir.exists():
             continue
+        # First: load datasets that already have .meta.json
         for meta_path in scan_dir.rglob("*" + META_SUFFIX):
             try:
                 with open(meta_path, "r", encoding="utf-8") as f:
                     meta = json.load(f)
                 dataset_id = meta.get("dataset_id")
                 if dataset_id and dataset_id not in datasets_store:
-                    # Verify the JSONL file still exists
                     if Path(meta["file_path"]).exists():
                         datasets_store[dataset_id] = meta
+            except Exception:
+                continue
+        # Second: auto-discover .jsonl files without .meta.json (benchmark datasets)
+        for jsonl_path in scan_dir.rglob("*.jsonl"):
+            meta_path = jsonl_path.with_suffix(".meta.json")
+            dataset_id = jsonl_path.stem
+            if meta_path.exists() or dataset_id in datasets_store:
+                continue
+            try:
+                with open(jsonl_path, "r", encoding="utf-8") as f:
+                    first_line = f.readline().strip()
+                    if not first_line:
+                        continue
+                    first_sample = json.loads(first_line)
+                    sample_count = 1 + sum(1 for _ in f)
+                task_type = first_sample.get("task_type", "qa")
+                meta = {
+                    "dataset_id": dataset_id,
+                    "filename": jsonl_path.name,
+                    "file_path": str(jsonl_path),
+                    "task_type": task_type,
+                    "total_samples": sample_count,
+                    "sample_count": sample_count,
+                    "source": "benchmark",
+                    "version": "1.0.0",
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                }
+                datasets_store[dataset_id] = meta
             except Exception:
                 continue
 
@@ -245,10 +273,10 @@ async def list_datasets(
         
         datasets.append(DatasetInfo(
             dataset_id=ds_info["dataset_id"],
-            task_type=ds_info["task_type"],
-            total_samples=ds_info["total_samples"],
+            task_type=ds_info.get("task_type", "qa"),
+            total_samples=ds_info.get("total_samples", ds_info.get("sample_count", 0)),
             version=ds_info.get("version", "1.0.0"),
-            created_at=datetime.fromisoformat(ds_info["created_at"].replace("Z", "+00:00")),
+            created_at=datetime.fromisoformat(ds_info.get("created_at", datetime.now(timezone.utc).isoformat()).replace("Z", "+00:00")),
         ))
     
     return ResponseEnvelope(

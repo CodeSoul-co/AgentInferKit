@@ -1,3 +1,4 @@
+import asyncio
 import time
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
@@ -108,21 +109,21 @@ class ExamRunner(BaseRunner):
         """Dispatch to ToTStrategy.run_tot_bfs() for BFS tree search."""
         from src.strategies.tot import ToTStrategy
         strategy: ToTStrategy = self._strategy  # type: ignore
-        result = strategy.run_tot_bfs(sample, self._model_config)
+        result = await asyncio.to_thread(strategy.run_tot_bfs, sample, self._model_config)
         return self._wrap_multi_turn_result(sample, result)
 
     async def _run_self_consistency(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         """Dispatch to SelfConsistencyStrategy.run_consistency_vote()."""
         from src.strategies.self_consistency import SelfConsistencyStrategy
         strategy: SelfConsistencyStrategy = self._strategy  # type: ignore
-        result = strategy.run_consistency_vote(sample, self._model_config)
+        result = await asyncio.to_thread(strategy.run_consistency_vote, sample, self._model_config)
         return self._wrap_multi_turn_result(sample, result)
 
     async def _run_self_refine(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         """Dispatch to SelfRefineStrategy.run_refine_loop()."""
         from src.strategies.self_refine import SelfRefineStrategy
         strategy: SelfRefineStrategy = self._strategy  # type: ignore
-        result = strategy.run_refine_loop(sample, self._model_config)
+        result = await asyncio.to_thread(strategy.run_refine_loop, sample, self._model_config)
         return self._wrap_multi_turn_result(sample, result)
 
     def _wrap_multi_turn_result(

@@ -15,6 +15,7 @@ def chunk(
     records: List[Dict[str, Any]],
     strategy: ChunkStrategy = ChunkStrategy.BY_TOPIC,
     chunk_size: int = 256,
+    chunk_overlap: int = 0,
 ) -> List[Dict[str, Any]]:
     """Split QA records into chunks according to the given strategy.
 
@@ -23,6 +24,8 @@ def chunk(
                  and either 'question'+'reference_answer' or 'text'.
         strategy: Chunking strategy to use.
         chunk_size: Target chunk size (in tokens for BY_TOKEN, in chars otherwise).
+        chunk_overlap: Number of overlapping units (chars or tokens) between
+                       consecutive chunks. Ignored for BY_TOPIC strategy.
 
     Returns:
         A list of chunk dicts conforming to SCHEMA.md section 3:
@@ -32,11 +35,11 @@ def chunk(
     if strategy == ChunkStrategy.BY_TOPIC:
         return _chunk_by_topic(records)
     elif strategy == ChunkStrategy.BY_SENTENCE:
-        return _chunk_by_sentence(records, chunk_size)
+        return _chunk_by_sentence(records, chunk_size, chunk_overlap)
     elif strategy == ChunkStrategy.BY_TOKEN:
-        return _chunk_by_token(records, chunk_size)
+        return _chunk_by_token(records, chunk_size, chunk_overlap)
     elif strategy == ChunkStrategy.BY_PARAGRAPH:
-        return _chunk_by_paragraph(records, chunk_size)
+        return _chunk_by_paragraph(records, chunk_size, chunk_overlap)
     else:
         raise ValueError(f"Unknown chunk strategy: {strategy}")
 
@@ -103,43 +106,66 @@ def _chunk_by_topic(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 
 def _chunk_by_sentence(
-    records: List[Dict[str, Any]], chunk_size: int
+    records: List[Dict[str, Any]], chunk_size: int, chunk_overlap: int = 0
 ) -> List[Dict[str, Any]]:
-    """Split each record's text into sentences, then group sentences up to chunk_size chars."""
+    """Split each record's text into sentences, then group sentences up to chunk_size chars.
+
+    When chunk_overlap > 0, the last N chars worth of sentences from the
+    previous chunk are carried over to the next chunk.
+    """
     import re
 
     chunks = []
     idx = 0
     for r in records:
         text = _extract_text(r)
-        sentences = re.split(r"(?<=[.!?。！？])\s*", text)
+        sentences = re.split(r"(?<=[.!?\u3002\uff01\uff1f])\s*", text)
         sentences = [s.strip() for s in sentences if s.strip()]
 
-        current_text = ""
+        current_sents: List[str] = []
+        current_len = 0
         for sent in sentences:
-            if len(current_text) + len(sent) > chunk_size and current_text:
+            if current_len + len(sent) > chunk_size and current_sents:
                 topic = r.get("topic", "") or r.get("metadata", {}).get("topic", "")
                 chunks.append(
-                    _make_chunk(idx, current_text, [r.get("sample_id", "")], topic, "by_sentence")
+                    _make_chunk(idx, " ".join(current_sents), [r.get("sample_id", "")], topic, "by_sentence")
                 )
                 idx += 1
-                current_text = sent
+                # Overlap: keep trailing sentences that fit within overlap budget
+                if chunk_overlap > 0:
+                    overlap_sents: List[str] = []
+                    overlap_len = 0
+                    for s in reversed(current_sents):
+                        if overlap_len + len(s) > chunk_overlap:
+                            break
+                        overlap_sents.insert(0, s)
+                        overlap_len += len(s)
+                    current_sents = overlap_sents + [sent]
+                    current_len = overlap_len + len(sent)
+                else:
+                    current_sents = [sent]
+                    current_len = len(sent)
             else:
-                current_text = (current_text + " " + sent).strip()
+                current_sents.append(sent)
+                current_len += len(sent)
 
-        if current_text:
+        if current_sents:
             topic = r.get("topic", "") or r.get("metadata", {}).get("topic", "")
             chunks.append(
-                _make_chunk(idx, current_text, [r.get("sample_id", "")], topic, "by_sentence")
+                _make_chunk(idx, " ".join(current_sents), [r.get("sample_id", "")], topic, "by_sentence")
             )
             idx += 1
     return chunks
 
 
 def _chunk_by_token(
-    records: List[Dict[str, Any]], chunk_size: int
+    records: List[Dict[str, Any]], chunk_size: int, chunk_overlap: int = 0
 ) -> List[Dict[str, Any]]:
-    """Split text into chunks of approximately chunk_size tokens."""
+    """Split text into chunks of approximately chunk_size tokens.
+
+    When chunk_overlap > 0, the last N tokens worth of words from the
+    previous chunk are carried over to the next chunk.
+    """
     chunks = []
     idx = 0
     for r in records:
@@ -157,8 +183,21 @@ def _chunk_by_token(
                     _make_chunk(idx, chunk_text, [r.get("sample_id", "")], topic, "by_token")
                 )
                 idx += 1
-                current_words = [word]
-                current_tokens = word_tokens
+                # Overlap: keep trailing words that fit within overlap budget
+                if chunk_overlap > 0:
+                    overlap_words: List[str] = []
+                    overlap_tokens = 0
+                    for w in reversed(current_words):
+                        wt = _estimate_tokens(w)
+                        if overlap_tokens + wt > chunk_overlap:
+                            break
+                        overlap_words.insert(0, w)
+                        overlap_tokens += wt
+                    current_words = overlap_words + [word]
+                    current_tokens = overlap_tokens + word_tokens
+                else:
+                    current_words = [word]
+                    current_tokens = word_tokens
             else:
                 current_words.append(word)
                 current_tokens += word_tokens
@@ -174,31 +213,50 @@ def _chunk_by_token(
 
 
 def _chunk_by_paragraph(
-    records: List[Dict[str, Any]], chunk_size: int
+    records: List[Dict[str, Any]], chunk_size: int, chunk_overlap: int = 0
 ) -> List[Dict[str, Any]]:
-    """Split text by paragraphs (double newlines), merging short ones up to chunk_size."""
+    """Split text by paragraphs (double newlines), merging short ones up to chunk_size.
+
+    When chunk_overlap > 0, the last N chars worth of paragraphs from the
+    previous chunk are carried over to the next chunk.
+    """
     chunks = []
     idx = 0
     for r in records:
         text = _extract_text(r)
         paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
 
-        current_text = ""
+        current_paras: List[str] = []
+        current_len = 0
         for para in paragraphs:
-            if len(current_text) + len(para) > chunk_size and current_text:
+            if current_len + len(para) > chunk_size and current_paras:
                 topic = r.get("topic", "") or r.get("metadata", {}).get("topic", "")
                 chunks.append(
-                    _make_chunk(idx, current_text, [r.get("sample_id", "")], topic, "by_paragraph")
+                    _make_chunk(idx, "\n\n".join(current_paras), [r.get("sample_id", "")], topic, "by_paragraph")
                 )
                 idx += 1
-                current_text = para
+                # Overlap: keep trailing paragraphs that fit within overlap budget
+                if chunk_overlap > 0:
+                    overlap_paras: List[str] = []
+                    overlap_len = 0
+                    for p in reversed(current_paras):
+                        if overlap_len + len(p) > chunk_overlap:
+                            break
+                        overlap_paras.insert(0, p)
+                        overlap_len += len(p)
+                    current_paras = overlap_paras + [para]
+                    current_len = overlap_len + len(para)
+                else:
+                    current_paras = [para]
+                    current_len = len(para)
             else:
-                current_text = (current_text + "\n\n" + para).strip()
+                current_paras.append(para)
+                current_len += len(para)
 
-        if current_text:
+        if current_paras:
             topic = r.get("topic", "") or r.get("metadata", {}).get("topic", "")
             chunks.append(
-                _make_chunk(idx, current_text, [r.get("sample_id", "")], topic, "by_paragraph")
+                _make_chunk(idx, "\n\n".join(current_paras), [r.get("sample_id", "")], topic, "by_paragraph")
             )
             idx += 1
     return chunks

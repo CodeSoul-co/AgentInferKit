@@ -215,15 +215,26 @@ class ToTStrategy(BaseStrategy):
 
         def _patched_gpt(prompt, model=None, temperature=0.7, max_tokens=1000, n=1, stop=None):
             from langchain_core.messages import HumanMessage
-            outputs = []
-            for _ in range(n):
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+
+            def _single_call():
                 resp = llm.invoke(
                     [HumanMessage(content=prompt)],
                     config={"callbacks": [tracker]},
                     stop=stop,
                 )
-                text = resp.content if hasattr(resp, "content") else str(resp)
-                outputs.append(text)
+                return resp.content if hasattr(resp, "content") else str(resp)
+
+            if n == 1:
+                return [_single_call()]
+
+            # Parallelize n>1 LLM calls for speed
+            logger.debug(f"ToT _patched_gpt: parallel {n} calls, prompt_len={len(prompt)}")
+            outputs = []
+            with ThreadPoolExecutor(max_workers=n) as pool:
+                futures = [pool.submit(_single_call) for _ in range(n)]
+                for f in futures:
+                    outputs.append(f.result())
             return outputs
 
         # Patch both the models module and the bfs module reference
@@ -252,7 +263,9 @@ class ToTStrategy(BaseStrategy):
                 prompt_sample=self._prompt_sample,
             )
 
+            logger.info(f"ToT: calling bfs_solve with depth={self._depth}, k={self._k}")
             ys, info = bfs_solve(args, task, 0, to_print=False)
+            logger.info(f"ToT: bfs_solve returned {len(ys)} candidates")
 
             best = ys[0] if ys else ""
 
@@ -275,15 +288,18 @@ class ToTStrategy(BaseStrategy):
 
             parsed = self.parse_output(final_text, sample)
 
-            # Build reasoning trace from bfs info
+            # Build reasoning trace from bfs info (unified schema)
             steps_info = info.get("steps", [])
             reasoning_trace = []
             for s in steps_info:
+                selected = s.get("select_new_ys", [])
                 reasoning_trace.append({
                     "step": s["step"] + 1,
+                    "type": "tree_search",
+                    "content": "; ".join(y[:120] for y in selected) if selected else "(no candidates selected)",
                     "num_candidates": len(s.get("new_ys", [])),
                     "values": s.get("values", []),
-                    "selected": [y[:80] for y in s.get("select_new_ys", [])],
+                    "selected": [y[:80] for y in selected],
                 })
 
             return {

@@ -13,19 +13,19 @@ const DEFAULT_METRICS_BY_TASK = {
     qa: {
         performance: ['exact_match', 'f1_score', 'rouge_l'],
         efficiency: ['latency_stats', 'token_stats', 'cost_estimate'],
-        optional: ['bleu', 'win_rate', 'avg_trace_tokens'],
-        rag: ['retrieval_hit_rate', 'evidence_hit_rate', 'answer_evidence_alignment'],
+        optional: ['bleu', 'win_rate', 'avg_reasoning_steps', 'avg_trace_tokens', 'llm_judge'],
+        rag: ['retrieval_hit_rate', 'context_relevance', 'retrieval_recall_at_k', 'answer_evidence_consistency', 'hallucination_rate'],
     },
     text_exam: {
         performance: ['choice_accuracy', 'option_bias'],
         efficiency: ['latency_stats', 'token_stats', 'cost_estimate'],
-        optional: ['win_rate', 'avg_trace_tokens'],
-        rag: ['retrieval_hit_rate', 'evidence_hit_rate', 'answer_evidence_alignment'],
+        optional: ['win_rate', 'avg_reasoning_steps', 'avg_trace_tokens', 'llm_judge'],
+        rag: ['retrieval_hit_rate', 'context_relevance', 'retrieval_recall_at_k', 'answer_evidence_consistency', 'hallucination_rate'],
     },
     image_mcq: {
         performance: ['choice_accuracy', 'option_bias'],
         efficiency: ['latency_stats', 'token_stats', 'cost_estimate'],
-        optional: ['win_rate', 'avg_trace_tokens'],
+        optional: ['win_rate', 'avg_reasoning_steps', 'avg_trace_tokens', 'llm_judge'],
     },
     api_calling: {
         performance: ['tool_selection_accuracy', 'parameter_accuracy', 'end_to_end_success_rate', 'invalid_call_rate', 'avg_tool_calls'],
@@ -40,10 +40,11 @@ const METRIC_LABELS = {
     tool_selection_accuracy: '工具选择准确率', parameter_accuracy: '参数准确率',
     end_to_end_success_rate: '端到端成功率', invalid_call_rate: '无效调用率',
     avg_tool_calls: '平均工具调用', avg_reasoning_steps: '平均推理步数',
-    avg_trace_tokens: '平均 Trace Token',
+    avg_trace_tokens: '平均 Trace Token', llm_judge: 'LLM 评委',
+    retrieval_hit_rate: '检索命中率', context_relevance: '上下文相关性',
+    retrieval_recall_at_k: '检索召回率@K', answer_evidence_consistency: '答案-证据一致性',
+    hallucination_rate: '幻觉率',
     latency_stats: '延迟统计', token_stats: 'Token统计', cost_estimate: '成本估算',
-    retrieval_hit_rate: '检索命中率', evidence_hit_rate: '证据命中率',
-    answer_evidence_alignment: '答案-证据对齐',
 };
 
 const GROUP_OPTIONS = {
@@ -555,6 +556,7 @@ class ExperimentManager {
             mode: ragMode,
             kb_name: val('kb_name') || null,
             top_k: intVal('top_k', 3),
+            score_threshold: parseFloat(val('score_threshold') || '0') || 0.0,
             oracle_chunks_file: val('oracle_chunks_file') || null,
         };
         
@@ -848,12 +850,22 @@ class ExperimentManager {
 
             body.innerHTML = predictions.map((p, idx) => {
                 const sid = p.sample_id || '-';
-                const hasTrace = p.reasoning_trace && (typeof p.reasoning_trace === 'string' ? p.reasoning_trace.trim() : true);
-                const traceText = hasTrace ? (typeof p.reasoning_trace === 'string' ? p.reasoning_trace : JSON.stringify(p.reasoning_trace, null, 2)) : '';
+                const trace = p.reasoning_trace;
+                const hasTrace = trace && (Array.isArray(trace) ? trace.length > 0 : (typeof trace === 'string' && trace.trim()));
                 const rawOutput = p.raw_output || '';
                 const hasRag = p.rag_context && p.rag_context.mode;
                 const latency = p.usage?.latency_ms || 0;
                 const tokens = p.usage?.total_tokens || 0;
+                // Count reasoning steps from trace
+                let stepCount = 0;
+                if (hasTrace) {
+                    if (Array.isArray(trace)) {
+                        stepCount = trace.length;
+                    } else if (typeof trace === 'string') {
+                        stepCount = (trace.match(/^(Step|Thought|\d+[\.\)\:])/gm) || []).length || (trace.split('\n\n').filter(s => s.trim()).length);
+                    }
+                }
+                const toolCallCount = Array.isArray(p.tool_trace) ? p.tool_trace.length : 0;
 
                 let ragHtml = '';
                 if (hasRag) {
@@ -888,6 +900,8 @@ class ExperimentManager {
                             <span style="font-size:12px;color:var(--text-muted);">
                                 ${p.model ? 'Model: ' + this._escHtml(p.model) : ''} ${p.strategy ? '| Strategy: ' + this._escHtml(p.strategy) : ''}
                                 | ${tokens} tokens | ${latency}ms
+                                ${stepCount > 0 ? ' | <span style="color:var(--primary-color);">' + stepCount + ' steps</span>' : ''}
+                                ${toolCallCount > 0 ? ' | <span style="color:#8B5CF6;">' + toolCallCount + ' tool calls</span>' : ''}
                                 ${p.correct === true ? ' <span style="color:var(--success-color);">✓</span>' : p.correct === false ? ' <span style="color:var(--error-color);">✗</span>' : ''}
                             </span>
                         </div>
@@ -898,9 +912,18 @@ class ExperimentManager {
                         ${hasTrace ? `
                             <div style="cursor:pointer;font-size:12px;color:var(--primary-color);font-weight:600;"
                                  onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('.arrow').textContent = this.nextElementSibling.style.display === 'none' ? '▶' : '▼';">
-                                <span class="arrow">▶</span> 思维链 / Reasoning Trace
+                                <span class="arrow">▶</span> 思维链 / Reasoning Trace (${stepCount} steps)
                             </div>
-                            <pre style="display:none;margin-top:6px;padding:8px;background:var(--bg-secondary);border-radius:6px;font-size:12px;line-height:1.5;white-space:pre-wrap;word-break:break-word;max-height:300px;overflow-y:auto;color:var(--text-secondary);">${this._escHtml(traceText)}</pre>
+                            <div style="display:none;margin-top:6px;max-height:400px;overflow-y:auto;">
+                                ${Array.isArray(trace) ? trace.map(s => `
+                                    <div style="margin-bottom:8px;padding:8px;background:var(--bg-secondary);border-radius:6px;border-left:3px solid var(--primary-color);">
+                                        <div style="font-size:11px;color:var(--primary-color);font-weight:600;margin-bottom:4px;">
+                                            Step ${s.step || '?'}${s.type ? ' <span style="color:var(--text-muted);font-weight:400;">(' + this._escHtml(s.type) + ')</span>' : ''}
+                                        </div>
+                                        <div style="font-size:12px;line-height:1.5;color:var(--text-secondary);white-space:pre-wrap;word-break:break-word;">${this._escHtml(s.content || s.thought || s.output || JSON.stringify(s))}</div>
+                                    </div>
+                                `).join('') : `<pre style="padding:8px;background:var(--bg-secondary);border-radius:6px;font-size:12px;line-height:1.5;white-space:pre-wrap;word-break:break-word;color:var(--text-secondary);">${this._escHtml(typeof trace === 'string' ? trace : JSON.stringify(trace, null, 2))}</pre>`}
+                            </div>
                         ` : ''}
                         ${rawOutput ? `
                             <div style="cursor:pointer;font-size:12px;color:var(--text-muted);margin-top:4px;"

@@ -92,7 +92,7 @@ class AgentEvaluator(BaseEvaluator):
                 
                 # Check tool selection accuracy
                 expected_tool = call.get("expected_tool")
-                actual_tool = call.get("tool_name")
+                actual_tool = call.get("tool_name") or call.get("tool_id")
                 if expected_tool and actual_tool:
                     if expected_tool == actual_tool:
                         correct_tool_selections += 1
@@ -252,7 +252,7 @@ def tool_selection_accuracy(tool_calls: List[List[Dict[str, Any]]]) -> float:
     for sample_calls in tool_calls:
         for call in sample_calls:
             expected_tool = call.get("expected_tool")
-            actual_tool = call.get("tool_name")
+            actual_tool = call.get("tool_name") or call.get("tool_id")
             
             if expected_tool:
                 total += 1

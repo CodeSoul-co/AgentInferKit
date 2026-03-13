@@ -220,12 +220,20 @@ async def llm_judge_evaluate(
 
 
 def llm_judge_sync(predictions: List[Dict[str, Any]], **kwargs) -> Dict[str, Any]:
-    """Synchronous wrapper for llm_judge_evaluate (for registry compatibility)."""
+    """Synchronous wrapper for llm_judge_evaluate (for registry compatibility).
+
+    Handles both cases: called from within an async context (FastAPI) or
+    from a plain synchronous context.
+    """
+    import concurrent.futures
+
+    coro = llm_judge_evaluate(predictions, **kwargs)
     try:
-        loop = asyncio.get_running_loop()
-        import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor() as pool:
-            future = pool.submit(asyncio.run, llm_judge_evaluate(predictions, **kwargs))
-            return future.result()
+        asyncio.get_running_loop()
+        # Already inside an event loop (e.g. FastAPI) — run in a separate
+        # thread with its own event loop to avoid deadlock.
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(asyncio.run, coro).result(timeout=300)
     except RuntimeError:
-        return asyncio.run(llm_judge_evaluate(predictions, **kwargs))
+        # No running loop — safe to use asyncio.run directly.
+        return asyncio.run(coro)

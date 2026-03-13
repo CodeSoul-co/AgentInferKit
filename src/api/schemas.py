@@ -65,6 +65,7 @@ class RAGConfig(BaseModel):
     )
     kb_name: Optional[str] = Field(default=None, description="Knowledge base name for retrieval")
     top_k: int = Field(default=3, ge=1, le=20, description="Number of chunks to retrieve")
+    score_threshold: float = Field(default=0.0, ge=0.0, le=1.0, description="Minimum similarity score for retrieved chunks (0 = no filtering)")
 
 
 class RunnerConfig(BaseModel):
@@ -99,9 +100,9 @@ class ExperimentCreateRequest(BaseModel):
     max_samples: Optional[int] = Field(default=None, ge=1, description="Maximum number of samples to process")
     
     model_id: str = Field(..., description="Model ID to use for inference")
-    strategy: Literal["direct", "cot", "long_cot", "tot"] = Field(
+    strategy: Literal["direct", "cot", "long_cot", "tot", "self_refine", "self_consistency", "react"] = Field(
         default="direct",
-        description="Inference strategy: direct prompting, chain-of-thought, long CoT, or tree-of-thought"
+        description="Inference strategy"
     )
     
     rag: RAGConfig = Field(default_factory=RAGConfig, description="RAG configuration")
@@ -160,7 +161,7 @@ class ExperimentStopResponse(BaseModel):
 class DatasetInfo(BaseModel):
     """Dataset summary information."""
     dataset_id: str = Field(..., description="Dataset ID")
-    task_type: Literal["qa", "text_exam", "image_mcq", "api_calling"] = Field(..., description="Task type")
+    task_type: Literal["qa", "text_qa", "text_exam", "image_mcq", "api_calling"] = Field(..., description="Task type")
     total_samples: int = Field(..., ge=0, description="Total number of samples")
     version: str = Field(default="1.0.0", description="Dataset version")
     created_at: datetime = Field(..., description="Creation timestamp")
@@ -348,11 +349,12 @@ class ModelPingResponse(BaseModel):
 class RAGBuildRequest(BaseModel):
     """Request parameters for RAG index building (form data, not JSON)."""
     kb_name: str = Field(..., description="Knowledge base name")
-    chunk_strategy: Literal["by_topic", "by_sentence", "by_token"] = Field(
+    chunk_strategy: Literal["by_topic", "by_sentence", "by_token", "by_paragraph"] = Field(
         default="by_topic",
         description="Chunking strategy"
     )
     chunk_size: int = Field(default=256, ge=64, le=2048, description="Chunk size in tokens (for by_token strategy)")
+    chunk_overlap: int = Field(default=0, ge=0, le=512, description="Overlap between consecutive chunks (chars or tokens)")
     embedder: str = Field(default="BAAI/bge-m3", description="Embedding model name")
 
 
@@ -411,7 +413,7 @@ class ChatRAGConfig(BaseModel):
 class ChatCompleteRequest(BaseModel):
     """Request body for chat completion."""
     model_id: str = Field(..., description="Model to use")
-    strategy: Literal["direct", "cot", "long_cot", "tot"] = Field(
+    strategy: Literal["direct", "cot", "long_cot", "tot", "self_refine", "self_consistency", "react"] = Field(
         default="direct",
         description="Inference strategy"
     )

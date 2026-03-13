@@ -49,14 +49,12 @@ async def _check_milvus_connection() -> str:
 
 
 def _count_datasets() -> int:
-    """Count available datasets."""
-    from pathlib import Path
-    
-    datasets_dir = Path("data/datasets")
-    if not datasets_dir.exists():
+    """Count available datasets from the datasets store."""
+    try:
+        from .datasets import datasets_store
+        return len(datasets_store)
+    except ImportError:
         return 0
-    
-    return len(list(datasets_dir.glob("*.jsonl")))
 
 
 def _count_knowledge_bases() -> int:

@@ -80,6 +80,7 @@ async def build_knowledge_base(
     kb_name: str = Form(..., description="Knowledge base name"),
     chunk_strategy: str = Form("by_topic", description="Chunking strategy: by_topic, by_sentence, by_token"),
     chunk_size: int = Form(256, ge=64, le=2048, description="Chunk size in tokens"),
+    chunk_overlap: int = Form(0, ge=0, le=512, description="Overlap between consecutive chunks"),
     embedder: str = Form("BAAI/bge-m3", description="Embedding model name"),
     force_rebuild: bool = Form(False, description="Force rebuild if KB already exists"),
 ):
@@ -161,6 +162,7 @@ async def build_knowledge_base(
                     kb_name=kb_name,
                     strategy=chunk_strategy,
                     chunk_size=chunk_size,
+                    chunk_overlap=chunk_overlap,
                     embedder_name=embedder if embedder != "BAAI/bge-m3" else None,
                     version="v1",
                     on_progress=_on_progress,

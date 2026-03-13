@@ -281,6 +281,16 @@
                         <div class="strategy-card-title">ToT</div>
                         <div class="strategy-card-desc">树状搜索，多路径探索</div>
                     </div>
+                    <div class="strategy-card" data-strategy="self_refine" onclick="selectStrategy(this)">
+                        <div class="strategy-card-icon"><i data-lucide="pencil-line" style="width:20px;height:20px;"></i></div>
+                        <div class="strategy-card-title">Self-Refine</div>
+                        <div class="strategy-card-desc">自我修正，迭代优化</div>
+                    </div>
+                    <div class="strategy-card" data-strategy="self_consistency" onclick="selectStrategy(this)">
+                        <div class="strategy-card-icon"><i data-lucide="vote" style="width:20px;height:20px;"></i></div>
+                        <div class="strategy-card-title">Self-Consistency</div>
+                        <div class="strategy-card-desc">多路投票，取众数答案</div>
+                    </div>
                     <div class="strategy-card" data-strategy="react" id="strategy-react-card" style="display:none;" onclick="selectStrategy(this)">
                         <div class="strategy-card-icon"><i data-lucide="repeat" style="width:20px;height:20px;"></i></div>
                         <div class="strategy-card-title">ReAct</div>
@@ -288,7 +298,7 @@
                     </div>
                 </div>
                 <select name="strategy" class="form-select" id="strategy-hidden-select" style="display:none;">
-                    <option value="direct" selected>Direct</option><option value="cot">CoT</option><option value="long_cot">Long CoT</option><option value="tot">ToT</option><option value="react">ReAct</option>
+                    <option value="direct" selected>Direct</option><option value="cot">CoT</option><option value="long_cot">Long CoT</option><option value="tot">ToT</option><option value="self_refine">Self-Refine</option><option value="self_consistency">Self-Consistency</option><option value="react">ReAct</option>
                 </select>
 
                 <!-- Section 4: RAG Config (shown only for text_exam / qa) -->
@@ -341,6 +351,10 @@
                                 <div class="form-group">
                                     <label class="form-label">Top-K 召回数</label>
                                     <input type="number" name="top_k" class="form-input" value="3" min="1" max="20" style="width:80px;">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">最低分数阈值</label>
+                                    <input type="number" name="score_threshold" class="form-input" value="0" min="0" max="1" step="0.05" style="width:100px;">
                                 </div>
                             </div>
                         </div>
@@ -516,9 +530,17 @@
             <button class="btn btn-secondary" onclick="if(resultsVisualizer) resultsVisualizer.enterCompareMode()">
                 <i data-lucide="git-compare" style="width:16px;height:16px;"></i> 对比模式
             </button>
-            <button class="btn btn-secondary" onclick="if(resultsVisualizer && resultsVisualizer.currentExperimentId) { const url = API.Results.getExportUrl(resultsVisualizer.currentExperimentId); window.open(url, '_blank'); }">
-                <i data-lucide="download" style="width:16px;height:16px;"></i> 导出
-            </button>
+            <div style="display:inline-flex;align-items:center;gap:4px;">
+                <select id="export-format" class="form-select" style="width:auto;padding:6px 10px;font-size:13px;margin-bottom:0;">
+                    <option value="csv">CSV (Excel)</option>
+                    <option value="json" selected>JSON (完整)</option>
+                    <option value="jsonl">JSONL (逐行)</option>
+                    <option value="latex">LaTeX (论文表格)</option>
+                </select>
+                <button class="btn btn-secondary" onclick="exportResults()">
+                    <i data-lucide="download" style="width:16px;height:16px;"></i> 导出
+                </button>
+            </div>
         </div>
     </div>
 
@@ -612,12 +634,21 @@
                         <option value="by_topic" data-i18n="rag.chunk_strategy.topic">按主题</option>
                         <option value="by_sentence" data-i18n="rag.chunk_strategy.sentence">按句子</option>
                         <option value="by_token" data-i18n="rag.chunk_strategy.token">按 Token</option>
+                        <option value="by_paragraph" data-i18n="rag.chunk_strategy.paragraph">按段落</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label class="form-label" data-i18n="rag.chunk_size">分块大小</label>
                     <input type="number" id="chunk-size" class="form-input" value="256" min="64" max="2048">
                 </div>
+                <div class="form-group">
+                    <label class="form-label">重叠大小 (Overlap)</label>
+                    <input type="number" id="chunk-overlap" class="form-input" value="0" min="0" max="512">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Embedding 模型</label>
+                <input type="text" id="rag-embedder" class="form-input" value="BAAI/bge-m3" placeholder="BAAI/bge-m3">
             </div>
             <div class="form-group">
                 <label class="form-label" data-i18n="rag.upload_doc">上传文档 (JSONL)</label>
@@ -697,6 +728,11 @@
                         <select id="chat-strategy" class="form-select">
                             <option value="direct">Direct</option>
                             <option value="cot">Chain-of-Thought</option>
+                            <option value="long_cot">Long CoT</option>
+                            <option value="tot">Tree-of-Thought</option>
+                            <option value="self_refine">Self-Refine</option>
+                            <option value="self_consistency">Self-Consistency</option>
+                            <option value="react">ReAct</option>
                         </select>
                     </div>
                 </div>
@@ -1049,6 +1085,17 @@
 
     function hideCreateExperimentForm() {
         if (experimentManager) experimentManager.hideCreateForm();
+    }
+
+    // Export results
+    function exportResults() {
+        if (!resultsVisualizer || !resultsVisualizer.currentExperimentId) {
+            alert('请先选择一个实验');
+            return;
+        }
+        const fmt = document.getElementById('export-format')?.value || 'json';
+        const url = API.Results.getExportUrl(resultsVisualizer.currentExperimentId, fmt, 'all');
+        window.open(url, '_blank');
     }
 
     // Results functions
@@ -1416,6 +1463,8 @@
         const fileInput = document.getElementById('rag-file-input');
         const chunkStrategy = document.getElementById('chunk-strategy')?.value || 'by_topic';
         const chunkSize = document.getElementById('chunk-size')?.value || 256;
+        const chunkOverlap = document.getElementById('chunk-overlap')?.value || 0;
+        const embedder = document.getElementById('rag-embedder')?.value?.trim() || 'BAAI/bge-m3';
         const progressEl = document.getElementById('rag-build-progress');
 
         if (!kbName) { alert('请输入知识库名称'); return; }
@@ -1444,6 +1493,8 @@
                 kb_name: kbName,
                 chunk_strategy: chunkStrategy,
                 chunk_size: chunkSize,
+                chunk_overlap: chunkOverlap,
+                embedder: embedder,
             }, {
                 onProgress(data) {
                     const stageEl = document.getElementById('rag-build-stage');

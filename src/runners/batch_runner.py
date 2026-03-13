@@ -10,6 +10,15 @@ from src.runners.base import BaseRunner
 from src.utils.file_io import write_jsonl
 
 
+# Module-level set for signalling cancellation to running batch tasks
+_cancelled_experiments: Set[str] = set()
+
+
+def cancel_experiment(experiment_id: str) -> None:
+    """Signal a running batch to stop processing new samples."""
+    _cancelled_experiments.add(experiment_id)
+
+
 class BatchRunner:
     """Orchestrate batch inference with concurrency control and checkpoint resume.
 
@@ -89,7 +98,12 @@ class BatchRunner:
 
         async def _process(sample: Dict[str, Any]) -> None:
             nonlocal completed, failed
+            # Skip if experiment was cancelled (stopped / deleted)
+            if experiment_id in _cancelled_experiments:
+                return
             async with semaphore:
+                if experiment_id in _cancelled_experiments:
+                    return
                 sid = sample.get("sample_id", "?")
                 last_err = None
                 for attempt in range(1, max_retries + 1):
@@ -132,6 +146,9 @@ class BatchRunner:
 
         tasks = [_process(s) for s in remaining]
         await asyncio.gather(*tasks)
+
+        # Clean up cancellation flag
+        _cancelled_experiments.discard(experiment_id)
 
         logger.info(
             f"Batch complete: {completed}/{total} succeeded, {failed} failed"

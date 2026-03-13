@@ -401,6 +401,7 @@ const RAG = {
         formData.append('kb_name', options.kb_name);
         if (options.chunk_strategy) formData.append('chunk_strategy', options.chunk_strategy);
         if (options.chunk_size) formData.append('chunk_size', options.chunk_size);
+        if (options.chunk_overlap !== undefined) formData.append('chunk_overlap', options.chunk_overlap);
         if (options.embedder) formData.append('embedder', options.embedder);
         
         const response = await fetch(API_BASE + '/rag/build', {

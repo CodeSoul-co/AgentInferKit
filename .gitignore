@@ -7,6 +7,7 @@ FORMAT_AND_METRICS.md
 AgentInferKit_WebUI_设计方案.md
 method.md
 TEST_PLAN.md
+USAGE_GUIDE.md
 rule
 
 # Experiment outputs (do not push)
@@ -17,6 +18,10 @@ data/experiments/
 
 # Uploaded dataset files and metadata
 data/processed/
+
+# Benchmark datasets and RAG chunks (too large for git)
+data/benchmark/
+data/rag/
 
 # User uploads (images and datasets placed locally after git clone)
 data/uploads/images/*

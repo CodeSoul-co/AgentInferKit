@@ -92,6 +92,16 @@ class ResultsVisualizer {
         ],
     };
     
+    static REASONING_CARD = { key: 'avg_reasoning_steps', altKeys: ['avg', 'avg_steps'], label: '平均推理步数', icon: 'brain', color: '#6366F1', fmt: 'float' };
+    
+    static RAG_METRIC_CARDS = [
+        { key: 'retrieval_hit_rate',           altKeys: ['hit_rate'],  label: '检索命中率',       icon: 'search',     color: '#0EA5E9', fmt: 'pct' },
+        { key: 'retrieval_recall_at_k',        altKeys: ['recall'],    label: '检索召回率@K',     icon: 'layers',     color: '#14B8A6', fmt: 'pct' },
+        { key: 'context_relevance',            altKeys: ['avg_score'], label: '上下文相关性',     icon: 'link',       color: '#8B5CF6', fmt: 'pct' },
+        { key: 'answer_evidence_consistency',  altKeys: ['avg_score'], label: '答案-证据一致性', icon: 'shield-check', color: '#22C55E', fmt: 'pct' },
+        { key: 'hallucination_rate',           altKeys: ['rate'],      label: '幻觉率',           icon: 'alert-triangle', color: '#EF4444', fmt: 'pct' },
+    ];
+    
     // =========================================================================
     // Efficiency metric card configs (universal)
     // =========================================================================
@@ -174,7 +184,7 @@ class ResultsVisualizer {
         if (!this.metaContainer) return;
         
         const taskLabels = { qa: '文本问答', text_exam: '选择题', image_mcq: '图像选择题', api_calling: 'API调用' };
-        const strategyLabels = { direct: 'Direct', cot: 'CoT', long_cot: 'Long CoT', tot: 'ToT', react: 'ReAct', self_refine: 'Self Refine' };
+        const strategyLabels = { direct: 'Direct', cot: 'CoT', long_cot: 'Long CoT', tot: 'ToT', react: 'ReAct', self_refine: 'Self Refine', self_consistency: 'Self Consistency' };
         
         const model = metrics.model || expInfo?.model_id || '-';
         const strategy = metrics.strategy || expInfo?.strategy || '-';
@@ -198,6 +208,7 @@ class ResultsVisualizer {
                     <div class="results-meta-item"><span class="results-meta-label">模型</span><span>${model}</span></div>
                     <div class="results-meta-item"><span class="results-meta-label">样本</span><span>${valid} 有效 / ${total} 总计</span></div>
                     <div class="results-meta-item"><span class="results-meta-label">完成时间</span><span>${evalAt}</span></div>
+                    ${expInfo?.rag?.enabled ? `<div class="results-meta-item"><span class="results-meta-label">RAG</span><span>${expInfo.rag.mode || '-'} (KB: ${expInfo.rag.kb_name || '-'}, top_k: ${expInfo.rag.top_k || '-'})</span></div>` : ''}
                 </div>
             </div>
         `;
@@ -243,7 +254,20 @@ class ResultsVisualizer {
     renderPerformanceCards(metrics, taskType) {
         if (!this.perfContainer) return;
         
-        const cards = ResultsVisualizer.METRIC_CARDS_BY_TASK[taskType] || ResultsVisualizer.METRIC_CARDS_BY_TASK.qa;
+        let cards = [...(ResultsVisualizer.METRIC_CARDS_BY_TASK[taskType] || ResultsVisualizer.METRIC_CARDS_BY_TASK.qa)];
+        
+        // Dynamically add reasoning steps card if the metric exists in results
+        const rcCard = ResultsVisualizer.REASONING_CARD;
+        if (this.extractMetricValue(metrics, rcCard.key, rcCard.altKeys || []) !== undefined) {
+            cards.push(rcCard);
+        }
+        
+        // Dynamically add RAG metric cards if any RAG metrics exist in results
+        for (const ragCard of ResultsVisualizer.RAG_METRIC_CARDS) {
+            if (this.extractMetricValue(metrics, ragCard.key, ragCard.altKeys || []) !== undefined) {
+                cards.push(ragCard);
+            }
+        }
         
         const html = cards.map(card => {
             const value = this.extractMetricValue(metrics, card.key, card.altKeys || []);

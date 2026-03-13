@@ -1,0 +1,19 @@
+experiment_id: gsm8k_qa_rag_oracle_direct
+model:
+  provider: deepseek
+  model: deepseek-chat
+strategy: direct
+prompt_id: text_qa.direct
+dataset_path: data/benchmark/qa/gsm8k_main_test_50.jsonl
+concurrency: 5
+rag:
+  enabled: true
+  mode: oracle
+  oracle_chunks_file: data/rag/gsm8k_oracle_chunks.jsonl
+evaluators:
+  - exact_match
+  - f1_score
+  - latency_stats
+  - token_stats
+group_by:
+  - difficulty

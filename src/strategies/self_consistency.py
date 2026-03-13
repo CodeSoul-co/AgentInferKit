@@ -127,20 +127,31 @@ class SelfConsistencyStrategy(BaseStrategy):
 
         task_type = sample.get("task_type", "text_qa")
         all_answers: List[str] = []
-        all_traces: List[str] = []
+        all_traces: List[List] = []
 
         for text in raw_output:
             answer = self._extract_answer(text, task_type)
             trace = self._extract_trace(text)
             all_answers.append(answer)
-            all_traces.append(trace or "")
+            all_traces.append(trace)
 
         counter = Counter(all_answers)
         majority_answer = counter.most_common(1)[0][0] if counter else ""
 
+        # Build a unified reasoning trace: each sampled path as a step
+        reasoning_trace = []
+        for i, (ans, trace_steps) in enumerate(zip(all_answers, all_traces)):
+            reasoning_trace.append({
+                "step": i + 1,
+                "type": "sample_path",
+                "content": f"Path {i+1} -> {ans}",
+                "answer": ans,
+                "sub_steps": trace_steps,
+            })
+
         return {
             "parsed_answer": majority_answer,
-            "reasoning_trace": all_traces[0] if all_traces else None,
+            "reasoning_trace": reasoning_trace,
             "vote_distribution": dict(counter),
             "all_answers": all_answers,
         }

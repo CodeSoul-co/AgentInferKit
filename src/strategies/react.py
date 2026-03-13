@@ -158,6 +158,8 @@ class ReActStrategy(BaseStrategy):
 
             reasoning_trace.append({
                 "step": i,
+                "type": "thought_action",
+                "content": f"Thought: {thought.strip()}\nAction: {action.strip()}",
                 "thought": thought.strip(),
                 "action": action.strip(),
             })

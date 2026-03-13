@@ -40,7 +40,15 @@ def exact_match(prediction: str, ground_truth: str, normalize: bool = True) -> b
     if normalize:
         prediction = normalize_text(prediction)
         ground_truth = normalize_text(ground_truth)
-    return prediction == ground_truth
+    if prediction == ground_truth:
+        return True
+    # Numeric comparison fallback: treat both as numbers if possible
+    try:
+        pred_val = float(prediction.replace(',', ''))
+        gt_val = float(ground_truth.replace(',', ''))
+        return abs(pred_val - gt_val) < 1e-6
+    except (ValueError, AttributeError):
+        return False
 
 
 def accuracy(predictions: List[str], ground_truths: List[str], normalize: bool = True) -> float:

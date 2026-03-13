@@ -8,7 +8,9 @@ Endpoints:
 - GET /results/{experiment_id}/export - Export results
 """
 
+import csv
 import json
+import re
 from io import StringIO
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
@@ -283,7 +285,9 @@ async def compare_experiments(
 )
 async def export_results(
     experiment_id: str,
-    format: Literal["csv", "json", "jsonl"] = Query(..., description="Export format"),
+    format: Literal["csv", "json", "jsonl", "latex"] = Query(
+        default="json", description="Export format: csv, json, jsonl, latex"
+    ),
     include: Literal["predictions", "metrics", "all"] = Query(
         default="all",
         description="What to include"
@@ -291,16 +295,22 @@ async def export_results(
 ) -> StreamingResponse:
     """
     Export experiment results as a downloadable file.
+
+    Formats:
+    - json: Full structured export (predictions + metrics).
+    - jsonl: One prediction per line (for streaming / pandas).
+    - csv: Flat table with all key fields (proper quoting via csv.writer).
+    - latex: Metrics summary as a LaTeX booktabs table (for papers).
     """
     predictions = _load_predictions(experiment_id) if include in ["predictions", "all"] else []
     metrics = _load_metrics(experiment_id) if include in ["metrics", "all"] else None
-    
+
     if not predictions and metrics is None:
         raise HTTPException(
             status_code=404,
             detail=f"No data found for experiment {experiment_id}"
         )
-    
+
     if format == "json":
         content = json.dumps({
             "experiment_id": experiment_id,
@@ -309,45 +319,121 @@ async def export_results(
         }, ensure_ascii=False, indent=2)
         media_type = "application/json"
         filename = f"{experiment_id}.json"
-    
+
     elif format == "jsonl":
-        lines = []
-        for pred in predictions:
-            lines.append(json.dumps(pred, ensure_ascii=False))
+        lines = [json.dumps(pred, ensure_ascii=False) for pred in predictions]
         content = "\n".join(lines)
         media_type = "application/x-ndjson"
         filename = f"{experiment_id}.jsonl"
-    
+
     elif format == "csv":
         if not predictions:
-            raise HTTPException(
-                status_code=400,
-                detail="CSV export requires predictions data"
-            )
-        
+            raise HTTPException(status_code=400, detail="CSV export requires predictions data")
+
         output = StringIO()
-        
-        if predictions:
-            headers = ["sample_id", "question", "ground_truth", "parsed_answer", "correct"]
-            output.write(",".join(headers) + "\n")
-            
-            for pred in predictions:
-                row = [
-                    str(pred.get("sample_id", "")),
-                    str(pred.get("question", "")).replace(",", ";").replace("\n", " ")[:100],
-                    str(pred.get("ground_truth", "")),
-                    str(pred.get("parsed_answer", "")),
-                    str(pred.get("correct", "")),
-                ]
-                output.write(",".join(row) + "\n")
-        
+        headers = [
+            "sample_id", "question", "reference_answer", "parsed_answer", "correct",
+            "model", "strategy", "difficulty",
+            "latency_ms", "total_tokens", "prompt_tokens", "completion_tokens",
+            "rag_mode", "rag_chunks", "reasoning_steps",
+        ]
+        writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
+        writer.writerow(headers)
+
+        for pred in predictions:
+            usage = pred.get("usage") or {}
+            rag_ctx = pred.get("rag_context") or {}
+            trace = pred.get("reasoning_trace")
+            if isinstance(trace, list):
+                step_count = len(trace)
+            elif isinstance(trace, str) and trace.strip():
+                step_count = len(re.findall(r'^(Step|Thought|\d+[\.\)\:])', trace, re.MULTILINE)) or len([s for s in trace.split('\n\n') if s.strip()])
+            else:
+                step_count = 0
+
+            writer.writerow([
+                pred.get("sample_id", ""),
+                str(pred.get("question", ""))[:500],
+                str(pred.get("reference_answer", pred.get("ground_truth", ""))),
+                str(pred.get("parsed_answer", "")),
+                pred.get("correct", ""),
+                pred.get("model", ""),
+                pred.get("strategy", ""),
+                pred.get("difficulty", ""),
+                usage.get("latency_ms", ""),
+                usage.get("total_tokens", ""),
+                usage.get("prompt_tokens", ""),
+                usage.get("completion_tokens", ""),
+                rag_ctx.get("mode", ""),
+                len(rag_ctx.get("retrieved_chunks", [])) if rag_ctx else "",
+                step_count if step_count > 0 else "",
+            ])
+
         content = output.getvalue()
-        media_type = "text/csv"
+        media_type = "text/csv; charset=utf-8"
         filename = f"{experiment_id}.csv"
-    
+
+    elif format == "latex":
+        if metrics is None:
+            raise HTTPException(status_code=400, detail="LaTeX export requires metrics data")
+
+        overall = metrics.get("overall", {})
+        model = metrics.get("model", experiment_id)
+        strategy = metrics.get("strategy", "-")
+        dataset = metrics.get("dataset", "-")
+        total = metrics.get("total_samples", "-")
+
+        # Build metric columns from overall dict
+        metric_keys = sorted(overall.keys())
+        if not metric_keys:
+            metric_keys = ["(no metrics)"]
+
+        def _tex_esc(s: str) -> str:
+            return str(s).replace("_", "\\_")
+
+        # Header row
+        col_headers = ["Model", "Strategy", "Dataset", "N"] + [_tex_esc(k) for k in metric_keys]
+        col_fmt = "l" * 4 + "r" * len(metric_keys)
+
+        exp_id_tex = _tex_esc(experiment_id)
+        lines = [
+            "\\begin{table}[htbp]",
+            "\\centering",
+            f"\\caption{{Evaluation results for {exp_id_tex}}}",
+            f"\\label{{tab:{experiment_id}}}",
+            f"\\begin{{tabular}}{{{col_fmt}}}",
+            "\\toprule",
+            " & ".join(col_headers) + " \\\\",
+            "\\midrule",
+        ]
+
+        # Value row
+        def _fmt_val(v):
+            if isinstance(v, float):
+                return f"{v:.4f}" if v < 1 else f"{v:.1f}"
+            return str(v)
+
+        dataset_short = str(dataset).split("/")[-1].replace(".jsonl", "")
+        vals = [
+            _tex_esc(model),
+            strategy,
+            _tex_esc(dataset_short),
+            str(total),
+        ] + [_fmt_val(overall.get(k, "-")) for k in metric_keys]
+        lines.append(" & ".join(vals) + " \\\\")
+
+        lines.extend([
+            "\\bottomrule",
+            "\\end{tabular}",
+            "\\end{table}",
+        ])
+        content = "\n".join(lines)
+        media_type = "text/plain; charset=utf-8"
+        filename = f"{experiment_id}.tex"
+
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported format: {format}")
-    
+
     return StreamingResponse(
         iter([content]),
         media_type=media_type,

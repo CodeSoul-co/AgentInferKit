@@ -9,10 +9,22 @@ def _default_accuracy(items: List[Dict[str, Any]]) -> float:
         return 0.0
     correct = 0
     for it in items:
-        parsed = str(it.get("parsed_answer", "")).strip().upper()
-        ref = str(it.get("answer", it.get("reference_answer", ""))).strip().upper()
-        if parsed and parsed == ref:
+        parsed = str(it.get("parsed_answer", "")).strip()
+        ref = str(it.get("answer", it.get("reference_answer", ""))).strip()
+        if not parsed or not ref:
+            continue
+        # Normalized string comparison
+        if parsed.upper() == ref.upper():
             correct += 1
+            continue
+        # Numeric comparison fallback
+        try:
+            pred_val = float(parsed.replace(',', ''))
+            gt_val = float(ref.replace(',', ''))
+            if abs(pred_val - gt_val) < 1e-6:
+                correct += 1
+        except (ValueError, AttributeError):
+            pass
     return round(correct / len(items), 4)
 
 

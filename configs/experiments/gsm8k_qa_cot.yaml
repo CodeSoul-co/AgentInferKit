@@ -1,0 +1,16 @@
+experiment_id: gsm8k_qa_cot
+model:
+  provider: deepseek
+  model: deepseek-chat
+strategy: cot
+prompt_id: text_qa.cot
+dataset_path: data/benchmark/qa/gsm8k_main_test_50.jsonl
+concurrency: 5
+evaluators:
+  - exact_match
+  - f1_score
+  - latency_stats
+  - token_stats
+  - avg_trace_tokens
+group_by:
+  - difficulty
