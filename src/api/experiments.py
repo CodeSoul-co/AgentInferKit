@@ -487,8 +487,8 @@ async def run_experiment(experiment_id: str):
     if exp["status"] == "running":
         raise HTTPException(status_code=409, detail="Experiment is already running")
     
-    # Allow re-running finished or failed experiments (reset state)
-    if exp["status"] in ("finished", "failed"):
+    # Allow re-running finished, failed, or stopped experiments (reset state)
+    if exp["status"] in ("finished", "failed", "stopped"):
         exp["completed"] = 0
         exp["total_samples"] = 0
         exp["finished_at"] = None

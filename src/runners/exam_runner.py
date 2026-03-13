@@ -44,7 +44,7 @@ class ExamRunner(BaseRunner):
         messages = self._strategy.build_prompt(sample)
 
         # Inject image URL for image_mcq tasks into the last user message
-        image_url = sample.get("image_url")
+        image_url = sample.get("image_url") or sample.get("image_path")
         if image_url:
             image_url = _resolve_image_url(image_url)
             for i in range(len(messages) - 1, -1, -1):
@@ -186,14 +186,18 @@ def _resolve_image_url(image_ref: str) -> str:
     """Resolve an image reference to a usable URL.
 
     Supports:
-    - ``uploads://images/photo.jpg`` -> convert to absolute ``file://`` URI
-      or keep as-is for API models that accept local paths.
     - ``http://`` / ``https://`` -> returned as-is.
+    - ``data:image/...`` -> returned as-is (already base64).
+    - ``uploads://images/photo.jpg`` -> read file and convert to base64 data URL.
+    - Local file path -> read file and convert to base64 data URL.
     """
-    if image_ref.startswith(("http://", "https://")):
+    if image_ref.startswith(("http://", "https://", "data:")):
         return image_ref
 
+    import base64
+    import mimetypes
     from pathlib import Path
+
     uploads_scheme = "uploads://"
     if image_ref.startswith(uploads_scheme):
         rel = image_ref[len(uploads_scheme):]
@@ -202,6 +206,10 @@ def _resolve_image_url(image_ref: str) -> str:
         local_path = Path(image_ref)
 
     if local_path.exists():
-        return str(local_path.resolve())
+        mime, _ = mimetypes.guess_type(str(local_path))
+        mime = mime or "image/png"
+        with open(local_path, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode()
+        return f"data:{mime};base64,{b64}"
 
     return image_ref

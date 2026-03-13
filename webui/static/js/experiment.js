@@ -154,7 +154,7 @@ class ExperimentManager {
                                 <span class="text-muted" style="font-size:0.75rem;">${exp.completed}/${exp.total_samples}</span>
                             </td>
                             <td>
-                                ${exp.status === 'created' || exp.status === 'failed' ? `
+                                ${exp.status === 'created' || exp.status === 'failed' || exp.status === 'stopped' ? `
                                     <button class="btn btn-primary btn-sm" onclick="experimentManager.runExperiment('${exp.experiment_id}')">
                                         <i data-lucide="play" style="width:14px;height:14px;"></i> 运行
                                     </button>
@@ -678,9 +678,16 @@ class ExperimentManager {
             const streamUrl = result.stream_url || `/${experimentId}/progress`;
             this.subscribeToProgress(streamUrl, experimentId);
             this.showNotification('info', '实验已启动');
+            await this.loadExperiments();
         } catch (error) {
-            this.showNotification('error', `启动失败: ${error.message}`);
-            this.hideProgress();
+            if (error.code === 409 || (error.message && error.message.includes('already running'))) {
+                // Experiment is already running - just subscribe to progress
+                this.showNotification('info', '实验正在运行中');
+                this.subscribeToProgress(`/${experimentId}/progress`, experimentId);
+            } else {
+                this.showNotification('error', `启动失败: ${error.message}`);
+                this.hideProgress();
+            }
         }
     }
     
@@ -716,19 +723,24 @@ class ExperimentManager {
         });
         
         this.eventSource.addEventListener('error', (event) => {
-            let errorMsg = 'SSE 连接错误';
+            let errorMsg = '';
             if (event.data) {
-                try { errorMsg = JSON.parse(event.data).message || errorMsg; } catch (e) {}
+                try { errorMsg = JSON.parse(event.data).message || ''; } catch (e) {}
             }
-            this.handleExperimentError(experimentId, errorMsg);
+            if (errorMsg) {
+                this.handleExperimentError(experimentId, errorMsg);
+            }
             this.eventSource.close();
             this.eventSource = null;
         });
         
         this.eventSource.onerror = () => {
-            if (this.eventSource && this.eventSource.readyState === EventSource.CLOSED) {
-                this.loadExperiments();
+            // SSE connection closed — could be normal completion, just refresh
+            if (this.eventSource) {
+                this.eventSource.close();
+                this.eventSource = null;
             }
+            this.loadExperiments();
         };
     }
     
