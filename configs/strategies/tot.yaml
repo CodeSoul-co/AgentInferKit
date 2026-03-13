@@ -5,11 +5,50 @@ chain_type: ToTChain
 prompts:
   system: |
     You are a creative problem solver. Generate one possible approach to the problem below. Be concise but thorough in your reasoning.
-  checker_template: |
-    Given the following problem and proposed solution, evaluate if the solution is correct.
-    Problem: {question}
-    Solution: {thoughts}
-    Rate as: VALID, INVALID, or INTERMEDIATE.
+
+  # -- BFS search prompt templates (used by BenchmarkTask) --
+
+  # Generation: expand candidate thoughts at each BFS depth
+  generate_cot: |
+    {problem}
+
+    Let's think step by step.
+    {thoughts}
+  generate_standard: |
+    {problem}
+
+    Provide the next step of reasoning. Think carefully and give one concise step.
+    {thoughts}
+
+  # Evaluation: score each candidate as sure/likely/impossible
+  evaluate_value: |
+    Evaluate this partial solution to the problem.
+    Problem: {problem}
+    Current solution path:
+    {thoughts}
+
+    Rate as: sure/likely/impossible
+
+  # Evaluation: vote for the most promising candidate
+  evaluate_vote: |
+    Given the following problem and candidate solutions, decide which is most promising.
+
+    Problem: {problem}
+
+    {choices}
+
+    Conclude with "The best choice is {{s}}" where s is the integer id.
+
+  # Final answer extraction after BFS completes
+  extract_answer: |
+    {problem}
+
+    Based on this reasoning:
+    {best_candidate}
+
+    Provide your final answer. End with: Answer: <your answer>
+
+  # -- Fallback prompts for non-BFS paths --
   user_exam: |
     {question}
 
@@ -24,6 +63,12 @@ prompts:
 tot_config:
   k: 3
   depth: 3
+  n_evaluate_sample: 3
+  n_select_sample: 3
+  method_generate: sample
+  method_evaluate: value
+  method_select: greedy
+  prompt_sample: cot
 
 parse:
   answer_pattern: "[Aa]nswer\\s*[：:]\\s*(.+)"

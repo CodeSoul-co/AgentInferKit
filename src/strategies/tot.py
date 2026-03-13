@@ -38,6 +38,9 @@ if os.path.isdir(_VENDOR_TOT_SRC) and _VENDOR_TOT_SRC not in sys.path:
 class BenchmarkTask:
     """Wraps a single benchmark sample as a princeton-nlp ``Task``.
 
+    All prompt templates are read from ``configs/strategies/tot.yaml``
+    and passed in via constructor kwargs. No prompts are hardcoded.
+
     Required interface used by ``bfs.solve()``:
       - ``get_input(idx)`` -> str
       - ``steps``          -> int
@@ -49,22 +52,45 @@ class BenchmarkTask:
       - ``value_cache``    -> dict
     """
 
+    # -- Default templates (used only if YAML config is empty) --
+    _DEFAULT_GENERATE_COT = (
+        "{problem}\n\nLet's think step by step.\n{thoughts}"
+    )
+    _DEFAULT_GENERATE_STANDARD = (
+        "{problem}\n\nProvide the next step of reasoning. "
+        "Think carefully and give one concise step.\n{thoughts}"
+    )
+    _DEFAULT_EVALUATE_VALUE = (
+        "Evaluate this partial solution to the problem.\n"
+        "Problem: {problem}\n"
+        "Current solution path:\n{thoughts}\n\n"
+        "Rate as: sure/likely/impossible"
+    )
+    _DEFAULT_EVALUATE_VOTE = (
+        "Given the following problem and candidate solutions, "
+        "decide which is most promising.\n\n"
+        "Problem: {problem}\n\n{choices}\n\n"
+        'Conclude with "The best choice is {{s}}" '
+        "where s is the integer id.\n"
+    )
+
     def __init__(
         self,
         problem: str,
         steps: int = 3,
-        value_prompt_tpl: str = "",
+        generate_cot_tpl: str = "",
+        generate_standard_tpl: str = "",
+        evaluate_value_tpl: str = "",
+        evaluate_vote_tpl: str = "",
     ) -> None:
         self._problem = problem
         self.steps = steps
         self.stops = [None] * steps
         self.value_cache: Dict[str, float] = {}
-        self._value_prompt_tpl = value_prompt_tpl or (
-            "Evaluate this partial solution to the problem.\n"
-            "Problem: {problem}\n"
-            "Current solution path:\n{thoughts}\n\n"
-            "Rate as: sure/likely/impossible"
-        )
+        self._generate_cot_tpl = generate_cot_tpl or self._DEFAULT_GENERATE_COT
+        self._generate_standard_tpl = generate_standard_tpl or self._DEFAULT_GENERATE_STANDARD
+        self._evaluate_value_tpl = evaluate_value_tpl or self._DEFAULT_EVALUATE_VALUE
+        self._evaluate_vote_tpl = evaluate_vote_tpl or self._DEFAULT_EVALUATE_VOTE
 
     def __len__(self) -> int:
         return 1
@@ -74,15 +100,10 @@ class BenchmarkTask:
 
     # -- generation prompt wrappers (used by get_samples) --
     def standard_prompt_wrap(self, x: str, y: str = "") -> str:
-        return (
-            f"{x}\n\nProvide the next step of reasoning. "
-            f"Think carefully and give one concise step.\n{y}"
-        )
+        return self._generate_standard_tpl.format(problem=x, thoughts=y)
 
     def cot_prompt_wrap(self, x: str, y: str = "") -> str:
-        return (
-            f"{x}\n\nLet's think step by step.\n{y}"
-        )
+        return self._generate_cot_tpl.format(problem=x, thoughts=y)
 
     # -- propose (not used in sample mode, but required by interface) --
     def propose_prompt_wrap(self, x: str, y: str = "") -> str:
@@ -90,11 +111,7 @@ class BenchmarkTask:
 
     # -- evaluation prompt wrappers (used by get_value / get_votes) --
     def value_prompt_wrap(self, x: str, y: str) -> str:
-        # Support both {problem}/{thoughts} and {question}/{thoughts} placeholders
-        try:
-            return self._value_prompt_tpl.format(problem=x, thoughts=y)
-        except KeyError:
-            return self._value_prompt_tpl.format(question=x, thoughts=y)
+        return self._evaluate_value_tpl.format(problem=x, thoughts=y)
 
     @staticmethod
     def value_outputs_unwrap(x: str, y: str, value_outputs: list) -> float:
@@ -111,18 +128,10 @@ class BenchmarkTask:
         return total
 
     def vote_prompt_wrap(self, x: str, ys: list) -> str:
-        prompt = (
-            "Given the following problem and candidate solutions, "
-            "decide which is most promising.\n\n"
-            f"Problem: {x}\n\n"
-        )
+        choices = ""
         for i, y in enumerate(ys, 1):
-            prompt += f"Choice {i}:\n{y}\n"
-        prompt += (
-            '\nConclude with "The best choice is {{s}}" '
-            "where s is the integer id.\n"
-        )
-        return prompt
+            choices += f"Choice {i}:\n{y}\n"
+        return self._evaluate_vote_tpl.format(problem=x, choices=choices)
 
     @staticmethod
     def vote_outputs_unwrap(vote_outputs: list, n_candidates: int) -> list:
@@ -242,13 +251,15 @@ class ToTStrategy(BaseStrategy):
         bfs_module.gpt = _patched_gpt
 
         try:
-            # Build task adapter and args namespace
+            # Build task adapter and args namespace, reading templates from YAML
             problem = self.build_problem_description(sample)
-            value_tpl = self._prompts.get("checker_template", "")
             task = BenchmarkTask(
                 problem=problem,
                 steps=self._depth,
-                value_prompt_tpl=value_tpl if value_tpl else "",
+                generate_cot_tpl=self._prompts.get("generate_cot", ""),
+                generate_standard_tpl=self._prompts.get("generate_standard", ""),
+                evaluate_value_tpl=self._prompts.get("evaluate_value", ""),
+                evaluate_vote_tpl=self._prompts.get("evaluate_vote", ""),
             )
 
             args = SimpleNamespace(
@@ -269,12 +280,18 @@ class ToTStrategy(BaseStrategy):
 
             best = ys[0] if ys else ""
 
-            # Final answer extraction
-            final_prompt = (
-                f"{problem}\n\n"
-                f"Based on this reasoning:\n{best}\n\n"
-                f"Provide your final answer. End with: Answer: <your answer>"
-            )
+            # Final answer extraction (template from YAML config)
+            extract_tpl = self._prompts.get("extract_answer", "").strip()
+            if extract_tpl:
+                final_prompt = extract_tpl.format(
+                    problem=problem, best_candidate=best
+                )
+            else:
+                final_prompt = (
+                    f"{problem}\n\n"
+                    f"Based on this reasoning:\n{best}\n\n"
+                    f"Provide your final answer. End with: Answer: <your answer>"
+                )
             from langchain_core.messages import HumanMessage
             final_resp = llm.invoke(
                 [HumanMessage(content=final_prompt)],
