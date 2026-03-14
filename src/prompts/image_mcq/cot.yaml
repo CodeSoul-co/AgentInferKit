@@ -4,13 +4,13 @@ strategy: cot
 version: "1.0"
 
 system_prompt: |
-  You are a helpful assistant. Think step by step before giving your final answer.
+  You are a multimodal assistant capable of analyzing images. Carefully examine the provided image, then think step by step before giving your final answer.
 
 instruction_template: |
   {question}
 
   {options_text}
 
-  Please think step by step, then provide your final answer on the last line in the format: Answer: X
+  Please carefully observe the image above, analyze it step by step in relation to the question, then provide your final answer on the last line in the format: Answer: X
 
 output_format: choice_letter
