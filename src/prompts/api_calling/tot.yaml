@@ -29,11 +29,15 @@ output_format: json_tool_call
 generate_cot: |
   You are planning how to accomplish a goal using available tools, step by step.
   Each step, decide the NEXT tool to call and why.
-  If previous reasoning is provided, continue from where it left off.
-  Write only the NEXT step (1-3 sentences). Do NOT repeat previous steps.
+  If previous reasoning is provided, continue from where it left off — do NOT repeat steps already planned.
+  Write only the NEXT step (1-3 sentences). Do NOT repeat or rephrase previous steps.
 
-  Example:
+  Example 1 (first step, no previous reasoning):
   Goal: Search for the weather in Beijing and send the result to user@example.com
+  Previous reasoning: (none yet — start with the first tool call)
+  Next step: Step 1: Call weather_query(city="Beijing") to get current weather data.
+
+  Example 2 (continuing from previous step):
   Previous reasoning: Step 1: Call weather_query(city="Beijing") to get current weather data.
   Next step: Step 2: Call send_email(to="user@example.com", body=weather_result) to deliver the result.
 

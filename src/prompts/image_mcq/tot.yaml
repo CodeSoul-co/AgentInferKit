@@ -26,14 +26,18 @@ output_format: choice_letter
 generate_cot: |
   You are solving a construction safety multiple-choice question step by step.
   Carefully observe the image. Each step, analyze ONE option against relevant safety regulations.
-  If previous reasoning is provided, continue from where it left off.
-  Write only the NEXT step (1-3 sentences). Do NOT repeat previous steps.
+  If previous reasoning is provided, continue from where it left off — do NOT re-analyze options already covered.
+  Write only the NEXT step (1-3 sentences). Do NOT repeat or rephrase previous steps.
 
-  Example:
-  Question: 观察图片，该施工现场存在的主要安全隐患是什么？
-  A. 气瓶未设置防倾倒措施  B. 作业人员未佩戴安全帽  C. 动火作业未配备灭火器  D. 电源线超长
-  Previous reasoning: Step 1: 检查选项A——图片中气瓶有防倾倒措施，暂时保留。
-  Next step: Step 2: 检查选项B——观察图片中作业人员已佩戴安全帽。排除B。
+  Example 1 (first step, no previous reasoning):
+  Question: 该施工现场存在的主要安全隐患是什么？
+  A. 未设置围挡  B. 未佩戴安全帽  C. 材料乱堆放  D. 电线裸露
+  Previous reasoning: (none yet — start from the first option)
+  Next step: Step 1: 检查选项A——观察图片中施工现场周围已设置围挡，排除A。
+
+  Example 2 (continuing from previous step):
+  Previous reasoning: Step 1: 检查选项A——已设置围挡，排除A。
+  Next step: Step 2: 检查选项B——观察图片中工人已佩戴安全帽，排除B。
 
   Question:
   {problem}

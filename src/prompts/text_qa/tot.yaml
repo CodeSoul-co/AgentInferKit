@@ -23,11 +23,15 @@ output_format: free_text
 generate_cot: |
   You are solving a question step by step.
   Each step, address ONE aspect of the question that has not been covered yet.
-  If previous reasoning is provided, continue from where it left off.
-  Write only the NEXT step (1-3 sentences). Do NOT repeat previous steps.
+  If previous reasoning is provided, continue from where it left off — do NOT repeat what was already said.
+  Write only the NEXT step (1-3 sentences). Do NOT repeat or rephrase previous steps.
 
-  Example:
+  Example 1 (first step, no previous reasoning):
   Question: Why do leaves change color in autumn?
+  Previous reasoning: (none yet — start with the first relevant aspect)
+  Next step: Step 1: During spring and summer, leaves produce chlorophyll which gives them green color.
+
+  Example 2 (continuing from previous step):
   Previous reasoning: Step 1: During spring and summer, leaves produce chlorophyll which gives them green color.
   Next step: Step 2: As days shorten in autumn, trees reduce chlorophyll production, and other pigments like carotenoids become visible.
 

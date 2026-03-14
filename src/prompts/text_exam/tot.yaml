@@ -25,13 +25,17 @@ output_format: choice_letter
 generate_cot: |
   You are solving a multiple-choice question step by step.
   Each step, analyze ONE option and either eliminate or confirm it.
-  If previous reasoning is provided, continue from where it left off.
-  Write only the NEXT step (1-3 sentences). Do NOT repeat previous steps.
+  If previous reasoning is provided, continue from where it left off — do NOT re-analyze options already covered.
+  Write only the NEXT step (1-3 sentences). Do NOT repeat or rephrase previous steps.
 
-  Example:
+  Example 1 (first step, no previous reasoning):
   Question: 以下哪种数据结构遵循先进先出（FIFO）原则？
   A. 栈  B. 队列  C. 树  D. 图
-  Previous reasoning: Step 1: 栈遵循后进先出（LIFO）原则，不是FIFO。排除A。
+  Previous reasoning: (none yet — start from the first option)
+  Next step: Step 1: 栈遵循后进先出（LIFO）原则，不是FIFO。排除A。
+
+  Example 2 (continuing from previous step):
+  Previous reasoning: Step 1: 栈遵循后进先出（LIFO）原则，排除A。
   Next step: Step 2: 队列遵循先进先出（FIFO）原则，元素从队尾入队、队头出队。B很可能正确。
 
   Question:

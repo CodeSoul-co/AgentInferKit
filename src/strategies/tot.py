@@ -105,10 +105,16 @@ class BenchmarkTask:
 
     # -- generation prompt wrappers (used by get_samples) --
     def standard_prompt_wrap(self, x: str, y: str = "") -> str:
-        return self._generate_standard_tpl.format(problem=x, thoughts=y)
+        thoughts = y.strip() if y.strip() else "(none yet — start from the first option)"
+        prompt = self._generate_standard_tpl.format(problem=x, thoughts=thoughts)
+        logger.debug(f"ToT standard_prompt_wrap: y_len={len(y)}, prompt_len={len(prompt)}")
+        return prompt
 
     def cot_prompt_wrap(self, x: str, y: str = "") -> str:
-        return self._generate_cot_tpl.format(problem=x, thoughts=y)
+        thoughts = y.strip() if y.strip() else "(none yet — start from the first option)"
+        prompt = self._generate_cot_tpl.format(problem=x, thoughts=thoughts)
+        logger.debug(f"ToT cot_prompt_wrap: y_len={len(y)}, prompt_len={len(prompt)}")
+        return prompt
 
     # -- propose (not used in sample mode, but required by interface) --
     def propose_prompt_wrap(self, x: str, y: str = "") -> str:
@@ -261,17 +267,67 @@ class ToTStrategy(BaseStrategy):
         _original_models_gpt = tot_models.gpt
         _original_bfs_gpt = bfs_module.gpt
 
+        def _truncate_to_first_step(text: str) -> str:
+            """Keep only the first reasoning step from LLM output.
+
+            The BFS solver concatenates previous reasoning (y) with new
+            output (s) via `y + s`.  If the model outputs multiple steps,
+            later steps are redundant because BFS will re-generate from
+            the selected candidates anyway.  Truncating to one step keeps
+            the reasoning chain clean and avoids token explosion.
+            """
+            import re
+            text = text.strip()
+            if not text:
+                return ""
+            # Find all occurrences of "Step <N>" in the text.
+            # Keep everything up to the SECOND occurrence (the first is
+            # the actual new step we want to keep).
+            matches = list(re.finditer(r'(?:Step|step)\s+\d', text))
+            if len(matches) >= 2:
+                text = text[:matches[1].start()].strip()
+            # Also truncate at "Answer:" if the model jumped to conclusion
+            m2 = re.search(r'\bAnswer\s*:', text)
+            if m2 and m2.start() > 0:
+                text = text[:m2.start()].strip()
+            return text
+
+        # Cap generation tokens per call to prevent runaway output.
+        # One reasoning step is typically 50-150 tokens (Chinese needs more).
+        _gen_max_tokens = 512
+        _eval_max_tokens = model_config.get("max_tokens", 1024)
+
+        def _is_generate_call(prompt_text: str) -> bool:
+            """Detect if this is a generate call (vs evaluate/vote)."""
+            return "Next step:" in prompt_text or "Previous reasoning:" in prompt_text
+
         def _patched_gpt(prompt, model=None, temperature=0.7, max_tokens=1000, n=1, stop=None):
             from langchain_core.messages import HumanMessage
             from concurrent.futures import ThreadPoolExecutor, as_completed
+
+            is_gen = _is_generate_call(prompt)
+            call_max_tokens = _gen_max_tokens if is_gen else _eval_max_tokens
 
             def _single_call():
                 resp = llm.invoke(
                     [HumanMessage(content=prompt)],
                     config={"callbacks": [tracker]},
-                    stop=stop,
+                    max_tokens=call_max_tokens,
                 )
-                return resp.content if hasattr(resp, "content") else str(resp)
+                text = resp.content if hasattr(resp, "content") else str(resp)
+                if is_gen:
+                    raw = text
+                    # Post-process: keep only the first step to prevent
+                    # repetition and token explosion in BFS y+s concatenation.
+                    text = _truncate_to_first_step(text)
+                    if text:
+                        text = "\n" + text
+                    logger.debug(
+                        f"ToT gen: raw_len={len(raw)} trunc_len={len(text)}"
+                    )
+                else:
+                    text = text.strip()
+                return text
 
             if n == 1:
                 return [_single_call()]
