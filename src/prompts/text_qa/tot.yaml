@@ -21,36 +21,35 @@ output_format: free_text
 # ---------------------------------------------------------------------------
 
 generate_cot: |
-  Answer the following question by breaking it down into smaller reasoning steps. At each step, address one aspect of the question.
-
-  Example 1:
-  Question: Why do leaves change color in autumn?
-  Step 1: During spring and summer, leaves produce chlorophyll which gives them green color.
-  Step 2: As days shorten in autumn, trees reduce chlorophyll production.
-  Step 3: With less chlorophyll, other pigments (carotenoids, anthocyanins) become visible, producing yellow, orange, and red colors.
-  Answer: Leaves change color because reduced chlorophyll production reveals other pigments like carotenoids and anthocyanins.
-
-  Example 2:
-  Question: Why does salt lower the freezing point of water?
-  Step 1: Pure water freezes at 0C when water molecules form a crystalline lattice.
-  Step 2: Dissolved salt ions (Na+ and Cl-) interfere with the formation of this crystal structure.
-  Step 3: More energy must be removed (lower temperature) before the water molecules can overcome the disruption and form ice.
-  Answer: Salt ions disrupt the crystal lattice formation of ice, requiring a lower temperature to freeze.
-
-  Now solve this question:
-  {problem}
-  {thoughts}
-
-generate_standard: |
-  Answer the following question. Provide the next step of reasoning. Be concise and factual, give only one step.
+  You are solving a question step by step.
+  Each step, address ONE aspect of the question that has not been covered yet.
+  If previous reasoning is provided, continue from where it left off.
+  Write only the NEXT step (1-3 sentences). Do NOT repeat previous steps.
 
   Example:
-  Question: What causes tides on Earth?
-  Step: The Moon's gravitational pull creates a tidal bulge in Earth's oceans on the side facing the Moon, and centrifugal force creates another bulge on the opposite side.
+  Question: Why do leaves change color in autumn?
+  Previous reasoning: Step 1: During spring and summer, leaves produce chlorophyll which gives them green color.
+  Next step: Step 2: As days shorten in autumn, trees reduce chlorophyll production, and other pigments like carotenoids become visible.
 
-  Now provide the next step for:
+  Question:
   {problem}
+
+  Previous reasoning:
   {thoughts}
+
+  Next step:
+
+generate_standard: |
+  Continue reasoning about the following question.
+  Write only the NEXT step (1-2 sentences). Do NOT repeat previous steps.
+
+  Question:
+  {problem}
+
+  Previous reasoning:
+  {thoughts}
+
+  Next step:
 
 evaluate_value: |
   Evaluate if the following reasoning about a question is correct and complete. Rate as: sure/likely/impossible.

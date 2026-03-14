@@ -24,39 +24,37 @@ output_format: choice_letter
 # Generation: expand candidate reasoning at each BFS depth (CoT mode)
 # Teaches the model to analyze options one by one against safety regulations.
 generate_cot: |
-  Answer the following construction safety multiple-choice question by analyzing each option step by step. At each step, evaluate one option against relevant safety regulations and determine if it matches the hazard shown.
+  You are solving a construction safety multiple-choice question step by step.
+  Carefully observe the image. Each step, analyze ONE option against relevant safety regulations.
+  If previous reasoning is provided, continue from where it left off.
+  Write only the NEXT step (1-3 sentences). Do NOT repeat previous steps.
 
   Example:
   Question: 观察图片，该施工现场存在的主要安全隐患是什么？
-  A. 气瓶未设置防倾倒措施且间距不足
-  B. 作业人员未佩戴安全帽进行高处焊接
-  C. 动火作业现场未配备灭火器且无专人监护
-  D. 电焊机一次侧电源线长度超过规范要求
-  Step 1: 检查选项A——根据GB50720-2011第6.3.3条，气瓶应有防倾倒措施且间距不小于5m。图片中气瓶状况需观察，但这不是最突出的隐患。暂时保留。
-  Step 2: 检查选项B——观察图片中作业人员，已佩戴安全帽。排除B。
-  Step 3: 检查选项C——根据GB50720-2011第6.3.1条，动火作业必须配备灭火器材并设置监护人。图片中动火点既无灭火器也无监护人，严重违规。C很可能正确。
-  Step 4: 检查选项D——电焊机电源线长度在图片中难以判断，且非典型隐患。排除D。
-  Answer: C
+  A. 气瓶未设置防倾倒措施  B. 作业人员未佩戴安全帽  C. 动火作业未配备灭火器  D. 电源线超长
+  Previous reasoning: Step 1: 检查选项A——图片中气瓶有防倾倒措施，暂时保留。
+  Next step: Step 2: 检查选项B——观察图片中作业人员已佩戴安全帽。排除B。
 
-  Now solve this question:
+  Question:
   {problem}
+
+  Previous reasoning:
   {thoughts}
+
+  Next step:
 
 # Generation: standard mode (single concise step)
 generate_standard: |
-  Answer the following construction safety question. Provide the next step of analysis by evaluating one option against safety regulations. Be concise.
+  Continue analyzing the following construction safety question based on the image.
+  Write only the NEXT step (1-2 sentences). Do NOT repeat previous steps.
 
-  Example:
-  Question: 该施工现场材料仓库存在的主要安全隐患是什么？
-  A. 仓库内安全疏散通道被杂物严重堵塞
-  B. 仓库内灭火器配置数量不足且被遮挡
-  C. 仓库内电气线路敷设混乱且未穿管保护
-  D. 易燃易爆危险品未在专用库房分类存放
-  Step: 根据GB50720-2011第6.2.2条，油漆桶、气瓶等易燃易爆品与普通可燃材料混存，未设置专用库房，答案是D。
-
-  Now provide the next step for:
+  Question:
   {problem}
+
+  Previous reasoning:
   {thoughts}
+
+  Next step:
 
 # Evaluation: score each candidate reasoning path (value mode, with few-shot)
 evaluate_value: |
