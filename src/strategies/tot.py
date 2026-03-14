@@ -247,9 +247,8 @@ class ToTStrategy(BaseStrategy):
         """
         import tot.models as tot_models
         import tot.methods.bfs as bfs_module
-        import tot.methods.dfs as dfs_module
         from tot.methods.bfs import solve as bfs_solve
-        from tot.methods.dfs import solve as dfs_solve
+        from src.strategies.tot_dfs import solve as dfs_solve
 
         llm = make_langchain_llm(model_config)
         tracker = TokenUsageTracker()
@@ -261,7 +260,6 @@ class ToTStrategy(BaseStrategy):
         # Monkey-patch gpt() to use our LLM
         _original_models_gpt = tot_models.gpt
         _original_bfs_gpt = bfs_module.gpt
-        _original_dfs_gpt = dfs_module.gpt
 
         def _patched_gpt(prompt, model=None, temperature=0.7, max_tokens=1000, n=1, stop=None):
             from langchain_core.messages import HumanMessage
@@ -287,10 +285,9 @@ class ToTStrategy(BaseStrategy):
                     outputs.append(f.result())
             return outputs
 
-        # Patch all modules
+        # Patch vendor BFS module
         tot_models.gpt = _patched_gpt
         bfs_module.gpt = _patched_gpt
-        dfs_module.gpt = _patched_gpt
 
         try:
             # Load task-specific prompts, falling back to base config
@@ -328,7 +325,7 @@ class ToTStrategy(BaseStrategy):
             search_method = self._search_method.lower()
             if search_method == "dfs":
                 logger.info(f"ToT DFS: depth={self._depth}, k={self._k}, max_nodes={self._max_dfs_nodes}")
-                ys, info = dfs_solve(args, task, 0, to_print=False)
+                ys, info = dfs_solve(args, task, 0, to_print=False, gpt_fn=_patched_gpt)
                 logger.info(f"ToT DFS: returned {len(ys)} candidates, visited {info.get('nodes_visited', '?')} nodes")
             else:
                 logger.info(f"ToT BFS: depth={self._depth}, k={self._k}")
@@ -403,7 +400,6 @@ class ToTStrategy(BaseStrategy):
         finally:
             tot_models.gpt = _original_models_gpt
             bfs_module.gpt = _original_bfs_gpt
-            dfs_module.gpt = _original_dfs_gpt
 
     # ------------------------------------------------------------------
     # Prompt building (fallback for non-BFS paths)
