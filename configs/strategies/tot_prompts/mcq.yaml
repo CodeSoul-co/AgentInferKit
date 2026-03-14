@@ -1,0 +1,91 @@
+# ---------------------------------------------------------------------------
+# ToT BFS prompts for Multiple-Choice Questions (text_exam / image_mcq)
+#
+# Design follows the vendor ToT pattern:
+#   - Few-shot examples in generate and evaluate prompts
+#   - Task-specific reasoning structure (analyze each option)
+#   - Evaluation with worked examples of sure/likely/impossible
+# ---------------------------------------------------------------------------
+
+# Generation: expand candidate reasoning at each BFS depth (CoT mode)
+# The model analyzes one option at a time, building a step-by-step elimination.
+generate_cot: |
+  Answer the following multiple-choice question by analyzing each option step by step. At each step, evaluate one option and determine if it is correct or can be eliminated.
+
+  Example:
+  Question: Which data structure follows the FIFO principle?
+  A. Stack
+  B. Queue
+  C. Tree
+  D. Graph
+  Step 1: A stack follows LIFO (Last In First Out), not FIFO. Eliminate A.
+  Step 2: A queue follows FIFO (First In First Out). B is likely correct.
+  Step 3: Trees and graphs are non-linear structures unrelated to FIFO. Eliminate C and D.
+  Answer: B
+
+  Now solve this question:
+  {problem}
+  {thoughts}
+
+# Generation: standard mode (single concise step)
+generate_standard: |
+  Answer the following multiple-choice question. Provide the next step of analysis by evaluating one option. Be concise.
+
+  Example:
+  Question: Which gas makes up most of Earth's atmosphere?
+  A. Oxygen  B. Nitrogen  C. Carbon dioxide  D. Hydrogen
+  Step: Nitrogen makes up about 78% of Earth's atmosphere, so B is correct.
+
+  Now provide the next step for:
+  {problem}
+  {thoughts}
+
+# Evaluation: score each candidate reasoning path (value mode, with few-shot)
+evaluate_value: |
+  Evaluate if the following reasoning about a multiple-choice question is leading to the correct answer. Rate as: sure/likely/impossible.
+
+  Example 1:
+  Question: What is the capital of France?
+  A. London  B. Paris  C. Berlin  D. Madrid
+  Reasoning: London is the capital of England, not France. Eliminate A. Paris is the capital of France.
+  Evaluation: The reasoning correctly identifies Paris as the capital of France.
+  sure
+
+  Example 2:
+  Question: Which planet is closest to the Sun?
+  A. Venus  B. Earth  C. Mercury  D. Mars
+  Reasoning: Venus is very hot, so it must be closest to the Sun.
+  Evaluation: While Venus is hot, Mercury is actually closest. The reasoning has a factual error.
+  impossible
+
+  Example 3:
+  Question: What causes tides on Earth?
+  A. Wind  B. Earthquakes  C. Moon's gravity  D. Earth's rotation
+  Reasoning: The Moon exerts gravitational pull on Earth's oceans.
+  Evaluation: The reasoning is on the right track but incomplete - it hasn't fully eliminated other options yet.
+  likely
+
+  Now evaluate:
+  Question: {problem}
+  Reasoning: {thoughts}
+  Evaluation:
+
+# Evaluation: vote for the most promising candidate (vote mode)
+evaluate_vote: |
+  Given a multiple-choice question and several candidate reasoning paths, decide which reasoning is most promising. Analyze each choice, then conclude with "The best choice is {{s}}" where s is the integer id.
+
+  Question: {problem}
+
+  {choices}
+
+  Analyze each reasoning path and conclude with "The best choice is {{s}}".
+
+# Final answer extraction after BFS completes
+extract_answer: |
+  {problem}
+
+  Based on the following analysis:
+  {best_candidate}
+
+  What is the correct answer? Respond with only the letter (A, B, C, or D).
+  Answer:

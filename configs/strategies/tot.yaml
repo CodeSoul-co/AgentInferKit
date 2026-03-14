@@ -2,51 +2,14 @@ name: tot
 library: langchain-experimental
 chain_type: ToTChain
 
+# ---------------------------------------------------------------------------
+# Default prompts (fallback when no task-specific override exists).
+# Task-specific prompts live in configs/strategies/tot_prompts/<task_type>.yaml
+# and are automatically merged at runtime.
+# ---------------------------------------------------------------------------
 prompts:
   system: |
     You are a creative problem solver. Generate one possible approach to the problem below. Be concise but thorough in your reasoning.
-
-  # -- BFS search prompt templates (used by BenchmarkTask) --
-
-  # Generation: expand candidate thoughts at each BFS depth
-  generate_cot: |
-    {problem}
-
-    Let's think step by step.
-    {thoughts}
-  generate_standard: |
-    {problem}
-
-    Provide the next step of reasoning. Think carefully and give one concise step.
-    {thoughts}
-
-  # Evaluation: score each candidate as sure/likely/impossible
-  evaluate_value: |
-    Evaluate this partial solution to the problem.
-    Problem: {problem}
-    Current solution path:
-    {thoughts}
-
-    Rate as: sure/likely/impossible
-
-  # Evaluation: vote for the most promising candidate
-  evaluate_vote: |
-    Given the following problem and candidate solutions, decide which is most promising.
-
-    Problem: {problem}
-
-    {choices}
-
-    Conclude with "The best choice is {{s}}" where s is the integer id.
-
-  # Final answer extraction after BFS completes
-  extract_answer: |
-    {problem}
-
-    Based on this reasoning:
-    {best_candidate}
-
-    Provide your final answer. End with: Answer: <your answer>
 
   # -- Fallback prompts for non-BFS paths --
   user_exam: |

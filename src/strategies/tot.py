@@ -145,6 +145,34 @@ class BenchmarkTask:
         return votes
 
 
+_TOT_PROMPTS_DIR = os.path.join(
+    os.path.dirname(__file__), os.pardir, os.pardir, "configs", "strategies", "tot_prompts"
+)
+
+# Map task_type to the prompt file name
+_TASK_PROMPT_MAP = {
+    "text_exam": "mcq.yaml",
+    "image_mcq": "mcq.yaml",
+    "text_qa":   "text_qa.yaml",
+}
+
+
+def _load_task_prompts(task_type: str) -> Dict[str, str]:
+    """Load task-specific ToT prompt templates from tot_prompts/<file>.yaml."""
+    fname = _TASK_PROMPT_MAP.get(task_type)
+    if not fname:
+        return {}
+    path = os.path.join(os.path.abspath(_TOT_PROMPTS_DIR), fname)
+    if not os.path.isfile(path):
+        logger.warning(f"ToT task prompt file not found: {path}")
+        return {}
+    import yaml as _yaml
+    with open(path, "r", encoding="utf-8") as f:
+        data = _yaml.safe_load(f) or {}
+    # Return only the prompt template strings (skip comments etc.)
+    return {k: v for k, v in data.items() if isinstance(v, str)}
+
+
 class ToTStrategy(BaseStrategy):
     """Tree-of-Thought strategy backed by vendor/tree-of-thought-llm BFS.
 
@@ -152,6 +180,7 @@ class ToTStrategy(BaseStrategy):
     ``tot.models.gpt`` so all LLM calls go through our LangChain ChatOpenAI.
 
     Reads config from configs/strategies/tot.yaml.
+    Task-specific prompts are loaded from configs/strategies/tot_prompts/<task>.yaml.
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
@@ -251,15 +280,22 @@ class ToTStrategy(BaseStrategy):
         bfs_module.gpt = _patched_gpt
 
         try:
-            # Build task adapter and args namespace, reading templates from YAML
+            # Load task-specific prompts, falling back to base config
+            task_type = sample.get("task_type", "text_qa")
+            task_prompts = _load_task_prompts(task_type)
+            # Task-specific prompts override base prompts
+            merged_prompts = {**self._prompts, **task_prompts}
+            logger.info(f"ToT: using {'task-specific' if task_prompts else 'default'} prompts for task_type={task_type}")
+
+            # Build task adapter and args namespace
             problem = self.build_problem_description(sample)
             task = BenchmarkTask(
                 problem=problem,
                 steps=self._depth,
-                generate_cot_tpl=self._prompts.get("generate_cot", ""),
-                generate_standard_tpl=self._prompts.get("generate_standard", ""),
-                evaluate_value_tpl=self._prompts.get("evaluate_value", ""),
-                evaluate_vote_tpl=self._prompts.get("evaluate_vote", ""),
+                generate_cot_tpl=merged_prompts.get("generate_cot", ""),
+                generate_standard_tpl=merged_prompts.get("generate_standard", ""),
+                evaluate_value_tpl=merged_prompts.get("evaluate_value", ""),
+                evaluate_vote_tpl=merged_prompts.get("evaluate_vote", ""),
             )
 
             args = SimpleNamespace(
@@ -280,8 +316,8 @@ class ToTStrategy(BaseStrategy):
 
             best = ys[0] if ys else ""
 
-            # Final answer extraction (template from YAML config)
-            extract_tpl = self._prompts.get("extract_answer", "").strip()
+            # Final answer extraction (template from task-specific or base config)
+            extract_tpl = merged_prompts.get("extract_answer", "").strip()
             if extract_tpl:
                 final_prompt = extract_tpl.format(
                     problem=problem, best_candidate=best
