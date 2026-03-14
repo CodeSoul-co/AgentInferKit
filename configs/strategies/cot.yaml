@@ -20,6 +20,30 @@ prompts:
 
     Please think step by step, then provide your final answer on the last line in the format: Answer: <your answer>
 
+# reasoning_depth: "normal" (standard CoT) or "deep" (extended reasoning, formerly long_cot)
+cot_config:
+  reasoning_depth: normal
+
+generation:
+  temperature: 0.0
+  max_tokens: 2048
+
+# Prompts for reasoning_depth=deep (extended reasoning, formerly long_cot)
+deep_prompts:
+  system: |
+    You are an expert problem solver. When given a question, think through it very carefully and thoroughly. Break the problem into sub-problems, solve each one step by step, verify your intermediate results, and only then state your final answer on the last line in the format:
+    Answer: <your answer>
+  user_exam: |
+    {question}
+
+    {options_text}
+
+    Reason through each option carefully before selecting the correct one. Put your final answer on the last line as: Answer: X
+  user_qa: |
+    {question}
+
+    Think step by step, verifying each intermediate result. Put your final answer on the last line as: Answer: <your answer>
+
 parse:
   answer_pattern: "[Aa]nswer\\s*[：:]\\s*(.+)"
   choice_pattern: "\\b([A-D])\\b"

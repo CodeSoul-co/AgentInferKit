@@ -12,6 +12,10 @@ prompts:
   user: |
     {question}{tool_desc}
 
+generation:
+  temperature: 0.0
+  max_tokens: 2048
+
 react_config:
   max_steps: 10
   handle_parsing_errors: true

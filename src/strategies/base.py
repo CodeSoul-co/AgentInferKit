@@ -49,6 +49,40 @@ class BaseStrategy(ABC):
         self._parse_cfg = self._yaml_cfg.get("parse", {})
         # Explicit prompt_id from experiment config overrides auto-resolve
         self._explicit_prompt_id: Optional[str] = self._runtime_cfg.get("prompt_id")
+        # Common generation parameters (runtime > YAML > sensible defaults)
+        defaults = self._yaml_cfg.get("generation", {})
+        self._temperature: Optional[float] = self._runtime_cfg.get(
+            "temperature", defaults.get("temperature")
+        )
+        self._max_tokens: Optional[int] = self._runtime_cfg.get(
+            "max_tokens", defaults.get("max_tokens")
+        )
+
+    # ------------------------------------------------------------------
+    # Model-config overrides (temperature, max_tokens, etc.)
+    # ------------------------------------------------------------------
+
+    def get_model_overrides(self) -> Dict[str, Any]:
+        """Return model_config overrides from strategy-level generation params.
+
+        The runner should merge these into model_config before creating the
+        LLM so that strategy-specific temperature / max_tokens take effect.
+        Only includes keys that are explicitly set (not None).
+        """
+        overrides: Dict[str, Any] = {}
+        if self._temperature is not None:
+            overrides["temperature"] = self._temperature
+        if self._max_tokens is not None:
+            overrides["max_tokens"] = self._max_tokens
+        return overrides
+
+    @property
+    def temperature(self) -> Optional[float]:
+        return self._temperature
+
+    @property
+    def max_tokens(self) -> Optional[int]:
+        return self._max_tokens
 
     # ------------------------------------------------------------------
     # Prompt helpers (new: prompt_id based)

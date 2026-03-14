@@ -43,6 +43,10 @@ prompts:
 
     Based on the feedback, provide an improved answer. Put your final answer on the last line as: Answer: <your answer>
 
+generation:
+  temperature: 0.0
+  max_tokens: 2048
+
 refine_config:
   max_rounds: 3
 

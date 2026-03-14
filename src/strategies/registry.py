@@ -30,10 +30,15 @@ def _scan_strategies() -> None:
         except Exception:
             continue
 
-        for _name, obj in inspect.getmembers(module, inspect.isclass):
-            if issubclass(obj, BaseStrategy) and obj is not BaseStrategy:
-                _STRATEGY_MAP[py_file.stem] = obj
-                break
+        # Prefer classes defined in this module over imported parent classes
+        candidates = [
+            obj for _name, obj in inspect.getmembers(module, inspect.isclass)
+            if issubclass(obj, BaseStrategy) and obj is not BaseStrategy
+        ]
+        local = [c for c in candidates if c.__module__ == module.__name__]
+        chosen = local[0] if local else (candidates[0] if candidates else None)
+        if chosen is not None:
+            _STRATEGY_MAP[py_file.stem] = chosen
 
 
 def load_strategy(name: str, config: Optional[Dict[str, Any]] = None) -> BaseStrategy:

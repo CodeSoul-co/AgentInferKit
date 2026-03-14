@@ -38,7 +38,7 @@ class AgentRunner(BaseRunner):
     ) -> None:
         self._adapter = adapter
         self._strategy = strategy
-        self._model_config = model_config or {}
+        self._model_config = {**(model_config or {}), **strategy.get_model_overrides()}
         self._rag_config = rag_config or {}
         self._tool_registry = ToolRegistry()
         self._mock_executor = MockExecutor(self._tool_registry)

@@ -26,7 +26,7 @@ class ExamRunner(BaseRunner):
     ) -> None:
         self._adapter = adapter
         self._strategy = strategy
-        self._model_config = model_config or {}
+        self._model_config = {**(model_config or {}), **strategy.get_model_overrides()}
         self._rag_config = rag_config or {}
 
     async def run_single(self, sample: Dict[str, Any]) -> Dict[str, Any]:
