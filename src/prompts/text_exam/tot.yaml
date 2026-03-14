@@ -4,14 +4,101 @@ strategy: tot
 version: "1.0"
 
 system_prompt: |
-  You are a creative problem solver. Generate one possible approach to the problem below.
-  Be concise but thorough in your reasoning.
+  You are a rigorous exam problem solver. Analyze each option systematically before choosing an answer.
 
 instruction_template: |
   {question}
 
   {options_text}
 
-  Think of one possible approach to solve this. End with: Answer: X
+  Analyze each option step by step, then give your answer. End with: Answer: X
 
 output_format: choice_letter
+
+# ---------------------------------------------------------------------------
+# ToT BFS prompt templates for text-based multiple-choice exams
+# Variables: generate_*/evaluate_value use {problem} {thoughts};
+#            evaluate_vote uses {problem} {choices};
+#            extract_answer uses {problem} {best_candidate}.
+# ---------------------------------------------------------------------------
+
+generate_cot: |
+  Answer the following multiple-choice question by analyzing each option step by step. At each step, evaluate one option and determine if it is correct or can be eliminated.
+
+  Example 1:
+  Question: 以下哪种数据结构遵循先进先出（FIFO）原则？
+  A. 栈  B. 队列  C. 树  D. 图
+  Step 1: 栈遵循后进先出（LIFO）原则，不是FIFO。排除A。
+  Step 2: 队列遵循先进先出（FIFO）原则，元素从队尾入队、队头出队。B很可能正确。
+  Step 3: 树和图是非线性数据结构，与FIFO无关。排除C和D。
+  Answer: B
+
+  Example 2:
+  Question: HTTP协议默认使用哪个端口？
+  A. 21  B. 22  C. 80  D. 443
+  Step 1: 21端口是FTP协议的默认端口，不是HTTP。排除A。
+  Step 2: 22端口是SSH协议的默认端口。排除B。
+  Step 3: 80端口是HTTP协议的默认端口。C很可能正确。
+  Step 4: 443端口是HTTPS协议的默认端口，不是HTTP。排除D。
+  Answer: C
+
+  Now solve this question:
+  {problem}
+  {thoughts}
+
+generate_standard: |
+  Answer the following multiple-choice question. Provide the next step of analysis by evaluating one option. Be concise and give only one step.
+
+  Example:
+  Question: TCP三次握手的目的是什么？
+  A. 数据加密  B. 建立可靠连接  C. 路由选择  D. 流量控制
+  Step: TCP三次握手用于在客户端和服务端之间建立可靠的双向连接，答案是B。
+
+  Now provide the next step for:
+  {problem}
+  {thoughts}
+
+evaluate_value: |
+  Evaluate if the following reasoning about a multiple-choice question is leading to the correct answer. Rate as: sure/likely/impossible.
+
+  Example 1:
+  Question: 以下哪种排序算法的平均时间复杂度为O(n log n)？
+  A. 冒泡排序  B. 快速排序  C. 插入排序  D. 选择排序
+  Reasoning: 冒泡、插入、选择排序的平均复杂度都是O(n^2)，快速排序平均是O(n log n)。答案是B。
+  Evaluation: 对四种排序算法的时间复杂度分析完全正确。
+  sure
+
+  Example 2:
+  Question: 二叉搜索树的中序遍历结果是？
+  A. 随机序列  B. 递增序列  C. 递减序列  D. 层次序列
+  Reasoning: 二叉搜索树的前序遍历结果是递增序列。
+  Evaluation: 混淆了前序遍历和中序遍历。中序遍历才能得到递增序列，推理有事实错误。
+  impossible
+
+  Example 3:
+  Question: OSI模型中传输层的主要功能是什么？
+  A. 路由选择  B. 端到端传输  C. 数据编码  D. 物理连接
+  Reasoning: 传输层负责数据传输方面的功能。
+  Evaluation: 方向正确，但没有明确区分端到端传输与其他选项，推理不够完整。
+  likely
+
+  Now evaluate:
+  Question: {problem}
+  Reasoning: {thoughts}
+  Evaluation:
+
+evaluate_vote: |
+  Given a multiple-choice question and several candidate reasoning paths, decide which reasoning is most promising. Analyze each choice in detail, then conclude in the last line "The best choice is {{s}}", where s is the integer id of the choice.
+
+  Question: {problem}
+
+  {choices}
+
+extract_answer: |
+  {problem}
+
+  Based on the following analysis:
+  {best_candidate}
+
+  What is the correct answer? Respond with only the option letter.
+  Answer:

@@ -1,0 +1,95 @@
+id: text_qa.tot
+task_type: text_qa
+strategy: tot
+version: "1.0"
+
+system_prompt: |
+  You are a knowledgeable assistant. Break down complex questions into smaller reasoning steps and provide well-structured answers.
+
+instruction_template: |
+  {question}
+
+  Break this question down step by step, then provide your final answer. End with: Answer: <your answer>
+
+output_format: free_text
+
+# ---------------------------------------------------------------------------
+# ToT BFS prompt templates for open-ended question answering
+# Variables: generate_*/evaluate_value use {problem} {thoughts};
+#            evaluate_vote uses {problem} {choices};
+#            extract_answer uses {problem} {best_candidate}.
+# ---------------------------------------------------------------------------
+
+generate_cot: |
+  Answer the following question by breaking it down into smaller reasoning steps. At each step, address one aspect of the question.
+
+  Example 1:
+  Question: Why do leaves change color in autumn?
+  Step 1: During spring and summer, leaves produce chlorophyll which gives them green color.
+  Step 2: As days shorten in autumn, trees reduce chlorophyll production.
+  Step 3: With less chlorophyll, other pigments (carotenoids, anthocyanins) become visible, producing yellow, orange, and red colors.
+  Answer: Leaves change color because reduced chlorophyll production reveals other pigments like carotenoids and anthocyanins.
+
+  Example 2:
+  Question: Why does salt lower the freezing point of water?
+  Step 1: Pure water freezes at 0C when water molecules form a crystalline lattice.
+  Step 2: Dissolved salt ions (Na+ and Cl-) interfere with the formation of this crystal structure.
+  Step 3: More energy must be removed (lower temperature) before the water molecules can overcome the disruption and form ice.
+  Answer: Salt ions disrupt the crystal lattice formation of ice, requiring a lower temperature to freeze.
+
+  Now solve this question:
+  {problem}
+  {thoughts}
+
+generate_standard: |
+  Answer the following question. Provide the next step of reasoning. Be concise and factual, give only one step.
+
+  Example:
+  Question: What causes tides on Earth?
+  Step: The Moon's gravitational pull creates a tidal bulge in Earth's oceans on the side facing the Moon, and centrifugal force creates another bulge on the opposite side.
+
+  Now provide the next step for:
+  {problem}
+  {thoughts}
+
+evaluate_value: |
+  Evaluate if the following reasoning about a question is correct and complete. Rate as: sure/likely/impossible.
+
+  Example 1:
+  Question: What is the boiling point of water at sea level?
+  Reasoning: Water boils at 100 degrees Celsius (212 degrees Fahrenheit) at standard atmospheric pressure at sea level. This is because at 100C the vapor pressure of water equals atmospheric pressure.
+  Evaluation: Factually correct and explains the underlying mechanism.
+  sure
+
+  Example 2:
+  Question: How does photosynthesis work?
+  Reasoning: Plants absorb sunlight through their roots and convert it to sugar.
+  Evaluation: Photosynthesis occurs in chloroplasts within leaves, not roots. The reasoning contains a fundamental factual error.
+  impossible
+
+  Example 3:
+  Question: Why is the sky blue?
+  Reasoning: It has something to do with how sunlight interacts with the atmosphere.
+  Evaluation: The direction is correct (Rayleigh scattering of shorter wavelengths) but far too vague to be a complete answer.
+  likely
+
+  Now evaluate:
+  Question: {problem}
+  Reasoning: {thoughts}
+  Evaluation:
+
+evaluate_vote: |
+  Given a question and several candidate reasoning paths, decide which reasoning is most accurate and complete. Analyze each choice in detail, then conclude in the last line "The best choice is {{s}}", where s is the integer id of the choice.
+
+  Question: {problem}
+
+  {choices}
+
+extract_answer: |
+  {problem}
+
+  Based on the following analysis:
+  {best_candidate}
+
+  Provide a clear and concise final answer.
+  Answer:

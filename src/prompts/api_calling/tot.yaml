@@ -17,3 +17,86 @@ instruction_template: |
   End with: Answer: <your final answer>
 
 output_format: json_tool_call
+
+# ---------------------------------------------------------------------------
+# ToT BFS prompt templates for API/tool calling tasks
+# Variables: generate_*/evaluate_value use {problem} {thoughts};
+#            evaluate_vote uses {problem} {choices};
+#            extract_answer uses {problem} {best_candidate}.
+# Note: {problem} here is the user_goal text (set by build_problem_description).
+# ---------------------------------------------------------------------------
+
+generate_cot: |
+  Plan how to accomplish the following goal using available tools. At each step, decide which tool to call next and why.
+
+  Example 1:
+  Goal: Search for the weather in Beijing and send the result to user@example.com
+  Step 1: First call weather_query to get current weather data for Beijing.
+  Step 2: Format the weather result into a readable message.
+  Step 3: Call send_email with the formatted weather message to user@example.com.
+  Answer: weather_query(city="Beijing") -> send_email(to="user@example.com", body=result)
+
+  Example 2:
+  Goal: Find all orders placed by customer C001 in the last 7 days and calculate the total amount
+  Step 1: Call query_orders with customer_id="C001" and date_range="last_7_days" to retrieve order records.
+  Step 2: Extract the amount field from each returned order.
+  Step 3: Sum all amounts to get the total. No additional API call needed for arithmetic.
+  Answer: query_orders(customer_id="C001", date_range="last_7_days") -> sum amounts from result
+
+  Now plan for this goal:
+  {problem}
+  {thoughts}
+
+generate_standard: |
+  Plan how to accomplish the following goal using available tools. Provide the next step only. Be concise.
+
+  Example:
+  Goal: Look up product P100 details and check its inventory
+  Step: Call get_product(product_id="P100") to retrieve product details including current stock.
+
+  Now provide the next step for:
+  {problem}
+  {thoughts}
+
+evaluate_value: |
+  Evaluate if the following tool-calling plan can accomplish the stated goal. Rate as: sure/likely/impossible.
+
+  Example 1:
+  Goal: Send a notification email to admin@company.com about server downtime
+  Plan: Call send_email(to="admin@company.com", subject="Server Downtime Alert", body="Server X is down since 10:00").
+  Evaluation: The plan directly accomplishes the goal with a single correct API call.
+  sure
+
+  Example 2:
+  Goal: Get the average response time of API endpoints over the past 24 hours
+  Plan: Call list_endpoints() to get all endpoint names.
+  Evaluation: This is a reasonable first step but incomplete — still needs to query metrics for each endpoint and compute the average.
+  likely
+
+  Example 3:
+  Goal: Delete all inactive users from the database
+  Plan: Call create_user(name="test") to create a new user.
+  Evaluation: The plan calls a completely unrelated API. Creating a user does not help delete inactive users.
+  impossible
+
+  Now evaluate:
+  Goal: {problem}
+  Plan: {thoughts}
+  Evaluation:
+
+evaluate_vote: |
+  Given a goal and several candidate tool-calling plans, decide which plan most effectively accomplishes the goal. Consider correctness, completeness, and efficiency. Analyze each choice in detail, then conclude in the last line "The best choice is {{s}}", where s is the integer id of the choice.
+
+  Goal: {problem}
+
+  {choices}
+
+extract_answer: |
+  {problem}
+
+  Based on the following tool-calling plan:
+  {best_candidate}
+
+  Provide the final sequence of tool calls needed. Use the format:
+  Action: tool_name(param=value)
+  Answer:

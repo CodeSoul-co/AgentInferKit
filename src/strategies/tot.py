@@ -145,32 +145,28 @@ class BenchmarkTask:
         return votes
 
 
-_TOT_PROMPTS_DIR = os.path.join(
-    os.path.dirname(__file__), os.pardir, os.pardir, "configs", "strategies", "tot_prompts"
-)
-
-# Map task_type to the prompt file name
-_TASK_PROMPT_MAP = {
-    "text_exam": "mcq.yaml",
-    "image_mcq": "mcq.yaml",
-    "text_qa":   "text_qa.yaml",
-}
-
-
 def _load_task_prompts(task_type: str) -> Dict[str, str]:
-    """Load task-specific ToT prompt templates from tot_prompts/<file>.yaml."""
-    fname = _TASK_PROMPT_MAP.get(task_type)
-    if not fname:
+    """Load task-specific ToT BFS prompt templates from the prompt registry.
+
+    Looks up ``{task_type}.tot`` in ``src/prompts/registry.yaml``, loads the
+    YAML file, and returns all string fields (generate_cot, evaluate_value,
+    extract_answer, etc.).  Returns an empty dict if the prompt_id is not
+    registered — the caller will fall back to BenchmarkTask defaults.
+    """
+    from src.prompts.loader import load_prompt
+    prompt_id = f"{task_type}.tot"
+    try:
+        data = load_prompt(prompt_id)
+    except (KeyError, FileNotFoundError):
+        logger.debug(f"No registered ToT prompt for {prompt_id}, using defaults")
         return {}
-    path = os.path.join(os.path.abspath(_TOT_PROMPTS_DIR), fname)
-    if not os.path.isfile(path):
-        logger.warning(f"ToT task prompt file not found: {path}")
-        return {}
-    import yaml as _yaml
-    with open(path, "r", encoding="utf-8") as f:
-        data = _yaml.safe_load(f) or {}
-    # Return only the prompt template strings (skip comments etc.)
-    return {k: v for k, v in data.items() if isinstance(v, str)}
+    # Return only the BFS template strings (skip id, task_type, version, etc.)
+    bfs_keys = {
+        "generate_cot", "generate_standard",
+        "evaluate_value", "evaluate_vote",
+        "extract_answer",
+    }
+    return {k: v for k, v in data.items() if k in bfs_keys and isinstance(v, str)}
 
 
 class ToTStrategy(BaseStrategy):
@@ -180,7 +176,8 @@ class ToTStrategy(BaseStrategy):
     ``tot.models.gpt`` so all LLM calls go through our LangChain ChatOpenAI.
 
     Reads config from configs/strategies/tot.yaml.
-    Task-specific prompts are loaded from configs/strategies/tot_prompts/<task>.yaml.
+    Task-specific BFS prompts are loaded from src/prompts/{task_type}/tot.yaml
+    via the prompt registry.
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:

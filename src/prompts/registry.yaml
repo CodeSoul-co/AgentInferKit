@@ -12,9 +12,11 @@ text_exam.self_consistency: text_exam/self_consistency.yaml
 text_qa.direct: text_qa/direct.yaml
 text_qa.cot: text_qa/cot.yaml
 text_qa.long_cot: text_qa/long_cot.yaml
+text_qa.tot: text_qa/tot.yaml
 
 image_mcq.direct: image_mcq/direct.yaml
 image_mcq.cot: image_mcq/cot.yaml
+image_mcq.tot: image_mcq/tot.yaml
 
 api_calling.direct: api_calling/direct.yaml
 api_calling.cot: api_calling/cot.yaml
