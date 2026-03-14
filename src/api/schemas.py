@@ -104,6 +104,10 @@ class ExperimentCreateRequest(BaseModel):
         default="direct",
         description="Inference strategy"
     )
+    strategy_config: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Strategy-specific parameters (e.g. temperature, reasoning_depth for cot, search_method for tot)"
+    )
     
     rag: RAGConfig = Field(default_factory=RAGConfig, description="RAG configuration")
     runner: RunnerConfig = Field(default_factory=RunnerConfig, description="Runner configuration")

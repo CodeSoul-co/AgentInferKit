@@ -150,8 +150,8 @@ async def _run_experiment_task(experiment_id: str, exp: Dict[str, Any]):
         }
         adapter = load_adapter(model_config)
         
-        # Load strategy
-        strategy_config = {}
+        # Load strategy with user-provided config
+        strategy_config = exp.get("strategy_config", {})
         strategy = load_strategy(exp["strategy"], strategy_config)
         
         # Create appropriate runner
@@ -335,6 +335,31 @@ def _get_experiment_or_404(experiment_id: str) -> Dict[str, Any]:
     return _experiments[experiment_id]
 
 
+@router.get(
+    "/strategies",
+    response_model=ResponseEnvelope,
+    summary="List available strategies and their configurable parameters",
+)
+async def list_strategy_params():
+    """
+    Return all available inference strategies with their configurable parameters.
+
+    Each parameter includes: name, type, default, description, and optional
+    constraints (min, max, options). The frontend can use this to render
+    dynamic parameter forms when a user selects a strategy.
+    """
+    from ..strategies.registry import list_strategies
+    from ..strategies.params import get_strategy_params
+
+    result = []
+    for name in list_strategies():
+        result.append({
+            "name": name,
+            "params": get_strategy_params(name),
+        })
+    return ResponseEnvelope(data=result)
+
+
 @router.post(
     "",
     response_model=ResponseEnvelope[ExperimentCreateResponse],
@@ -372,6 +397,7 @@ async def create_experiment(request: ExperimentCreateRequest):
         "max_samples": request.max_samples,
         "model_id": request.model_id,
         "strategy": request.strategy,
+        "strategy_config": request.strategy_config,
         "rag": request.rag.model_dump(),
         "runner": request.runner.model_dump(),
         "eval": request.eval.model_dump(),
