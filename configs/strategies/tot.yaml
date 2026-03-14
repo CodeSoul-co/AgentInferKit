@@ -24,14 +24,25 @@ prompts:
     Think of one possible approach to solve this. End with: Answer: <your answer>
 
 tot_config:
-  k: 3
-  depth: 3
-  n_evaluate_sample: 3
-  n_select_sample: 3
-  method_generate: sample
-  method_evaluate: value
-  method_select: greedy
-  prompt_sample: cot
+  # Search method: "bfs" (breadth-first) or "dfs" (depth-first)
+  # BFS: expand all candidates per layer, evaluate, keep top-k. Good for MCQ.
+  # DFS: explore one path deeply, prune impossible branches, backtrack. Good for open QA.
+  search_method: bfs
+
+  # Common parameters
+  k: 3                    # candidates per generation step (BFS width / DFS branching)
+  depth: 3                # max search depth (BFS layers / DFS recursion limit)
+  n_evaluate_sample: 3    # LLM calls per evaluation
+  method_generate: sample  # "sample" (n independent samples) or "propose" (one-shot list)
+  method_evaluate: value   # "value" (score each path) or "vote" (pick best via voting)
+  prompt_sample: cot       # "cot" or "standard" generation prompt
+
+  # BFS-specific
+  n_select_sample: 3      # candidates to keep per BFS layer
+  method_select: greedy    # "greedy" (top-k by score) or "sample" (probabilistic)
+
+  # DFS-specific
+  max_dfs_nodes: 20       # max nodes to visit before stopping (prevents runaway)
 
 parse:
   answer_pattern: "[Aa]nswer\\s*[：:]\\s*(.+)"

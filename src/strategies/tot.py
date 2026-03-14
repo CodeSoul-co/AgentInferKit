@@ -1,11 +1,16 @@
 """
-Tree-of-Thought strategy — calls vendor/tree-of-thought-llm BFS search directly.
+Tree-of-Thought strategy — calls vendor/tree-of-thought-llm search directly.
+
+Supports two search methods:
+  - **BFS** (breadth-first): expand all candidates per layer, evaluate, keep top-k.
+    Good for structured tasks like MCQ where the search space is small.
+  - **DFS** (depth-first): explore one path deeply, prune "impossible" branches,
+    backtrack and try alternatives.  Good for open-ended reasoning tasks.
 
 Reference: https://github.com/princeton-nlp/tree-of-thought-llm
-The vendor repo implements the full BFS generate -> evaluate -> select loop
-in ``tot.methods.bfs.solve()``. We create a ``BenchmarkTask`` adapter that
-implements the ``Task`` interface required by ``solve()`` and monkey-patch
-``tot.models.gpt`` to route all LLM calls through our LangChain ChatOpenAI.
+We create a ``BenchmarkTask`` adapter that implements the ``Task`` interface
+required by ``solve()`` and monkey-patch ``tot.models.gpt`` to route all LLM
+calls through our LangChain ChatOpenAI.
 """
 
 import os
@@ -203,6 +208,12 @@ class ToTStrategy(BaseStrategy):
         self._prompt_sample = self._runtime_cfg.get(
             "prompt_sample", tot_cfg.get("prompt_sample", "cot")
         )
+        self._search_method = self._runtime_cfg.get(
+            "search_method", tot_cfg.get("search_method", "bfs")
+        )
+        self._max_dfs_nodes = self._runtime_cfg.get(
+            "max_dfs_nodes", tot_cfg.get("max_dfs_nodes", 20)
+        )
 
     @property
     def k(self) -> int:
@@ -213,7 +224,7 @@ class ToTStrategy(BaseStrategy):
         return self._depth
 
     # ------------------------------------------------------------------
-    # Core: call vendor bfs.solve() with monkey-patched gpt
+    # Core: run tree search (BFS or DFS) with monkey-patched gpt
     # ------------------------------------------------------------------
 
     def run_tot_bfs(
@@ -221,10 +232,11 @@ class ToTStrategy(BaseStrategy):
         sample: Dict[str, Any],
         model_config: Dict[str, Any],
     ) -> Dict[str, Any]:
-        """Run BFS tree search via vendor/tree-of-thought-llm.
+        """Run tree search (BFS or DFS) via vendor/tree-of-thought-llm.
 
+        Dispatches to BFS or DFS based on ``search_method`` config.
         Monkey-patches ``tot.models.gpt`` to route LLM calls through
-        our LangChain ChatOpenAI, then calls ``bfs.solve()``.
+        our LangChain ChatOpenAI.
 
         Args:
             sample: The input sample dict.
@@ -235,7 +247,9 @@ class ToTStrategy(BaseStrategy):
         """
         import tot.models as tot_models
         import tot.methods.bfs as bfs_module
+        import tot.methods.dfs as dfs_module
         from tot.methods.bfs import solve as bfs_solve
+        from tot.methods.dfs import solve as dfs_solve
 
         llm = make_langchain_llm(model_config)
         tracker = TokenUsageTracker()
@@ -247,6 +261,7 @@ class ToTStrategy(BaseStrategy):
         # Monkey-patch gpt() to use our LLM
         _original_models_gpt = tot_models.gpt
         _original_bfs_gpt = bfs_module.gpt
+        _original_dfs_gpt = dfs_module.gpt
 
         def _patched_gpt(prompt, model=None, temperature=0.7, max_tokens=1000, n=1, stop=None):
             from langchain_core.messages import HumanMessage
@@ -272,9 +287,10 @@ class ToTStrategy(BaseStrategy):
                     outputs.append(f.result())
             return outputs
 
-        # Patch both the models module and the bfs module reference
+        # Patch all modules
         tot_models.gpt = _patched_gpt
         bfs_module.gpt = _patched_gpt
+        dfs_module.gpt = _patched_gpt
 
         try:
             # Load task-specific prompts, falling back to base config
@@ -305,11 +321,19 @@ class ToTStrategy(BaseStrategy):
                 method_evaluate=self._method_evaluate,
                 method_select=self._method_select,
                 prompt_sample=self._prompt_sample,
+                max_dfs_nodes=self._max_dfs_nodes,
             )
 
-            logger.info(f"ToT: calling bfs_solve with depth={self._depth}, k={self._k}")
-            ys, info = bfs_solve(args, task, 0, to_print=False)
-            logger.info(f"ToT: bfs_solve returned {len(ys)} candidates")
+            # Dispatch to BFS or DFS
+            search_method = self._search_method.lower()
+            if search_method == "dfs":
+                logger.info(f"ToT DFS: depth={self._depth}, k={self._k}, max_nodes={self._max_dfs_nodes}")
+                ys, info = dfs_solve(args, task, 0, to_print=False)
+                logger.info(f"ToT DFS: returned {len(ys)} candidates, visited {info.get('nodes_visited', '?')} nodes")
+            else:
+                logger.info(f"ToT BFS: depth={self._depth}, k={self._k}")
+                ys, info = bfs_solve(args, task, 0, to_print=False)
+                logger.info(f"ToT BFS: returned {len(ys)} candidates")
 
             best = ys[0] if ys else ""
 
@@ -338,19 +362,37 @@ class ToTStrategy(BaseStrategy):
 
             parsed = self.parse_output(final_text, sample)
 
-            # Build reasoning trace from bfs info (unified schema)
+            # Build reasoning trace from search info (unified schema)
             steps_info = info.get("steps", [])
             reasoning_trace = []
-            for s in steps_info:
-                selected = s.get("select_new_ys", [])
-                reasoning_trace.append({
-                    "step": s["step"] + 1,
-                    "type": "tree_search",
-                    "content": "; ".join(y[:120] for y in selected) if selected else "(no candidates selected)",
-                    "num_candidates": len(s.get("new_ys", [])),
-                    "values": s.get("values", []),
-                    "selected": [y[:80] for y in selected],
-                })
+            if search_method == "dfs":
+                for s in steps_info:
+                    if s.get("type") == "leaf":
+                        reasoning_trace.append({
+                            "step": s["step"] + 1,
+                            "type": "dfs_leaf",
+                            "content": s.get("y", "")[:200],
+                            "value": s.get("value", 0),
+                        })
+                    else:
+                        reasoning_trace.append({
+                            "step": s["step"] + 1,
+                            "type": "dfs_branch",
+                            "content": f"{len(s.get('ys', []))} candidates, {s.get('n_pruned', 0)} pruned",
+                            "num_candidates": len(s.get("ys", [])),
+                            "values": s.get("values", []),
+                        })
+            else:
+                for s in steps_info:
+                    selected = s.get("select_new_ys", [])
+                    reasoning_trace.append({
+                        "step": s["step"] + 1,
+                        "type": "bfs_step",
+                        "content": "; ".join(y[:120] for y in selected) if selected else "(no candidates selected)",
+                        "num_candidates": len(s.get("new_ys", [])),
+                        "values": s.get("values", []),
+                        "selected": [y[:80] for y in selected],
+                    })
 
             return {
                 "raw_output": final_text,
@@ -361,6 +403,7 @@ class ToTStrategy(BaseStrategy):
         finally:
             tot_models.gpt = _original_models_gpt
             bfs_module.gpt = _original_bfs_gpt
+            dfs_module.gpt = _original_dfs_gpt
 
     # ------------------------------------------------------------------
     # Prompt building (fallback for non-BFS paths)
