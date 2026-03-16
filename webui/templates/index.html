@@ -308,27 +308,76 @@
                         <div class="form-hint" style="margin-bottom:12px;padding:8px 12px;background:var(--bg-secondary);border-radius:6px;">
                             <strong>Tree-of-Thought</strong>: 树状搜索，每步生成多个候选，评估后保留最优路径
                         </div>
+                        <!-- Common ToT params -->
                         <div class="flex gap-md" style="flex-wrap:wrap;">
-                            <div class="form-group" style="min-width:120px;">
+                            <div class="form-group" style="min-width:130px;">
                                 <label class="form-label">搜索方法</label>
-                                <select name="tot_method" class="form-select">
+                                <select name="tot_method" class="form-select" onchange="toggleToTMethodParams(this.value)">
                                     <option value="bfs" selected>BFS (广度优先)</option>
                                     <option value="dfs">DFS (深度优先)</option>
                                 </select>
                             </div>
                             <div class="form-group" style="min-width:100px;">
-                                <label class="form-label">生成候选数</label>
-                                <input type="number" name="tot_n_generate" class="form-input" value="3" min="1" max="10" title="每步生成的候选数量">
+                                <label class="form-label">搜索深度</label>
+                                <input type="number" name="tot_depth" class="form-input" value="3" min="1" max="10" title="搜索的最大深度/步数">
+                            </div>
+                            <div class="form-group" style="min-width:100px;">
+                                <label class="form-label">生成候选数 (k)</label>
+                                <input type="number" name="tot_k" class="form-input" value="3" min="1" max="10" title="每步生成的候选数量">
                             </div>
                             <div class="form-group" style="min-width:100px;">
                                 <label class="form-label">评估采样数</label>
                                 <input type="number" name="tot_n_evaluate" class="form-input" value="3" min="1" max="10" title="评估时的采样次数">
                             </div>
+                        </div>
+                        <!-- BFS-specific params -->
+                        <div id="tot-bfs-params" class="flex gap-md" style="flex-wrap:wrap;margin-top:8px;">
                             <div class="form-group" style="min-width:100px;">
                                 <label class="form-label">保留候选数</label>
-                                <input type="number" name="tot_n_select" class="form-input" value="2" min="1" max="5" title="每层保留的最佳候选数">
+                                <input type="number" name="tot_n_select" class="form-input" value="2" min="1" max="5" title="BFS: 每层保留的最佳候选数">
+                            </div>
+                            <div class="form-group" style="min-width:120px;">
+                                <label class="form-label">选择方法</label>
+                                <select name="tot_method_select" class="form-select">
+                                    <option value="greedy" selected>Greedy (贪心)</option>
+                                    <option value="sample">Sample (采样)</option>
+                                </select>
                             </div>
                         </div>
+                        <!-- DFS-specific params -->
+                        <div id="tot-dfs-params" class="flex gap-md" style="flex-wrap:wrap;margin-top:8px;display:none;">
+                            <div class="form-group" style="min-width:120px;">
+                                <label class="form-label">最大节点数</label>
+                                <input type="number" name="tot_max_dfs_nodes" class="form-input" value="20" min="5" max="100" title="DFS: 最大探索节点数">
+                            </div>
+                        </div>
+                        <!-- Advanced params (collapsed) -->
+                        <details style="margin-top:8px;">
+                            <summary style="cursor:pointer;font-size:12px;color:var(--text-muted);">高级参数</summary>
+                            <div class="flex gap-md" style="flex-wrap:wrap;margin-top:8px;">
+                                <div class="form-group" style="min-width:120px;">
+                                    <label class="form-label">生成方法</label>
+                                    <select name="tot_method_generate" class="form-select">
+                                        <option value="sample" selected>Sample</option>
+                                        <option value="propose">Propose</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="min-width:120px;">
+                                    <label class="form-label">评估方法</label>
+                                    <select name="tot_method_evaluate" class="form-select">
+                                        <option value="value" selected>Value (打分)</option>
+                                        <option value="vote">Vote (投票)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="min-width:120px;">
+                                    <label class="form-label">提示类型</label>
+                                    <select name="tot_prompt_sample" class="form-select">
+                                        <option value="cot" selected>CoT</option>
+                                        <option value="standard">Standard</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </details>
                     </div>
 
                     <!-- Self-Consistency Parameters -->
@@ -1073,6 +1122,19 @@
             if (targetParams) targetParams.style.display = 'block';
         } else {
             paramsContainer.style.display = 'none';
+        }
+    }
+
+    // Toggle ToT BFS/DFS specific parameters
+    function toggleToTMethodParams(method) {
+        const bfsParams = document.getElementById('tot-bfs-params');
+        const dfsParams = document.getElementById('tot-dfs-params');
+        if (method === 'bfs') {
+            bfsParams.style.display = 'flex';
+            dfsParams.style.display = 'none';
+        } else {
+            bfsParams.style.display = 'none';
+            dfsParams.style.display = 'flex';
         }
     }
 

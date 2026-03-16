@@ -550,10 +550,23 @@ class ExperimentManager {
         // Strategy-specific config
         const strategyConfig = {};
         if (strategy === 'tot') {
-            strategyConfig.method = val('tot_method') || 'bfs';
-            strategyConfig.n_generate = intVal('tot_n_generate', 3);
-            strategyConfig.n_evaluate = intVal('tot_n_evaluate', 3);
-            strategyConfig.n_select = intVal('tot_n_select', 2);
+            const totMethod = val('tot_method') || 'bfs';
+            strategyConfig.search_method = totMethod;
+            strategyConfig.k = intVal('tot_k', 3);
+            strategyConfig.depth = intVal('tot_depth', 3);
+            strategyConfig.n_evaluate_sample = intVal('tot_n_evaluate', 3);
+            strategyConfig.method_generate = val('tot_method_generate') || 'sample';
+            strategyConfig.method_evaluate = val('tot_method_evaluate') || 'value';
+            strategyConfig.prompt_sample = val('tot_prompt_sample') || 'cot';
+            // BFS-specific
+            if (totMethod === 'bfs') {
+                strategyConfig.n_select_sample = intVal('tot_n_select', 2);
+                strategyConfig.method_select = val('tot_method_select') || 'greedy';
+            }
+            // DFS-specific
+            if (totMethod === 'dfs') {
+                strategyConfig.max_dfs_nodes = intVal('tot_max_dfs_nodes', 20);
+            }
         } else if (strategy === 'self_consistency') {
             strategyConfig.num_samples = intVal('sc_num_samples', 5);
             strategyConfig.temperature = floatVal('sc_temperature', 0.7);
