@@ -424,6 +424,7 @@ class ChatCompleteRequest(BaseModel):
     messages: List[ChatMessage] = Field(..., min_length=1, description="Conversation messages")
     rag: ChatRAGConfig = Field(default_factory=ChatRAGConfig, description="RAG configuration")
     sample_id: Optional[str] = Field(default=None, description="Optional sample ID to load context from")
+    system_prompt: Optional[str] = Field(default=None, description="Custom system prompt for debugging")
 
 
 class ChatRAGContext(BaseModel):

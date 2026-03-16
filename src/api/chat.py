@@ -32,6 +32,7 @@ async def _real_model_generate(
     messages: List[ChatMessage],
     model_id: str,
     strategy: str,
+    system_prompt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Real model generation using adapter + strategy.
@@ -56,8 +57,17 @@ async def _real_model_generate(
         strat = load_strategy(strategy)
         sample = {"task_type": "text_qa", "question": user_message}
         built_msgs = strat.build_prompt(sample)
+        # If custom system_prompt provided, replace the first system message
+        if system_prompt and built_msgs:
+            if built_msgs[0].role == "system":
+                built_msgs[0] = InternalMessage(role="system", content=system_prompt)
+            else:
+                built_msgs.insert(0, InternalMessage(role="system", content=system_prompt))
     except Exception:
         built_msgs = [InternalMessage(role=m.role, content=m.content) for m in messages]
+        # Add custom system_prompt if provided and not already in messages
+        if system_prompt and (not built_msgs or built_msgs[0].role != "system"):
+            built_msgs.insert(0, InternalMessage(role="system", content=system_prompt))
 
     result = await adapter.generate(built_msgs)
 
@@ -143,6 +153,7 @@ async def chat_complete(
         messages=request.messages,
         model_id=request.model_id,
         strategy=request.strategy,
+        system_prompt=request.system_prompt,
     )
     
     latency_ms = int((time.time() - start_time) * 1000)
@@ -189,6 +200,7 @@ async def chat_stream(
                 messages=request.messages,
                 model_id=request.model_id,
                 strategy=request.strategy,
+                system_prompt=request.system_prompt,
             )
 
             reply = result["reply"]

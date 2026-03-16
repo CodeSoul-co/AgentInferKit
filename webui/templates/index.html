@@ -711,12 +711,17 @@
             <h1 class="page-title" data-i18n="chat.title">对话调试</h1>
             <span class="page-subtitle" data-i18n="chat.subtitle">与模型实时对话测试推理效果</span>
         </div>
+        <div class="page-actions">
+            <button class="btn btn-secondary" onclick="clearChatHistory()">
+                <i data-lucide="trash-2" style="width:14px;height:14px;"></i> 清空对话
+            </button>
+        </div>
     </div>
 
     <div class="card">
         <div class="card-body" style="padding: 0;">
             <div style="padding: var(--spacing-md) var(--spacing-lg); border-bottom: 1px solid var(--border-light);">
-                <div class="flex gap-md">
+                <div class="flex gap-md" style="margin-bottom:12px;">
                     <div class="form-group flex-1" style="margin-bottom:0;">
                         <label class="form-label" data-i18n="chat.model">模型</label>
                         <select id="chat-model" class="form-select">
@@ -734,6 +739,20 @@
                             <option value="self_consistency">Self-Consistency</option>
                             <option value="react">ReAct</option>
                         </select>
+                    </div>
+                </div>
+                <!-- System Prompt 输入框 -->
+                <div class="form-group" style="margin-bottom:0;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                        <label class="form-label" style="margin-bottom:0;">System Prompt</label>
+                        <button class="btn btn-secondary btn-sm" onclick="toggleSystemPrompt()" style="padding:2px 8px;font-size:11px;">
+                            <i data-lucide="chevron-down" id="system-prompt-toggle-icon" style="width:12px;height:12px;"></i>
+                            <span id="system-prompt-toggle-text">展开</span>
+                        </button>
+                    </div>
+                    <div id="system-prompt-container" style="display:none;">
+                        <textarea id="chat-system-prompt" class="form-textarea" rows="4" placeholder="自定义 System Prompt（留空使用默认）" style="font-family:monospace;font-size:13px;resize:vertical;">You are a helpful assistant.</textarea>
+                        <div class="form-hint" style="margin-top:4px;">自定义系统提示词，用于调试不同 prompt 效果。修改后立即生效。</div>
                     </div>
                 </div>
             </div>
@@ -804,7 +823,78 @@
         </div>
     </div>
 
-    <!-- Section 3: Add New Model -->
+    <!-- Section 3: Prompt Templates -->
+    <div class="card mb-lg">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+            <span><i data-lucide="file-text" style="width:16px;height:16px;"></i> 提示词模板</span>
+            <button class="btn btn-secondary btn-sm" onclick="refreshPromptsList()">
+                <i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> 刷新
+            </button>
+        </div>
+        <div class="card-body">
+            <p style="color:var(--text-secondary);font-size:13px;margin-bottom:var(--spacing-md);">
+                编辑各任务类型和推理策略的提示词模板。支持变量占位符如 <code>{question}</code>、<code>{options_text}</code> 等。
+            </p>
+            <div class="flex gap-md" style="margin-bottom:var(--spacing-md);">
+                <div class="form-group" style="min-width:160px;margin-bottom:0;">
+                    <label class="form-label">任务类型</label>
+                    <select id="prompt-task-type" class="form-select" onchange="onPromptFilterChange()">
+                        <option value="">全部</option>
+                        <option value="text_exam">text_exam</option>
+                        <option value="text_qa">text_qa</option>
+                        <option value="image_mcq">image_mcq</option>
+                        <option value="api_calling">api_calling</option>
+                    </select>
+                </div>
+                <div class="form-group" style="min-width:160px;margin-bottom:0;">
+                    <label class="form-label">策略</label>
+                    <select id="prompt-strategy" class="form-select" onchange="onPromptFilterChange()">
+                        <option value="">全部</option>
+                        <option value="direct">direct</option>
+                        <option value="cot">cot</option>
+                        <option value="long_cot">long_cot</option>
+                        <option value="tot">tot</option>
+                        <option value="react">react</option>
+                        <option value="self_refine">self_refine</option>
+                        <option value="self_consistency">self_consistency</option>
+                    </select>
+                </div>
+            </div>
+            <div id="prompts-list-container">
+                <div style="color:var(--text-muted);padding:20px;text-align:center;">加载中...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prompt Editor Modal -->
+    <div id="prompt-editor-modal" class="modal" style="display:none;">
+        <div class="modal-overlay" onclick="closePromptEditor()"></div>
+        <div class="modal-content" style="max-width:900px;width:90%;max-height:90vh;display:flex;flex-direction:column;">
+            <div class="modal-header">
+                <h3 id="prompt-editor-title">编辑提示词模板</h3>
+                <button class="modal-close" onclick="closePromptEditor()">&times;</button>
+            </div>
+            <div class="modal-body" style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
+                <div style="margin-bottom:12px;display:flex;gap:12px;align-items:center;">
+                    <span id="prompt-editor-path" style="font-family:monospace;font-size:12px;color:var(--text-muted);"></span>
+                    <span id="prompt-editor-vars" style="font-size:12px;color:var(--text-secondary);"></span>
+                </div>
+                <textarea id="prompt-editor-content" style="flex:1;width:100%;font-family:monospace;font-size:13px;line-height:1.5;padding:12px;border:1px solid var(--border-color);border-radius:var(--border-radius-md);background:var(--bg-secondary);color:var(--text-primary);resize:none;"></textarea>
+                <div id="prompt-editor-error" style="display:none;margin-top:8px;padding:8px 12px;background:var(--error-bg);color:var(--error-color);border-radius:var(--border-radius-sm);font-size:13px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closePromptEditor()">取消</button>
+                <button class="btn btn-secondary" onclick="validatePromptContent()">
+                    <i data-lucide="check-circle" style="width:14px;height:14px;"></i> 验证语法
+                </button>
+                <button class="btn btn-primary" onclick="savePromptContent()">
+                    <i data-lucide="save" style="width:14px;height:14px;"></i> 保存
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 4: Add New Model -->
     <div class="card">
         <div class="card-header"><i data-lucide="plus-circle" style="width:16px;height:16px;"></i> 添加新模型配置</div>
         <div class="card-body">
@@ -1376,6 +1466,34 @@
     }
 
     // Chat functions
+    function toggleSystemPrompt() {
+        const container = document.getElementById('system-prompt-container');
+        const icon = document.getElementById('system-prompt-toggle-icon');
+        const text = document.getElementById('system-prompt-toggle-text');
+        if (container.style.display === 'none') {
+            container.style.display = 'block';
+            text.textContent = '收起';
+            icon.setAttribute('data-lucide', 'chevron-up');
+        } else {
+            container.style.display = 'none';
+            text.textContent = '展开';
+            icon.setAttribute('data-lucide', 'chevron-down');
+        }
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function clearChatHistory() {
+        const messagesContainer = document.getElementById('chat-messages');
+        messagesContainer.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon"><i data-lucide="message-square"></i></div>
+                <div class="empty-state-title" data-i18n="chat.start">开始对话</div>
+                <div class="empty-state-description" data-i18n="chat.start_desc">在下方输入消息开始调试模型</div>
+            </div>
+        `;
+        if (window.lucide) lucide.createIcons();
+    }
+
     async function sendChatMessage() {
         const input = document.getElementById('chat-input');
         const message = input.value.trim();
@@ -1409,12 +1527,21 @@
 
         const modelId = document.getElementById('chat-model').value;
         const strategy = document.getElementById('chat-strategy').value;
+        const systemPrompt = document.getElementById('chat-system-prompt')?.value?.trim() || '';
         let fullResponse = '';
+
+        // Build messages array with optional system prompt
+        const messages = [];
+        if (systemPrompt) {
+            messages.push({ role: 'system', content: systemPrompt });
+        }
+        messages.push({ role: 'user', content: message });
 
         await API.Chat.stream({
             model_id: modelId,
             strategy: strategy,
-            messages: [{ role: 'user', content: message }],
+            messages: messages,
+            system_prompt: systemPrompt || undefined,
         }, {
             onContent: (data) => {
                 fullResponse += data.content;
@@ -1883,6 +2010,187 @@
         }
     }
 
+    // =========================================================================
+    // Prompt Template Management
+    // =========================================================================
+    let allPrompts = [];
+    let currentEditingPrompt = null;
+
+    async function refreshPromptsList() {
+        const container = document.getElementById('prompts-list-container');
+        if (!container) return;
+        
+        try {
+            const response = await fetch('/api/v1/prompts');
+            const data = await response.json();
+            allPrompts = data.data?.prompts || [];
+            renderPromptsList();
+        } catch (error) {
+            container.innerHTML = '<div class="alert alert-error">加载提示词列表失败: ' + error.message + '</div>';
+        }
+    }
+
+    function onPromptFilterChange() {
+        renderPromptsList();
+    }
+
+    function renderPromptsList() {
+        const container = document.getElementById('prompts-list-container');
+        if (!container) return;
+
+        const taskTypeFilter = document.getElementById('prompt-task-type')?.value || '';
+        const strategyFilter = document.getElementById('prompt-strategy')?.value || '';
+
+        let filtered = allPrompts;
+        if (taskTypeFilter) {
+            filtered = filtered.filter(p => p.task_type === taskTypeFilter);
+        }
+        if (strategyFilter) {
+            filtered = filtered.filter(p => p.strategy === strategyFilter);
+        }
+
+        if (filtered.length === 0) {
+            container.innerHTML = '<div style="color:var(--text-muted);padding:20px;text-align:center;">没有匹配的提示词模板</div>';
+            return;
+        }
+
+        // Group by task_type
+        const grouped = {};
+        filtered.forEach(p => {
+            if (!grouped[p.task_type]) grouped[p.task_type] = [];
+            grouped[p.task_type].push(p);
+        });
+
+        container.innerHTML = Object.entries(grouped).map(([taskType, prompts]) => `
+            <div style="margin-bottom:16px;">
+                <div style="font-weight:600;font-size:13px;color:var(--text-secondary);margin-bottom:8px;text-transform:uppercase;">${taskType}</div>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                    ${prompts.map(p => `
+                        <button class="btn btn-secondary btn-sm" onclick="openPromptEditor('${p.task_type}', '${p.strategy}')" style="font-family:monospace;">
+                            <i data-lucide="file-code" style="width:14px;height:14px;"></i> ${p.strategy}
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        `).join('');
+
+        if (window.lucide) lucide.createIcons();
+    }
+
+    async function openPromptEditor(taskType, strategy) {
+        currentEditingPrompt = { taskType, strategy };
+        
+        const modal = document.getElementById('prompt-editor-modal');
+        const title = document.getElementById('prompt-editor-title');
+        const path = document.getElementById('prompt-editor-path');
+        const vars = document.getElementById('prompt-editor-vars');
+        const content = document.getElementById('prompt-editor-content');
+        const error = document.getElementById('prompt-editor-error');
+
+        title.textContent = `编辑提示词: ${taskType}/${strategy}`;
+        error.style.display = 'none';
+
+        try {
+            const response = await fetch(`/api/v1/prompts/${taskType}/${strategy}`);
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.detail || '加载失败');
+            }
+
+            const promptData = data.data;
+            path.textContent = promptData.file_path;
+            vars.innerHTML = promptData.variables.length > 0 
+                ? '变量: ' + promptData.variables.map(v => `<code style="background:var(--bg-tertiary);padding:1px 5px;border-radius:3px;font-size:11px;">{${v}}</code>`).join(' ')
+                : '';
+            content.value = promptData.content;
+            
+            modal.style.display = 'flex';
+            content.focus();
+        } catch (err) {
+            alert('加载提示词失败: ' + err.message);
+        }
+    }
+
+    function closePromptEditor() {
+        document.getElementById('prompt-editor-modal').style.display = 'none';
+        currentEditingPrompt = null;
+    }
+
+    async function validatePromptContent() {
+        if (!currentEditingPrompt) return;
+
+        const content = document.getElementById('prompt-editor-content').value;
+        const error = document.getElementById('prompt-editor-error');
+        const vars = document.getElementById('prompt-editor-vars');
+
+        try {
+            const response = await fetch(`/api/v1/prompts/${currentEditingPrompt.taskType}/${currentEditingPrompt.strategy}/validate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content })
+            });
+            const data = await response.json();
+            const result = data.data;
+
+            if (result.valid) {
+                error.style.display = 'block';
+                error.style.background = 'var(--success-bg)';
+                error.style.color = 'var(--success-color)';
+                error.innerHTML = '✓ YAML 语法正确' + (result.warnings.length > 0 ? '<br>警告: ' + result.warnings.join(', ') : '');
+            } else {
+                error.style.display = 'block';
+                error.style.background = 'var(--error-bg)';
+                error.style.color = 'var(--error-color)';
+                error.textContent = '✗ ' + result.errors.join(', ');
+            }
+
+            // Update variables display
+            if (result.variables && result.variables.length > 0) {
+                vars.innerHTML = '变量: ' + result.variables.map(v => `<code style="background:var(--bg-tertiary);padding:1px 5px;border-radius:3px;font-size:11px;">{${v}}</code>`).join(' ');
+            }
+        } catch (err) {
+            error.style.display = 'block';
+            error.style.background = 'var(--error-bg)';
+            error.style.color = 'var(--error-color)';
+            error.textContent = '验证请求失败: ' + err.message;
+        }
+    }
+
+    async function savePromptContent() {
+        if (!currentEditingPrompt) return;
+
+        const content = document.getElementById('prompt-editor-content').value;
+        const error = document.getElementById('prompt-editor-error');
+
+        try {
+            const response = await fetch(`/api/v1/prompts/${currentEditingPrompt.taskType}/${currentEditingPrompt.strategy}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content })
+            });
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.detail || '保存失败');
+            }
+
+            error.style.display = 'block';
+            error.style.background = 'var(--success-bg)';
+            error.style.color = 'var(--success-color)';
+            error.textContent = '✓ 保存成功！';
+
+            setTimeout(() => {
+                closePromptEditor();
+            }, 800);
+        } catch (err) {
+            error.style.display = 'block';
+            error.style.background = 'var(--error-bg)';
+            error.style.color = 'var(--error-color)';
+            error.textContent = '保存失败: ' + err.message;
+        }
+    }
+
     // Initialize on load
     document.addEventListener('DOMContentLoaded', () => {
         refreshDashboard();
@@ -1924,6 +2232,7 @@
         // Load settings data
         loadEnvVars();
         loadModelConfigs();
+        refreshPromptsList();
         refreshKBList();
 
         API.fetchExperiments({ status: 'finished' }).then(experiments => {

@@ -38,6 +38,7 @@ app.include_router(routers["chat_router"], prefix="/api/v1/chat", tags=["Chat"])
 app.include_router(routers["agent_router"], prefix="/api/v1/agent", tags=["Custom Agent"])
 app.include_router(routers["settings_router"], prefix="/api/v1/settings", tags=["Settings"])
 app.include_router(routers["uploads_router"], prefix="/api/v1/uploads", tags=["Uploads"])
+app.include_router(routers["prompts_router"], prefix="/api/v1/prompts", tags=["Prompts"])
 
 # WebUI paths
 WEBUI_DIR = Path("webui")
