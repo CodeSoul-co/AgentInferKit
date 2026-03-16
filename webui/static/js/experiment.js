@@ -547,6 +547,22 @@ class ExperimentManager {
         const strategyCard = document.querySelector('.strategy-card.selected');
         const strategy = strategyCard?.dataset.strategy || 'direct';
         
+        // Strategy-specific config
+        const strategyConfig = {};
+        if (strategy === 'tot') {
+            strategyConfig.method = val('tot_method') || 'bfs';
+            strategyConfig.n_generate = intVal('tot_n_generate', 3);
+            strategyConfig.n_evaluate = intVal('tot_n_evaluate', 3);
+            strategyConfig.n_select = intVal('tot_n_select', 2);
+        } else if (strategy === 'self_consistency') {
+            strategyConfig.num_samples = intVal('sc_num_samples', 5);
+            strategyConfig.temperature = floatVal('sc_temperature', 0.7);
+        } else if (strategy === 'self_refine') {
+            strategyConfig.max_rounds = intVal('refine_max_rounds', 3);
+        } else if (strategy === 'react') {
+            strategyConfig.max_steps = intVal('react_max_steps', 10);
+        }
+        
         // RAG config
         const ragToggle = document.getElementById('rag-toggle');
         const ragEnabled = ragToggle?.checked || false;
@@ -581,6 +597,7 @@ class ExperimentManager {
             max_samples: intVal('max_samples', null),
             model_id: val('model_id'),
             strategy,
+            strategy_config: Object.keys(strategyConfig).length > 0 ? strategyConfig : undefined,
             rag,
             tools: this.currentTaskType === 'api_calling' ? { available_tools: tools, exec_mode: toolExecMode, max_steps: maxToolSteps } : undefined,
             runner: {

@@ -301,6 +301,80 @@
                     <option value="direct" selected>Direct</option><option value="cot">CoT</option><option value="long_cot">Long CoT</option><option value="tot">ToT</option><option value="self_refine">Self-Refine</option><option value="self_consistency">Self-Consistency</option><option value="react">ReAct</option>
                 </select>
 
+                <!-- Strategy-specific parameters -->
+                <div id="strategy-params-container" style="margin-top:16px;display:none;">
+                    <!-- ToT Parameters -->
+                    <div id="strategy-params-tot" class="strategy-params" style="display:none;">
+                        <div class="form-hint" style="margin-bottom:12px;padding:8px 12px;background:var(--bg-secondary);border-radius:6px;">
+                            <strong>Tree-of-Thought</strong>: 树状搜索，每步生成多个候选，评估后保留最优路径
+                        </div>
+                        <div class="flex gap-md" style="flex-wrap:wrap;">
+                            <div class="form-group" style="min-width:120px;">
+                                <label class="form-label">搜索方法</label>
+                                <select name="tot_method" class="form-select">
+                                    <option value="bfs" selected>BFS (广度优先)</option>
+                                    <option value="dfs">DFS (深度优先)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="min-width:100px;">
+                                <label class="form-label">生成候选数</label>
+                                <input type="number" name="tot_n_generate" class="form-input" value="3" min="1" max="10" title="每步生成的候选数量">
+                            </div>
+                            <div class="form-group" style="min-width:100px;">
+                                <label class="form-label">评估采样数</label>
+                                <input type="number" name="tot_n_evaluate" class="form-input" value="3" min="1" max="10" title="评估时的采样次数">
+                            </div>
+                            <div class="form-group" style="min-width:100px;">
+                                <label class="form-label">保留候选数</label>
+                                <input type="number" name="tot_n_select" class="form-input" value="2" min="1" max="5" title="每层保留的最佳候选数">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Self-Consistency Parameters -->
+                    <div id="strategy-params-self_consistency" class="strategy-params" style="display:none;">
+                        <div class="form-hint" style="margin-bottom:12px;padding:8px 12px;background:var(--bg-secondary);border-radius:6px;">
+                            <strong>Self-Consistency</strong>: 多次采样 CoT 路径，通过多数投票选择最终答案
+                        </div>
+                        <div class="flex gap-md" style="flex-wrap:wrap;">
+                            <div class="form-group" style="min-width:120px;">
+                                <label class="form-label">采样路径数</label>
+                                <input type="number" name="sc_num_samples" class="form-input" value="5" min="3" max="20" title="采样的推理路径数量">
+                            </div>
+                            <div class="form-group" style="min-width:120px;">
+                                <label class="form-label">采样温度</label>
+                                <input type="number" name="sc_temperature" class="form-input" value="0.7" min="0.1" max="1.5" step="0.1" title="温度越高，采样越多样">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Self-Refine Parameters -->
+                    <div id="strategy-params-self_refine" class="strategy-params" style="display:none;">
+                        <div class="form-hint" style="margin-bottom:12px;padding:8px 12px;background:var(--bg-secondary);border-radius:6px;">
+                            <strong>Self-Refine</strong>: 生成 → 批评 → 改进的迭代循环
+                        </div>
+                        <div class="flex gap-md" style="flex-wrap:wrap;">
+                            <div class="form-group" style="min-width:120px;">
+                                <label class="form-label">最大迭代轮数</label>
+                                <input type="number" name="refine_max_rounds" class="form-input" value="3" min="1" max="10" title="最多进行几轮改进">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ReAct Parameters -->
+                    <div id="strategy-params-react" class="strategy-params" style="display:none;">
+                        <div class="form-hint" style="margin-bottom:12px;padding:8px 12px;background:var(--bg-secondary);border-radius:6px;">
+                            <strong>ReAct</strong>: 推理 + 行动循环，适用于需要工具调用的任务
+                        </div>
+                        <div class="flex gap-md" style="flex-wrap:wrap;">
+                            <div class="form-group" style="min-width:120px;">
+                                <label class="form-label">最大步数</label>
+                                <input type="number" name="react_max_steps" class="form-input" value="10" min="1" max="30" title="最多执行的推理-行动步数">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Section 4: RAG Config (shown only for text_exam / qa) -->
                 <div id="section-rag" style="display:none;">
                     <div class="form-section-title" style="margin-top:24px;">
@@ -986,6 +1060,20 @@
         card.classList.add('selected');
         const val = card.dataset.strategy;
         document.getElementById('strategy-hidden-select').value = val;
+        
+        // Show/hide strategy-specific parameters
+        const paramsContainer = document.getElementById('strategy-params-container');
+        const strategiesWithParams = ['tot', 'self_consistency', 'self_refine', 'react'];
+        
+        if (strategiesWithParams.includes(val)) {
+            paramsContainer.style.display = 'block';
+            // Hide all strategy params, then show the selected one
+            document.querySelectorAll('.strategy-params').forEach(el => el.style.display = 'none');
+            const targetParams = document.getElementById('strategy-params-' + val);
+            if (targetParams) targetParams.style.display = 'block';
+        } else {
+            paramsContainer.style.display = 'none';
+        }
     }
 
     // Dashboard functions

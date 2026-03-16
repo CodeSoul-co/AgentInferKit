@@ -134,6 +134,7 @@ class ExperimentInfo(BaseModel):
     dataset_id: str = Field(..., description="Associated dataset ID")
     model_id: str = Field(..., description="Model used")
     strategy: str = Field(..., description="Inference strategy used")
+    strategy_config: Optional[Dict[str, Any]] = Field(default=None, description="Strategy-specific parameters")
     total_samples: int = Field(..., ge=0, description="Total number of samples")
     completed: int = Field(default=0, ge=0, description="Number of completed samples")
     created_at: datetime = Field(..., description="Creation timestamp")
