@@ -79,7 +79,7 @@ def _check_api_key_configured(provider: str) -> bool:
         "deepseek": "DEEPSEEK_API_KEY",
         "openai": "OPENAI_API_KEY",
         "anthropic": "ANTHROPIC_API_KEY",
-        "qwen": "DASHSCOPE_API_KEY",
+        "qwen": "QWEN_API_KEY",
         "ollama": None,  # Ollama doesn't need API key
         "huggingface": "HF_TOKEN",
     }
@@ -179,7 +179,7 @@ async def set_api_key(body: Dict[str, Any] = Body(...)):
         "deepseek": "DEEPSEEK_API_KEY",
         "openai": "OPENAI_API_KEY",
         "anthropic": "ANTHROPIC_API_KEY",
-        "qwen": "DASHSCOPE_API_KEY",
+        "qwen": "QWEN_API_KEY",
         "huggingface": "HF_TOKEN",
     }
 

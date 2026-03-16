@@ -1,8 +1,14 @@
 provider: deepseek
-model: deepseek-chat
 base_url: "${DEEPSEEK_BASE_URL}"
 api_key: "${DEEPSEEK_API_KEY}"
 
+# Available models under this provider
+models:
+  - deepseek-chat
+  - deepseek-coder
+  - deepseek-reasoner
+
+# Default parameters for all models
 temperature: 0.0
 top_p: 1.0
 max_tokens: 2048

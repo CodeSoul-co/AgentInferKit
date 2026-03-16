@@ -7,6 +7,7 @@ from pathlib import Path
 
 from src.api import _load_routers
 from src.utils.logger import setup_logger
+from src.config import settings
 
 setup_logger()
 
@@ -51,6 +52,20 @@ if WEBUI_TEMPLATES.exists():
 # Mount static files for WebUI (if directory exists)
 if WEBUI_STATIC.exists():
     app.mount("/static", StaticFiles(directory=str(WEBUI_STATIC)), name="static")
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Print server URL on startup."""
+    host = settings.app_host
+    port = settings.app_port
+    # Use localhost for display if binding to 0.0.0.0
+    display_host = "localhost" if host == "0.0.0.0" else host
+    print(f"\n{'='*50}")
+    print(f"  AgentInferKit is running at:")
+    print(f"  http://{display_host}:{port}/")
+    print(f"  API docs: http://{display_host}:{port}/docs")
+    print(f"{'='*50}\n")
 
 
 @app.get("/")
