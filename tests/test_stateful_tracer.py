@@ -9,13 +9,18 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from toolsim.stateful_executor import ExecutionRecord, StatefulExecutor, create_default_tool_registry
 from toolsim.stateful_tracer import TraceRecorder
+from toolsim.tool_spec import ConditionCheckResult
 from toolsim.world_state import WorldState
+
+
+def _record(**kwargs):
+    return ExecutionRecord(call_id=kwargs.pop("call_id", "call_test"), tool_name=kwargs.pop("tool_name", "tool.test"), **kwargs)
 
 
 def test_trace_recorder_logs_multiple_records():
     recorder = TraceRecorder()
-    record1 = ExecutionRecord(tool_name="file.write", success=True, pre_state_hash="a", post_state_hash="b")
-    record2 = ExecutionRecord(tool_name="file.read", success=True, pre_state_hash="b", post_state_hash="b")
+    record1 = _record(tool_name="file.write", success=True, status="succeeded", pre_state_hash="a", post_state_hash="b")
+    record2 = _record(tool_name="file.read", success=True, status="succeeded", pre_state_hash="b", post_state_hash="b")
 
     recorder.log(record1)
     recorder.log(record2)
@@ -28,7 +33,7 @@ def test_trace_recorder_logs_multiple_records():
 
 def test_trace_recorder_clear_removes_all_records():
     recorder = TraceRecorder()
-    recorder.log(ExecutionRecord(tool_name="file.write"))
+    recorder.log(_record(tool_name="file.write"))
 
     recorder.clear()
 
@@ -38,10 +43,11 @@ def test_trace_recorder_clear_removes_all_records():
 def test_trace_recorder_to_dict_list_exports_records():
     recorder = TraceRecorder()
     recorder.log(
-        ExecutionRecord(
+        _record(
             tool_name="search.query",
             args={"query": "alpha"},
             success=True,
+            status="succeeded",
             observation={"hits": []},
             error=None,
             state_changed=False,
@@ -59,6 +65,22 @@ def test_trace_recorder_to_dict_list_exports_records():
     assert exported[0]["success"] is True
     assert exported[0]["pre_state_hash"] == "x"
     assert exported[0]["post_state_hash"] == "x"
+
+
+def test_trace_recorder_summary_and_filters_use_new_record_fields():
+    recorder = TraceRecorder()
+    recorder.log(_record(tool_name="file.write", success=True, status="succeeded"))
+    recorder.log(_record(tool_name="file.read", success=False, status="failed", precondition_results=[ConditionCheckResult(kind="entity_exists", passed=False, message="missing")]))
+    recorder.log(_record(tool_name="search.index", success=True, status="pending", partial=True, async_pending=True))
+
+    summary = recorder.summary()
+
+    assert summary["total_calls"] == 3
+    assert summary["failed_calls"] == 1
+    assert summary["partial_calls"] == 1
+    assert summary["pending_calls"] == 1
+    assert recorder.filter_by_status("failed")[0].tool_name == "file.read"
+    assert len(recorder.filter_by_tool("file.write")) == 1
 
 
 def test_executor_with_tracer_auto_logs_records():
@@ -91,6 +113,7 @@ def run_all_tests() -> None:
     test_trace_recorder_logs_multiple_records()
     test_trace_recorder_clear_removes_all_records()
     test_trace_recorder_to_dict_list_exports_records()
+    test_trace_recorder_summary_and_filters_use_new_record_fields()
     test_executor_with_tracer_auto_logs_records()
     test_executor_without_tracer_still_executes_normally()
     print("All stateful_tracer tests passed!")

@@ -70,16 +70,22 @@ def compute_overview_metrics(results: Sequence[ComparisonResult]) -> OverviewMet
 
         if trajectory.stateful_total_steps != trajectory.stateless_total_steps:
             cases_with_step_count_difference += 1
+
         if "explicit indexing" in trajectory.key_process_difference:
             cases_with_explicit_dependency_resolution += 1
+
         if "queried before dependency completion" in trajectory.key_process_difference:
             cases_with_query_before_index += 1
+
         if "overwrite-without-reindex" in trajectory.key_process_difference:
             cases_with_overwrite_without_reindex += 1
+
         if trajectory.stateful_tool_sequence != trajectory.stateless_tool_sequence:
             cases_with_trajectory_divergence += 1
+
         if _has_snapshot_semantics_difference(result, trajectory):
             cases_with_snapshot_semantics_difference += 1
+
         if _has_retrieval_outcome_difference(result):
             cases_with_retrieval_outcome_difference += 1
 
@@ -127,7 +133,10 @@ def compute_overview_metrics(results: Sequence[ComparisonResult]) -> OverviewMet
 def generate_overall_conclusion(overview_metrics: OverviewMetrics) -> str:
     sentences: List[str] = []
 
-    if overview_metrics.cases_with_explicit_dependency_resolution > 0 or overview_metrics.stateful_avg_steps > overview_metrics.stateless_avg_steps:
+    if (
+        overview_metrics.cases_with_explicit_dependency_resolution > 0
+        or overview_metrics.stateful_avg_steps > overview_metrics.stateless_avg_steps
+    ):
         sentences.append(
             "Across the evaluated cases, the stateful setting introduced explicit dependency-management steps that were absent or less prominent in the stateless baseline."
         )

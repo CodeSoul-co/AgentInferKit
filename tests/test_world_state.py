@@ -1,8 +1,5 @@
-"""
+﻿"""
 Unit tests for toolsim.world_state.WorldState.
-
-Run with: python -m pytest tests/test_world_state.py -v
-Or directly: python tests/test_world_state.py
 """
 
 import sys
@@ -10,15 +7,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from toolsim.world_state import WorldState
+from toolsim.world_state import PendingEffect, WorldState
 
-
-# ------------------------------------------------------------------
-# 实体 CRUD
-# ------------------------------------------------------------------
 
 def test_set_and_get_entity():
-    """Test basic set / get entity operations."""
     ws = WorldState()
     ws.set_entity("user", "u1", {"name": "Alice", "age": 30})
 
@@ -27,34 +19,23 @@ def test_set_and_get_entity():
     assert result["name"] == "Alice"
     assert result["age"] == 30
 
-    print("✓ test_set_and_get_entity passed")
-
 
 def test_get_entity_not_found():
-    """Test get_entity returns None for missing entities."""
     ws = WorldState()
     assert ws.get_entity("user", "nonexistent") is None
     assert ws.get_entity("missing_type", "any") is None
 
-    print("✓ test_get_entity_not_found passed")
-
 
 def test_set_entity_increments_version():
-    """Test that set_entity increments version each time."""
     ws = WorldState()
     assert ws.version == 0
-
     ws.set_entity("file", "f1", {"path": "/tmp/a.txt"})
     assert ws.version == 1
-
     ws.set_entity("file", "f2", {"path": "/tmp/b.txt"})
     assert ws.version == 2
 
-    print("✓ test_set_entity_increments_version passed")
-
 
 def test_delete_entity():
-    """Test delete_entity removes entity and increments version."""
     ws = WorldState()
     ws.set_entity("user", "u1", {"name": "Bob"})
     version_before = ws.version
@@ -64,66 +45,40 @@ def test_delete_entity():
     assert ws.get_entity("user", "u1") is None
     assert ws.version == version_before + 1
 
-    print("✓ test_delete_entity passed")
-
 
 def test_delete_entity_cleans_empty_bucket():
-    """Test that deleting the last entity of a type removes the type bucket."""
     ws = WorldState()
     ws.set_entity("item", "i1", {"val": 1})
     ws.delete_entity("item", "i1")
-
-    # 空桶应当被清理
     assert "item" not in ws.entities
-
-    print("✓ test_delete_entity_cleans_empty_bucket passed")
 
 
 def test_delete_entity_not_found():
-    """Test delete_entity returns False when entity does not exist."""
     ws = WorldState()
     version_before = ws.version
-
     deleted = ws.delete_entity("ghost", "g999")
     assert deleted is False
-    assert ws.version == version_before  # version 不应变化
-
-    print("✓ test_delete_entity_not_found passed")
+    assert ws.version == version_before
 
 
 def test_set_entity_deep_copies_value():
-    """Test that set_entity stores a deep copy, not a reference."""
     ws = WorldState()
     data = {"x": [1, 2, 3]}
     ws.set_entity("obj", "o1", data)
-
-    # 修改原始 dict，不应影响存储值
     data["x"].append(99)
     stored = ws.get_entity("obj", "o1")
     assert stored["x"] == [1, 2, 3]
 
-    print("✓ test_set_entity_deep_copies_value passed")
-
-
-# ------------------------------------------------------------------
-# 快照 / 恢复
-# ------------------------------------------------------------------
 
 def test_snapshot_returns_deep_copy():
-    """Test that snapshot returns a deep copy independent of live state."""
     ws = WorldState()
     ws.set_entity("user", "u1", {"name": "Carol"})
     snap = ws.snapshot()
-
-    # 修改 live 状态不影响快照
     ws.set_entity("user", "u1", {"name": "Changed"})
     assert snap["entities"]["user"]["u1"]["name"] == "Carol"
 
-    print("✓ test_snapshot_returns_deep_copy passed")
-
 
 def test_restore_from_snapshot():
-    """Test that restore fully recovers state from a snapshot."""
     ws = WorldState()
     ws.set_entity("user", "u1", {"name": "Dave"})
     ws.resources["gold"] = 100
@@ -131,7 +86,6 @@ def test_restore_from_snapshot():
 
     snap = ws.snapshot()
 
-    # 大幅修改状态
     ws.set_entity("user", "u2", {"name": "Eve"})
     ws.resources["gold"] = 0
     ws.clock = 999.0
@@ -143,41 +97,78 @@ def test_restore_from_snapshot():
     assert ws.resources["gold"] == 100
     assert ws.clock == 42.0
 
-    print("✓ test_restore_from_snapshot passed")
-
 
 def test_restore_preserves_version():
-    """Test that restore also restores the version number."""
     ws = WorldState()
-    ws.set_entity("x", "1", {})          # version -> 1
-    snap = ws.snapshot()                  # 快照 version=1
-
-    ws.set_entity("x", "2", {})          # version -> 2
+    ws.set_entity("x", "1", {})
+    snap = ws.snapshot()
+    ws.set_entity("x", "2", {})
     ws.restore(snap)
     assert ws.version == 1
 
-    print("✓ test_restore_preserves_version passed")
+
+def test_named_snapshot_and_rollback_restore_previous_state():
+    ws = WorldState()
+    ws.set_entity("doc", "d1", {"value": 1})
+    snapshot_id = ws.create_snapshot("before-change")
+    ws.set_entity("doc", "d1", {"value": 2})
+
+    rolled_back = ws.rollback_to(snapshot_id)
+
+    assert rolled_back is True
+    assert ws.get_entity("doc", "d1") == {"value": 1}
+    assert any(snapshot.snapshot_id == snapshot_id for snapshot in ws.list_snapshots())
 
 
-# ------------------------------------------------------------------
-# 哈希
-# ------------------------------------------------------------------
+def test_clock_helpers_increment_state_version():
+    ws = WorldState()
+    ws.set_clock(10)
+    version_after_set = ws.version
+    ws.advance_clock(2.5)
+
+    assert ws.now() == 12.5
+    assert ws.version == version_after_set + 1
+
+
+def test_pending_effects_roundtrip_and_affect_hash():
+    ws = WorldState()
+    before_hash = ws.compute_hash()
+    effect = PendingEffect(effect_id="eff1", kind="delayed.write", scheduled_at=0.0, execute_after=3.0, payload={"x": 1})
+    ws.schedule_effect(effect)
+    after_hash = ws.compute_hash()
+    clone = WorldState.from_dict(ws.to_dict())
+
+    assert before_hash != after_hash
+    assert len(ws.list_pending_effects()) == 1
+    assert clone.pending_effects[0].effect_id == "eff1"
+
+
+def test_policy_check_uses_blocked_actions_and_required_permissions():
+    ws = WorldState(
+        policies={
+            "blocked_actions": ["file.delete"],
+            "required_permissions": {"file.write": ["file.write"]},
+        }
+    )
+
+    blocked = ws.check_policy("file.delete", {}, permissions={"file.delete"})
+    missing = ws.check_policy("file.write", {}, permissions=set())
+    allowed = ws.check_policy("file.write", {}, permissions={"file.write"})
+
+    assert blocked.allowed is False
+    assert missing.allowed is False
+    assert allowed.allowed is True
+
 
 def test_hash_changes_after_mutation():
-    """Test that compute_hash changes after state mutation."""
     ws = WorldState()
     h1 = ws.compute_hash()
-
     ws.set_entity("node", "n1", {"active": True})
     h2 = ws.compute_hash()
-
     assert h1 != h2
-
-    print("✓ test_hash_changes_after_mutation passed")
 
 
 def test_hash_consistent_for_same_state():
-    """Test that compute_hash returns the same value for identical states."""
     ws1 = WorldState()
     ws1.set_entity("role", "admin", {"level": 9})
     ws1.clock = 10.0
@@ -188,30 +179,18 @@ def test_hash_consistent_for_same_state():
 
     assert ws1.compute_hash() == ws2.compute_hash()
 
-    print("✓ test_hash_consistent_for_same_state passed")
-
 
 def test_hash_after_restore_equals_snapshot_hash():
-    """Test that hash after restore equals the hash at snapshot time."""
     ws = WorldState()
     ws.set_entity("item", "sword", {"damage": 50})
     snap = ws.snapshot()
     hash_before = ws.compute_hash()
-
     ws.set_entity("item", "shield", {"defense": 20})
     ws.restore(snap)
-
     assert ws.compute_hash() == hash_before
 
-    print("✓ test_hash_after_restore_equals_snapshot_hash passed")
-
-
-# ------------------------------------------------------------------
-# 序列化往返
-# ------------------------------------------------------------------
 
 def test_to_dict_and_from_dict_roundtrip():
-    """Test to_dict / from_dict round-trip preserves all fields."""
     ws = WorldState()
     ws.set_entity("agent", "a1", {"goal": "explore"})
     ws.relations["a1->a2"] = "ally"
@@ -229,19 +208,8 @@ def test_to_dict_and_from_dict_roundtrip():
     assert ws2.clock == 3.14
     assert ws2.version == ws.version
 
-    print("✓ test_to_dict_and_from_dict_roundtrip passed")
-
-
-# ------------------------------------------------------------------
-# 入口
-# ------------------------------------------------------------------
 
 def run_all_tests() -> None:
-    """Run all WorldState tests."""
-    print("=" * 55)
-    print("Running WorldState tests...")
-    print("=" * 55)
-
     test_set_and_get_entity()
     test_get_entity_not_found()
     test_set_entity_increments_version()
@@ -252,14 +220,15 @@ def run_all_tests() -> None:
     test_snapshot_returns_deep_copy()
     test_restore_from_snapshot()
     test_restore_preserves_version()
+    test_named_snapshot_and_rollback_restore_previous_state()
+    test_clock_helpers_increment_state_version()
+    test_pending_effects_roundtrip_and_affect_hash()
+    test_policy_check_uses_blocked_actions_and_required_permissions()
     test_hash_changes_after_mutation()
     test_hash_consistent_for_same_state()
     test_hash_after_restore_equals_snapshot_hash()
     test_to_dict_and_from_dict_roundtrip()
-
-    print("=" * 55)
     print("All WorldState tests passed!")
-    print("=" * 55)
 
 
 if __name__ == "__main__":

@@ -48,3 +48,12 @@ __all__ = [
     "prompts_router",
     "_load_routers",
 ]
+
+
+def __getattr__(name):
+    """Expose routers lazily for direct package imports."""
+    if name in __all__:
+        routers = _load_routers()
+        if name in routers:
+            return routers[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

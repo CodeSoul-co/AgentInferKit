@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from toolsim.comparison_runner import build_stateless_vs_stateful_cases
-from toolsim.overview_summary import compute_overview_metrics, generate_overall_conclusion
+from toolsim.overview_summary import generate_overall_conclusion
 from toolsim.reporting import BatchComparisonRunner, render_markdown_report
 
 

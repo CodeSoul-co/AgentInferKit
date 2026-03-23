@@ -1,20 +1,13 @@
-﻿"""
-experiment_runner.py — 最小可运行的 experiment runner 原型
-
-负责：
-  - 初始化 WorldState
-  - 顺序执行预定义 tool calls
-  - 自动记录 trace
-  - 自动运行 call-level / state-level evaluator
-"""
-
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
+from toolsim.backends.base import BaseBackend
+from toolsim.backends.mock_backend import MockBackend
+from toolsim.environment import ToolEnvironment
 from toolsim.evaluator import CallEvaluationResult, CallLevelEvaluator, StateEvaluationResult, StateLevelEvaluator
-from toolsim.stateful_executor import ExecutionRecord, StatefulExecutor, create_default_tool_registry
+from toolsim.stateful_executor import ExecutionRecord, ExecutorConfig, StatefulExecutor, create_default_tool_registry
 from toolsim.stateful_tracer import TraceRecorder
 from toolsim.world_state import WorldState
 
@@ -40,32 +33,57 @@ class ExperimentResult:
 
 
 class ExperimentRunner:
-    """执行一组预定义 tool calls，并汇总最小实验结果。"""
+    """Execute a sequence of predefined tool calls and evaluate the outcome."""
 
     def __init__(
         self,
         executor: Optional[StatefulExecutor] = None,
         call_evaluator: Optional[CallLevelEvaluator] = None,
         state_evaluator: Optional[StateLevelEvaluator] = None,
+        executor_config: Optional[ExecutorConfig] = None,
+        backend: Optional[BaseBackend] = None,
     ) -> None:
         self._executor = executor
         self._call_evaluator = call_evaluator or CallLevelEvaluator()
         self._state_evaluator = state_evaluator or StateLevelEvaluator()
+        self._executor_config = executor_config or ExecutorConfig()
+        self._backend = backend or MockBackend()
 
     def run(
         self,
         tool_calls: List[Dict[str, Any]],
         initial_state: Optional[WorldState] = None,
         goals: Optional[List[Dict[str, Any]]] = None,
+        permissions: Optional[Set[str]] = None,
+        environment: Optional[ToolEnvironment] = None,
+        backend: Optional[BaseBackend] = None,
     ) -> ExperimentResult:
-        state = initial_state if initial_state is not None else WorldState()
+        active_backend = backend or environment.backend if environment is not None else backend or self._backend
+
+        if environment is not None:
+            state = environment.state
+        elif initial_state is not None:
+            state = initial_state
+        else:
+            state = active_backend.create_state()
+
         tracer = TraceRecorder()
-        executor = self._build_executor(tracer)
+        executor = self._build_executor(tracer, active_backend)
+        env = environment or ToolEnvironment(
+            state=state,
+            backend=active_backend,
+            auto_advance_clock=self._executor_config.auto_advance_clock,
+            auto_apply_ready_effects=self._executor_config.auto_apply_ready_effects,
+        )
 
         for tool_call in tool_calls:
+            advance_time = tool_call.get("advance_time")
+            if advance_time is not None:
+                env.advance_time(float(advance_time))
+
             tool_name = tool_call.get("tool_name", "")
             args = tool_call.get("args", {})
-            executor.execute(tool_name, state, args)
+            executor.execute(tool_name, state, args, permissions=permissions, environment=env)
 
         trace = tracer.get_records()
         call_metrics = self._call_evaluator.evaluate(trace)
@@ -80,14 +98,13 @@ class ExperimentRunner:
             final_state_hash=state.compute_hash(),
         )
 
-    def _build_executor(self, tracer: TraceRecorder) -> StatefulExecutor:
+    def _build_executor(self, tracer: TraceRecorder, backend: BaseBackend) -> StatefulExecutor:
         if self._executor is not None:
-            return StatefulExecutor(self._executor._tools, tracer=tracer)
-        return StatefulExecutor(create_default_tool_registry(), tracer=tracer)
+            return StatefulExecutor(self._executor._tools, tracer=tracer, config=self._executor_config, backend=backend)
+        return StatefulExecutor(create_default_tool_registry(), tracer=tracer, config=self._executor_config, backend=backend)
 
 
 def build_file_search_demo_calls() -> List[Dict[str, Any]]:
-    """构造最小 file/search 演示实验调用序列。"""
     return [
         {"tool_name": "file.write", "args": {"file_id": "f1", "content": "hello world"}},
         {"tool_name": "search.query", "args": {"query": "hello"}},
@@ -97,7 +114,6 @@ def build_file_search_demo_calls() -> List[Dict[str, Any]]:
 
 
 def build_file_search_demo_goals() -> List[Dict[str, Any]]:
-    """构造与最小 file/search 演示匹配的 goals。"""
     return [
         {"type": "entity_exists", "entity_type": "file", "entity_id": "f1"},
         {"type": "indexed_contains", "file_id": "f1", "substring": "hello"},

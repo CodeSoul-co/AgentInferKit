@@ -1,17 +1,9 @@
-﻿"""
-evaluator.py — 最小可运行的 evaluator 原型
-
-提供：
-  - CallLevelEvaluator
-  - StateLevelEvaluator
-  - 对应的结构化评估结果 dataclass
-"""
-
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Sequence
 
+from toolsim.calendar_tools import CalendarSearchEventsTool
 from toolsim.search_tools import SearchQueryTool
 from toolsim.stateful_executor import ExecutionRecord
 from toolsim.stateful_tracer import TraceRecorder
@@ -25,6 +17,9 @@ class CallEvaluationResult:
     failed_calls: int
     success_rate: float
     failed_rate: float
+    partial_calls: int = 0
+    pending_calls: int = 0
+    invalid_calls: int = 0
     tool_counts: Dict[str, int] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -34,6 +29,9 @@ class CallEvaluationResult:
             "failed_calls": self.failed_calls,
             "success_rate": self.success_rate,
             "failed_rate": self.failed_rate,
+            "partial_calls": self.partial_calls,
+            "pending_calls": self.pending_calls,
+            "invalid_calls": self.invalid_calls,
             "tool_counts": self.tool_counts,
         }
 
@@ -71,16 +69,16 @@ class StateEvaluationResult:
 
 
 class CallLevelEvaluator:
-    """对执行记录做最小调用级统计。"""
+    """Minimal call-level stats over execution records."""
 
-    def evaluate(
-        self,
-        records_or_tracer: Sequence[ExecutionRecord] | TraceRecorder,
-    ) -> CallEvaluationResult:
+    def evaluate(self, records_or_tracer: Sequence[ExecutionRecord] | TraceRecorder) -> CallEvaluationResult:
         records = _normalize_records(records_or_tracer)
         total_calls = len(records)
         successful_calls = sum(1 for record in records if record.success)
         failed_calls = total_calls - successful_calls
+        partial_calls = sum(1 for record in records if record.partial)
+        pending_calls = sum(1 for record in records if record.async_pending)
+        invalid_calls = sum(1 for record in records if any(not result.passed for result in [*record.permission_results, *record.precondition_results]))
 
         tool_counts: Dict[str, int] = {}
         for record in records:
@@ -95,16 +93,18 @@ class CallLevelEvaluator:
             failed_calls=failed_calls,
             success_rate=success_rate,
             failed_rate=failed_rate,
+            partial_calls=partial_calls,
+            pending_calls=pending_calls,
+            invalid_calls=invalid_calls,
             tool_counts=tool_counts,
         )
 
 
 class StateLevelEvaluator:
-    """对最终 WorldState 执行最小目标断言。"""
+    """Minimal end-state assertion evaluator for WorldState."""
 
     def evaluate(self, state: WorldState, goals: Iterable[Dict[str, Any]]) -> StateEvaluationResult:
         details: List[StateGoalResult] = []
-
         for goal in goals:
             details.append(self._evaluate_goal(state, goal))
 
@@ -112,13 +112,7 @@ class StateLevelEvaluator:
         passed_count = sum(1 for detail in details if detail.passed)
         failed_count = goal_count - passed_count
 
-        return StateEvaluationResult(
-            goal_count=goal_count,
-            passed_count=passed_count,
-            failed_count=failed_count,
-            all_passed=(failed_count == 0),
-            details=details,
-        )
+        return StateEvaluationResult(goal_count=goal_count, passed_count=passed_count, failed_count=failed_count, all_passed=(failed_count == 0), details=details)
 
     def _evaluate_goal(self, state: WorldState, goal: Dict[str, Any]) -> StateGoalResult:
         goal_type = goal.get("type", "unknown")
@@ -128,15 +122,7 @@ class StateLevelEvaluator:
             entity_id = goal.get("entity_id")
             entity = state.get_entity(entity_type, entity_id)
             passed = entity is not None
-            return StateGoalResult(
-                goal_type=goal_type,
-                passed=passed,
-                message=(
-                    f"Entity exists: {entity_type}.{entity_id}"
-                    if passed
-                    else f"Entity missing: {entity_type}.{entity_id}"
-                ),
-            )
+            return StateGoalResult(goal_type=goal_type, passed=passed, message=(f"Entity exists: {entity_type}.{entity_id}" if passed else f"Entity missing: {entity_type}.{entity_id}"))
 
         if goal_type == "entity_field_equals":
             entity_type = goal.get("entity_type")
@@ -144,52 +130,21 @@ class StateLevelEvaluator:
             field = goal.get("field")
             expected = goal.get("expected")
             entity = state.get_entity(entity_type, entity_id)
-
             if entity is None:
-                return StateGoalResult(
-                    goal_type=goal_type,
-                    passed=False,
-                    message=f"Entity missing: {entity_type}.{entity_id}",
-                )
-
+                return StateGoalResult(goal_type=goal_type, passed=False, message=f"Entity missing: {entity_type}.{entity_id}")
             actual = entity.get(field)
             passed = actual == expected
-            return StateGoalResult(
-                goal_type=goal_type,
-                passed=passed,
-                message=(
-                    f"Field matched: {entity_type}.{entity_id}.{field} == {expected!r}"
-                    if passed
-                    else (
-                        f"Field mismatch: {entity_type}.{entity_id}.{field} "
-                        f"expected {expected!r}, got {actual!r}"
-                    )
-                ),
-            )
+            return StateGoalResult(goal_type=goal_type, passed=passed, message=(f"Field matched: {entity_type}.{entity_id}.{field} == {expected!r}" if passed else f"Field mismatch: {entity_type}.{entity_id}.{field} expected {expected!r}, got {actual!r}"))
 
         if goal_type == "indexed_contains":
             file_id = goal.get("file_id")
             substring = goal.get("substring", "")
             index_entry = state.get_entity("search_index", file_id)
-
             if index_entry is None:
-                return StateGoalResult(
-                    goal_type=goal_type,
-                    passed=False,
-                    message=f"Indexed file missing: {file_id}",
-                )
-
+                return StateGoalResult(goal_type=goal_type, passed=False, message=f"Indexed file missing: {file_id}")
             indexed_content = index_entry.get("indexed_content_snapshot", "")
             passed = substring in indexed_content
-            return StateGoalResult(
-                goal_type=goal_type,
-                passed=passed,
-                message=(
-                    f"Indexed content contains substring for file {file_id}"
-                    if passed
-                    else f"Indexed content does not contain substring for file {file_id}"
-                ),
-            )
+            return StateGoalResult(goal_type=goal_type, passed=passed, message=(f"Indexed content contains substring for file {file_id}" if passed else f"Indexed content does not contain substring for file {file_id}"))
 
         if goal_type == "query_hits_file":
             query = goal.get("query", "")
@@ -197,26 +152,47 @@ class StateLevelEvaluator:
             query_result = SearchQueryTool().execute(state, {"query": query})
             hits = query_result.observation.get("hits", []) if query_result.success else []
             passed = any(hit.get("file_id") == file_id for hit in hits)
-            return StateGoalResult(
-                goal_type=goal_type,
-                passed=passed,
-                message=(
-                    f"Query {query!r} hit file {file_id}"
-                    if passed
-                    else f"Query {query!r} did not hit file {file_id}"
-                ),
-            )
+            return StateGoalResult(goal_type=goal_type, passed=passed, message=(f"Query {query!r} hit file {file_id}" if passed else f"Query {query!r} did not hit file {file_id}"))
 
-        return StateGoalResult(
-            goal_type=goal_type,
-            passed=False,
-            message=f"Unsupported goal type: {goal_type}",
-        )
+        if goal_type == "event_exists":
+            event_id = goal.get("event_id")
+            event = state.get_entity("calendar_event", event_id)
+            passed = event is not None
+            return StateGoalResult(goal_type=goal_type, passed=passed, message=(f"Event exists: {event_id}" if passed else f"Event missing: {event_id}"))
+
+        if goal_type == "event_field_equals":
+            event_id = goal.get("event_id")
+            field = goal.get("field")
+            expected = goal.get("expected")
+            event = state.get_entity("calendar_event", event_id)
+            if event is None:
+                return StateGoalResult(goal_type=goal_type, passed=False, message=f"Event missing: {event_id}")
+            actual = event.get(field)
+            passed = actual == expected
+            return StateGoalResult(goal_type=goal_type, passed=passed, message=(f"Event field matched: {event_id}.{field} == {expected!r}" if passed else f"Event field mismatch: {event_id}.{field} expected {expected!r}, got {actual!r}"))
+
+        if goal_type == "event_status_is":
+            event_id = goal.get("event_id")
+            expected_status = goal.get("status")
+            event = state.get_entity("calendar_event", event_id)
+            if event is None:
+                return StateGoalResult(goal_type=goal_type, passed=False, message=f"Event missing: {event_id}")
+            actual_status = event.get("status")
+            passed = actual_status == expected_status
+            return StateGoalResult(goal_type=goal_type, passed=passed, message=(f"Event status matched: {event_id} == {expected_status!r}" if passed else f"Event status mismatch: {event_id} expected {expected_status!r}, got {actual_status!r}"))
+
+        if goal_type == "search_hits_event":
+            event_id = goal.get("event_id")
+            search_args = dict(goal.get("search_args", {}))
+            query_result = CalendarSearchEventsTool().execute(state, search_args)
+            hits = query_result.observation.get("hits", []) if query_result.success else []
+            passed = any(hit.get("event_id") == event_id for hit in hits)
+            return StateGoalResult(goal_type=goal_type, passed=passed, message=(f"Calendar search hit event {event_id}" if passed else f"Calendar search did not hit event {event_id}"))
+
+        return StateGoalResult(goal_type=goal_type, passed=False, message=f"Unsupported goal type: {goal_type}")
 
 
-def _normalize_records(
-    records_or_tracer: Sequence[ExecutionRecord] | TraceRecorder,
-) -> List[ExecutionRecord]:
+def _normalize_records(records_or_tracer: Sequence[ExecutionRecord] | TraceRecorder) -> List[ExecutionRecord]:
     if isinstance(records_or_tracer, TraceRecorder):
         return records_or_tracer.get_records()
     return list(records_or_tracer)
