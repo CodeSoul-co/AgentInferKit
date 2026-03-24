@@ -10,9 +10,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from toolsim.world_state import WorldState
-from toolsim.file_tools import FileWriteTool, FileReadTool, FILE_TOOLS
-from toolsim.tool_spec import ToolExecutionResult
+from toolsim.core.world_state import WorldState
+from toolsim.tools.file_tools import FileWriteTool, FileReadTool, FILE_TOOLS
+from toolsim.core.tool_spec import ToolExecutionResult
 
 
 # ------------------------------------------------------------------

@@ -7,10 +7,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from toolsim.stateful_executor import ExecutionRecord, StatefulExecutor, create_default_tool_registry
-from toolsim.stateful_tracer import TraceRecorder
-from toolsim.tool_spec import ConditionCheckResult
-from toolsim.world_state import WorldState
+from toolsim.execution.stateful_executor import ExecutionRecord, StatefulExecutor, create_default_tool_registry
+from toolsim.execution.stateful_tracer import TraceRecorder
+from toolsim.core.tool_spec import ConditionCheckResult
+from toolsim.core.world_state import WorldState
 
 
 def _record(**kwargs):

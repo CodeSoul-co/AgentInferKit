@@ -7,8 +7,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from toolsim.comparison_runner import ComparisonRunner, build_stateless_vs_stateful_cases
-from toolsim.reporting import BatchComparisonRunner, render_markdown_report, summarize_comparison_result
+from toolsim.runners.comparison_runner import ComparisonRunner, build_stateless_vs_stateful_cases
+from toolsim.reporting.reporting import BatchComparisonRunner, render_markdown_report, summarize_comparison_result
 
 
 def test_batch_comparison_runner_returns_batch_result():

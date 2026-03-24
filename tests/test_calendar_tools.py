@@ -5,9 +5,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from toolsim.environment import ToolEnvironment
-from toolsim.stateful_executor import StatefulExecutor, create_default_tool_registry
-from toolsim.world_state import WorldState
+from toolsim.core.environment import ToolEnvironment
+from toolsim.execution.stateful_executor import StatefulExecutor, create_default_tool_registry
+from toolsim.core.world_state import WorldState
 
 
 def _executor() -> StatefulExecutor:

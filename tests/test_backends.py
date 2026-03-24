@@ -7,9 +7,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from toolsim.backends.mock_backend import MockBackend
 from toolsim.backends.sandbox_backend import SandboxBackend
-from toolsim.environment import ToolEnvironment
-from toolsim.stateful_executor import StatefulExecutor, create_default_tool_registry
-from toolsim.world_state import PendingEffect
+from toolsim.core.environment import ToolEnvironment
+from toolsim.execution.stateful_executor import StatefulExecutor, create_default_tool_registry
+from toolsim.core.world_state import PendingEffect
 
 
 def test_mock_backend_basic_crud_and_snapshot_roundtrip():

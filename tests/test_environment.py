@@ -5,10 +5,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from toolsim.environment import ToolEnvironment
-from toolsim.side_effects import SideEffectScheduler, create_default_scheduler
-from toolsim.stateful_executor import StatefulExecutor, create_default_tool_registry
-from toolsim.world_state import PendingEffect, WorldState
+from toolsim.core.environment import ToolEnvironment
+from toolsim.core.side_effects import SideEffectScheduler, create_default_scheduler
+from toolsim.execution.stateful_executor import StatefulExecutor, create_default_tool_registry
+from toolsim.core.world_state import PendingEffect, WorldState
 
 
 def test_scheduler_applies_ready_effect():

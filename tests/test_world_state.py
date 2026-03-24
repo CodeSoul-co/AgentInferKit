@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from toolsim.world_state import PendingEffect, WorldState
+from toolsim.core.world_state import PendingEffect, WorldState
 
 
 def test_set_and_get_entity():

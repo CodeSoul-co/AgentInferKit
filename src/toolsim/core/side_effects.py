@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from toolsim.core.constants import EFFECT_KIND_REINDEX_FILE_SNAPSHOT, EntityType
+from toolsim.core.constants import EFFECT_KIND_REINDEX_FILE_SNAPSHOT, EntityType, EffectStatus
 from toolsim.core.world_state import PendingEffect, WorldState
 
 

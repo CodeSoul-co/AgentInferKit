@@ -9,9 +9,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from toolsim.backends.mock_backend import MockBackend
 from toolsim.backends.sandbox_backend import SandboxBackend
-from toolsim.environment import ToolEnvironment
-from toolsim.experiment_runner import ExperimentRunner, build_file_search_demo_calls, build_file_search_demo_goals
-from toolsim.world_state import WorldState
+from toolsim.core.environment import ToolEnvironment
+from toolsim.runners.experiment_runner import ExperimentRunner, build_file_search_demo_calls, build_file_search_demo_goals
+from toolsim.core.world_state import WorldState
 
 
 def test_experiment_runner_executes_tool_calls_in_order():

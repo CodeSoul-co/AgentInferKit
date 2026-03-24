@@ -7,9 +7,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from toolsim.tool_spec import ToolExecutionResult, ToolMetadata, ToolSpec
-from toolsim.stateful_executor import ExecutorConfig, StatefulExecutor, create_default_tool_registry
-from toolsim.world_state import PendingEffect, WorldState
+from toolsim.core.tool_spec import ToolExecutionResult, ToolMetadata, ToolSpec
+from toolsim.execution.stateful_executor import ExecutorConfig, StatefulExecutor, create_default_tool_registry
+from toolsim.core.world_state import PendingEffect, WorldState
 
 
 class ExplodingTool(ToolSpec):

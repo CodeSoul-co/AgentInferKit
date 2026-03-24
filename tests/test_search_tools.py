@@ -10,9 +10,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from toolsim.file_tools import FileWriteTool
-from toolsim.search_tools import SEARCH_TOOLS, SearchIndexTool, SearchQueryTool
-from toolsim.world_state import WorldState
+from toolsim.tools.file_tools import FileWriteTool
+from toolsim.tools.search_tools import SEARCH_TOOLS, SearchIndexTool, SearchQueryTool
+from toolsim.core.world_state import WorldState
 
 
 def test_search_query_cannot_find_unindexed_file():

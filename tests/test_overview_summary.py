@@ -7,9 +7,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from toolsim.comparison_runner import build_stateless_vs_stateful_cases
-from toolsim.overview_summary import generate_overall_conclusion
-from toolsim.reporting import BatchComparisonRunner, render_markdown_report
+from toolsim.runners.comparison_runner import build_stateless_vs_stateful_cases
+from toolsim.evaluators.overview_summary import generate_overall_conclusion
+from toolsim.reporting.reporting import BatchComparisonRunner, render_markdown_report
 
 
 def test_overview_metrics_counts_total_cases():

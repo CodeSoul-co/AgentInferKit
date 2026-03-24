@@ -7,9 +7,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from toolsim.comparison_runner import ComparisonRunner, build_stateless_vs_stateful_cases
-from toolsim.reporting import BatchComparisonRunner, render_markdown_report
-from toolsim.trajectory_evaluator import TrajectoryLevelEvaluator, summarize_trajectory_difference
+from toolsim.runners.comparison_runner import ComparisonRunner, build_stateless_vs_stateful_cases
+from toolsim.reporting.reporting import BatchComparisonRunner, render_markdown_report
+from toolsim.evaluators.trajectory_evaluator import TrajectoryLevelEvaluator, summarize_trajectory_difference
 
 
 def test_trajectory_metrics_counts_steps_and_sequence():
