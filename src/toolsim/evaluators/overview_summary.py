@@ -1,18 +1,21 @@
-﻿"""
-overview_summary.py — 最小可运行的 overview 聚合指标与自动结论生成模块
-"""
+"""Overview metrics aggregation and automatic conclusion generation."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Sequence
+from typing import TYPE_CHECKING, Any, Sequence
 
-from toolsim.comparison_runner import ComparisonResult
-from toolsim.trajectory_evaluator import summarize_trajectory_difference
+from toolsim.core.utils import extract_last_query_hits
+from toolsim.evaluators.trajectory_evaluator import summarize_trajectory_difference
+
+if TYPE_CHECKING:
+    from toolsim.runners.comparison_runner import ComparisonResult
 
 
 @dataclass
 class OverviewMetrics:
+    """Aggregate metrics across multiple comparison cases."""
+
     total_cases: int
     stateful_goal_pass_count: int
     stateless_goal_pass_count: int
@@ -30,7 +33,7 @@ class OverviewMetrics:
     cases_with_snapshot_semantics_difference: int
     cases_with_retrieval_outcome_difference: int
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "total_cases": self.total_cases,
             "stateful_goal_pass_count": self.stateful_goal_pass_count,
@@ -51,7 +54,8 @@ class OverviewMetrics:
         }
 
 
-def compute_overview_metrics(results: Sequence[ComparisonResult]) -> OverviewMetrics:
+def compute_overview_metrics(results: Sequence["ComparisonResult"]) -> OverviewMetrics:
+    """Aggregate per-case comparison results into a single OverviewMetrics summary."""
     total_cases = len(results)
     stateful_total_steps_sum = 0
     stateless_total_steps_sum = 0
@@ -90,24 +94,16 @@ def compute_overview_metrics(results: Sequence[ComparisonResult]) -> OverviewMet
             cases_with_retrieval_outcome_difference += 1
 
     stateful_goal_pass_count = sum(
-        1
-        for result in results
-        if result.summary.get("stateful_all_goals_passed") is True
+        1 for result in results if result.summary.get("stateful_all_goals_passed") is True
     )
     stateless_goal_pass_count = sum(
-        1
-        for result in results
-        if result.summary.get("stateless_all_goals_passed") is True
+        1 for result in results if result.summary.get("stateless_all_goals_passed") is True
     )
     stateful_all_calls_succeeded_count = sum(
-        1
-        for result in results
-        if result.summary.get("stateful_all_calls_succeeded") is True
+        1 for result in results if result.summary.get("stateful_all_calls_succeeded") is True
     )
     stateless_all_calls_succeeded_count = sum(
-        1
-        for result in results
-        if result.summary.get("stateless_all_calls_succeeded") is True
+        1 for result in results if result.summary.get("stateless_all_calls_succeeded") is True
     )
 
     return OverviewMetrics(
@@ -131,24 +127,28 @@ def compute_overview_metrics(results: Sequence[ComparisonResult]) -> OverviewMet
 
 
 def generate_overall_conclusion(overview_metrics: OverviewMetrics) -> str:
-    sentences: List[str] = []
+    """Generate a natural-language conclusion from aggregated overview metrics."""
+    sentences: list[str] = []
 
     if (
         overview_metrics.cases_with_explicit_dependency_resolution > 0
         or overview_metrics.stateful_avg_steps > overview_metrics.stateless_avg_steps
     ):
         sentences.append(
-            "Across the evaluated cases, the stateful setting introduced explicit dependency-management steps that were absent or less prominent in the stateless baseline."
+            "Across the evaluated cases, the stateful setting introduced explicit dependency-management steps "
+            "that were absent or less prominent in the stateless baseline."
         )
 
     if overview_metrics.cases_with_trajectory_divergence > 0:
         sentences.append(
-            "The two settings also exhibited stable trajectory-level divergence, indicating that the stateful formulation changes the tool-use process rather than only the final outcome."
+            "The two settings also exhibited stable trajectory-level divergence, indicating that the stateful "
+            "formulation changes the tool-use process rather than only the final outcome."
         )
 
     if overview_metrics.cases_with_snapshot_semantics_difference > 0:
         sentences.append(
-            "The stateful environment preserved index-time snapshot semantics in cases involving overwrite without re-index, whereas the stateless baseline reflected only the latest file content."
+            "The stateful environment preserved index-time snapshot semantics in cases involving overwrite without "
+            "re-index, whereas the stateless baseline reflected only the latest file content."
         )
 
     if overview_metrics.cases_with_retrieval_outcome_difference > 0:
@@ -158,35 +158,27 @@ def generate_overall_conclusion(overview_metrics: OverviewMetrics) -> str:
 
     if not sentences:
         sentences.append(
-            "Across the evaluated cases, the stateless and stateful settings showed limited aggregate differences under the current minimal prototype."
+            "Across the evaluated cases, the stateless and stateful settings showed limited aggregate "
+            "differences under the current minimal prototype."
         )
 
     return " ".join(sentences[:3])
 
 
-def _has_snapshot_semantics_difference(result: ComparisonResult, trajectory: Any) -> bool:
+def _has_snapshot_semantics_difference(result: "ComparisonResult", trajectory: Any) -> bool:
     if "overwrite-without-reindex" not in trajectory.key_process_difference:
         return False
-    stateful_hits = _extract_last_query_hits(result.stateful_result.trace)
-    stateless_hits = _extract_last_query_hits(result.stateless_result.trace)
+    stateful_hits = extract_last_query_hits(result.stateful_result.trace)
+    stateless_hits = extract_last_query_hits(result.stateless_result.trace)
     return bool(stateful_hits) and not bool(stateless_hits)
 
 
-def _has_retrieval_outcome_difference(result: ComparisonResult) -> bool:
-    stateful_hits = _normalize_hits(_extract_last_query_hits(result.stateful_result.trace))
-    stateless_hits = _normalize_hits(_extract_last_query_hits(result.stateless_result.trace))
+def _has_retrieval_outcome_difference(result: "ComparisonResult") -> bool:
+    stateful_hits = _normalize_hits(extract_last_query_hits(result.stateful_result.trace))
+    stateless_hits = _normalize_hits(extract_last_query_hits(result.stateless_result.trace))
     return stateful_hits != stateless_hits
 
 
-def _extract_last_query_hits(trace: Sequence[Any]) -> List[Dict[str, Any]]:
-    for record in reversed(list(trace)):
-        if record.tool_name == "search.query":
-            return record.observation.get("hits", [])
-    return []
-
-
-def _normalize_hits(hits: List[Dict[str, Any]]) -> List[tuple]:
-    normalized = []
-    for hit in hits:
-        normalized.append((hit.get("file_id"), hit.get("content")))
-    return normalized
+def _normalize_hits(hits: list[dict[str, Any]]) -> list[tuple]:
+    """Normalise a list of search hits to (file_id, content) tuples for comparison."""
+    return [(hit.get("file_id"), hit.get("content")) for hit in hits]

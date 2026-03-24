@@ -1,9 +1,10 @@
 ﻿from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable
 
-from toolsim.world_state import PendingEffect, WorldState
+from toolsim.core.constants import EFFECT_KIND_REINDEX_FILE_SNAPSHOT, EntityType
+from toolsim.core.world_state import PendingEffect, WorldState
 
 
 @dataclass
@@ -11,10 +12,10 @@ class EffectApplicationResult:
     effect_id: str
     kind: str
     applied: bool
-    error: Optional[str] = None
+    error: str | None = None
     state_changed: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "effect_id": self.effect_id,
             "kind": self.kind,
@@ -28,7 +29,7 @@ def _reindex_file_snapshot(state: WorldState, effect: PendingEffect) -> bool:
     file_id = effect.payload.get("file_id")
     if not file_id:
         raise ValueError("Missing file_id in effect payload")
-    file_entity = state.get_entity("file", file_id)
+    file_entity = state.get_entity(EntityType.FILE, file_id)
     if file_entity is None:
         raise ValueError(f"File not found for delayed reindex: {file_id!r}")
 
@@ -39,21 +40,21 @@ def _reindex_file_snapshot(state: WorldState, effect: PendingEffect) -> bool:
         "source_revision": file_entity.get("revision", 1),
         "indexed_at": state.now(),
     }
-    state.set_entity("search_index", file_id, index_entry)
+    state.set_entity(EntityType.SEARCH_INDEX, file_id, index_entry)
     return True
 
 
 class SideEffectScheduler:
     """Apply pending effects once they become ready."""
 
-    def __init__(self, handlers: Optional[Dict[str, Callable[[WorldState, PendingEffect], bool]]] = None) -> None:
-        self._handlers: Dict[str, Callable[[WorldState, PendingEffect], bool]] = dict(handlers or {})
+    def __init__(self, handlers: dict[str, Callable[[WorldState, PendingEffect], bool]] | None = None) -> None:
+        self._handlers: dict[str, Callable[[WorldState, PendingEffect], bool]] = dict(handlers or {})
 
     def register_handler(self, kind: str, handler: Callable[[WorldState, PendingEffect], bool]) -> None:
         self._handlers[kind] = handler
 
     def is_ready(self, effect: PendingEffect, state: WorldState) -> bool:
-        return effect.status == "pending" and state.now() >= effect.execute_after
+        return effect.status == EffectStatus.PENDING and state.now() >= effect.execute_after
 
     def apply_effect(self, effect: PendingEffect, state: WorldState) -> EffectApplicationResult:
         handler = self._handlers.get(effect.kind)
@@ -75,8 +76,8 @@ class SideEffectScheduler:
             state.update_pending_effect(effect.effect_id, status=new_status, retry_count=retry_count, last_error=str(exc))
             return EffectApplicationResult(effect_id=effect.effect_id, kind=effect.kind, applied=False, error=str(exc))
 
-    def apply_ready_effects(self, state: WorldState) -> List[EffectApplicationResult]:
-        results: List[EffectApplicationResult] = []
+    def apply_ready_effects(self, state: WorldState) -> list[EffectApplicationResult]:
+        results: list[EffectApplicationResult] = []
         for effect in state.list_pending_effects(status="pending"):
             if self.is_ready(effect, state):
                 results.append(self.apply_effect(effect, state))
@@ -85,5 +86,5 @@ class SideEffectScheduler:
 
 def create_default_scheduler() -> SideEffectScheduler:
     scheduler = SideEffectScheduler()
-    scheduler.register_handler("search.reindex_file_snapshot", _reindex_file_snapshot)
+    scheduler.register_handler(EFFECT_KIND_REINDEX_FILE_SNAPSHOT, _reindex_file_snapshot)
     return scheduler

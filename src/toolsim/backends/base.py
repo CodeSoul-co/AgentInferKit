@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
-from toolsim.world_state import PendingEffect, WorldState
+from toolsim.core.world_state import PendingEffect, WorldState
 
 
 class BaseBackend(ABC):

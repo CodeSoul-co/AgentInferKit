@@ -1,15 +1,16 @@
-﻿"""
-trajectory_evaluator.py — 最小可运行的 trajectory-level evaluator 原型
-"""
+﻿"""Trajectory-level evaluator: analyses entire execution traces for patterns."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Sequence
 
-from toolsim.comparison_runner import ComparisonResult
-from toolsim.stateful_executor import ExecutionRecord
-from toolsim.stateful_tracer import TraceRecorder
+from toolsim.execution.stateful_executor import ExecutionRecord
+from toolsim.execution.stateful_tracer import TraceRecorder
+from toolsim.core.utils import extract_last_query_hits
+
+if TYPE_CHECKING:
+    from toolsim.runners.comparison_runner import ComparisonResult
 
 
 @dataclass
@@ -178,8 +179,8 @@ def _build_key_process_difference(
     stateful_metrics: TrajectoryMetrics,
     stateless_metrics: TrajectoryMetrics,
 ) -> str:
-    stateful_hits = _extract_last_query_hits(comparison_result.stateful_result.trace)
-    stateless_hits = _extract_last_query_hits(comparison_result.stateless_result.trace)
+    stateful_hits = extract_last_query_hits(comparison_result.stateful_result.trace)
+    stateless_hits = extract_last_query_hits(comparison_result.stateless_result.trace)
 
     if not stateful_hits and stateless_hits:
         return (
@@ -198,11 +199,8 @@ def _build_key_process_difference(
     return "Stateful and stateless trajectories were structurally similar in this case."
 
 
-def _extract_last_query_hits(records: Sequence[ExecutionRecord]) -> List[Dict[str, Any]]:
-    for record in reversed(list(records)):
-        if record.tool_name == "search.query":
-            return record.observation.get("hits", [])
-    return []
+# Re-export for backwards compatibility with internal callers
+_extract_last_query_hits = extract_last_query_hits
 
 
 def _normalize_records(records_or_tracer: Sequence[ExecutionRecord] | TraceRecorder) -> List[ExecutionRecord]:

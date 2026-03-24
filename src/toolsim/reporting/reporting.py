@@ -1,15 +1,14 @@
-﻿"""
-reporting.py — 最小可运行的对比实验结果汇总与导出模块
-"""
+"""Comparison experiment result aggregation and export module."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from toolsim.comparison_runner import ComparisonCase, ComparisonResult, ComparisonRunner
-from toolsim.overview_summary import OverviewMetrics, compute_overview_metrics, generate_overall_conclusion
-from toolsim.trajectory_evaluator import summarize_trajectory_difference
+from toolsim.runners.comparison_runner import ComparisonCase, ComparisonResult, ComparisonRunner
+from toolsim.evaluators.overview_summary import OverviewMetrics, compute_overview_metrics, generate_overall_conclusion
+from toolsim.evaluators.trajectory_evaluator import summarize_trajectory_difference
+from toolsim.core.utils import extract_last_query_hits
 
 
 @dataclass
@@ -20,8 +19,8 @@ class CaseComparisonSummary:
     stateless_outcome: str
     key_difference: str
     key_process_difference: str
-    stateful_goals_passed: Optional[bool]
-    stateless_goals_passed: Optional[bool]
+    stateful_goals_passed: bool | None
+    stateless_goals_passed: bool | None
     stateful_all_calls_succeeded: bool
     stateless_all_calls_succeeded: bool
     stateful_trace_length: int
@@ -29,7 +28,7 @@ class CaseComparisonSummary:
     stateful_tool_sequence: str
     stateless_tool_sequence: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "case_name": self.case_name,
             "description": self.description,
@@ -50,8 +49,8 @@ class CaseComparisonSummary:
 
 @dataclass
 class BatchComparisonResult:
-    results: List[ComparisonResult]
-    summaries: List[CaseComparisonSummary]
+    results: list[ComparisonResult]
+    summaries: list[CaseComparisonSummary]
     total_cases: int
     stateful_goal_pass_count: int
     stateless_goal_pass_count: int
@@ -59,9 +58,9 @@ class BatchComparisonResult:
     stateless_all_calls_succeeded_count: int
     overview_metrics: OverviewMetrics
     overall_conclusion: str
-    case_names: List[str] = field(default_factory=list)
+    case_names: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "total_cases": self.total_cases,
             "stateful_goal_pass_count": self.stateful_goal_pass_count,
@@ -77,14 +76,14 @@ class BatchComparisonResult:
 
 
 class BatchComparisonRunner:
-    """顺序运行多个 comparison cases，并产出批量汇总结果。"""
+    """Run multiple comparison cases sequentially and produce aggregate batch results."""
 
-    def __init__(self, comparison_runner: Optional[ComparisonRunner] = None) -> None:
+    def __init__(self, comparison_runner: ComparisonRunner | None = None) -> None:
         self._comparison_runner = comparison_runner or ComparisonRunner()
 
-    def run(self, cases: List[ComparisonCase]) -> BatchComparisonResult:
-        results: List[ComparisonResult] = []
-        summaries: List[CaseComparisonSummary] = []
+    def run(self, cases: list[ComparisonCase]) -> BatchComparisonResult:
+        results: list[ComparisonResult] = []
+        summaries: list[CaseComparisonSummary] = []
 
         for case in cases:
             result = self._comparison_runner.run_case(case)
@@ -98,10 +97,10 @@ class BatchComparisonRunner:
             results=results,
             summaries=summaries,
             total_cases=len(results),
-            stateful_goal_pass_count=sum(1 for summary in summaries if summary.stateful_goals_passed is True),
-            stateless_goal_pass_count=sum(1 for summary in summaries if summary.stateless_goals_passed is True),
-            stateful_all_calls_succeeded_count=sum(1 for summary in summaries if summary.stateful_all_calls_succeeded),
-            stateless_all_calls_succeeded_count=sum(1 for summary in summaries if summary.stateless_all_calls_succeeded),
+            stateful_goal_pass_count=sum(1 for s in summaries if s.stateful_goals_passed is True),
+            stateless_goal_pass_count=sum(1 for s in summaries if s.stateless_goals_passed is True),
+            stateful_all_calls_succeeded_count=sum(1 for s in summaries if s.stateful_all_calls_succeeded),
+            stateless_all_calls_succeeded_count=sum(1 for s in summaries if s.stateless_all_calls_succeeded),
             overview_metrics=overview_metrics,
             overall_conclusion=overall_conclusion,
             case_names=[case.case_name for case in cases],
@@ -109,8 +108,9 @@ class BatchComparisonRunner:
 
 
 def summarize_comparison_result(case: ComparisonCase, result: ComparisonResult) -> CaseComparisonSummary:
-    stateful_hits = _extract_last_query_hits(result.stateful_result)
-    stateless_hits = _extract_last_query_hits(result.stateless_result)
+    """Summarise a single comparison case result into a human-readable structure."""
+    stateful_hits = extract_last_query_hits(result.stateful_result.trace)
+    stateless_hits = extract_last_query_hits(result.stateless_result.trace)
     trajectory_summary = summarize_trajectory_difference(result)
 
     stateful_outcome = _build_outcome_text(
@@ -145,6 +145,7 @@ def summarize_comparison_result(case: ComparisonCase, result: ComparisonResult) 
 
 
 def render_markdown_report(batch_result: BatchComparisonResult) -> str:
+    """Render a batch comparison result as a Markdown report string."""
     metrics = batch_result.overview_metrics
     lines = [
         "# Stateless vs Stateful Comparison Report",
@@ -173,31 +174,29 @@ def render_markdown_report(batch_result: BatchComparisonResult) -> str:
     ]
 
     for summary in batch_result.summaries:
-        lines.extend(
-            [
-                f"## {summary.case_name}",
-                "",
-                f"- Description: {summary.description}",
-                f"- Stateful outcome: {summary.stateful_outcome}",
-                f"- Stateless outcome: {summary.stateless_outcome}",
-                f"- Stateful steps: {summary.stateful_trace_length}",
-                f"- Stateless steps: {summary.stateless_trace_length}",
-                f"- Stateful sequence: {summary.stateful_tool_sequence}",
-                f"- Stateless sequence: {summary.stateless_tool_sequence}",
-                f"- Key difference: {summary.key_difference}",
-                f"- Key process difference: {summary.key_process_difference}",
-                "",
-            ]
-        )
+        lines.extend([
+            f"## {summary.case_name}",
+            "",
+            f"- Description: {summary.description}",
+            f"- Stateful outcome: {summary.stateful_outcome}",
+            f"- Stateless outcome: {summary.stateless_outcome}",
+            f"- Stateful steps: {summary.stateful_trace_length}",
+            f"- Stateless steps: {summary.stateless_trace_length}",
+            f"- Stateful sequence: {summary.stateful_tool_sequence}",
+            f"- Stateless sequence: {summary.stateless_tool_sequence}",
+            f"- Key difference: {summary.key_difference}",
+            f"- Key process difference: {summary.key_process_difference}",
+            "",
+        ])
 
     return "\n".join(lines)
 
 
 def _build_outcome_text(
     label: str,
-    hits: List[Dict[str, Any]],
+    hits: list[dict[str, Any]],
     trace_length: int,
-    goals_passed: Optional[bool],
+    goals_passed: bool | None,
 ) -> str:
     if hits:
         file_ids = ", ".join(hit.get("file_id", "?") for hit in hits)
@@ -214,8 +213,8 @@ def _build_outcome_text(
 def _build_key_difference(
     case: ComparisonCase,
     result: ComparisonResult,
-    stateful_hits: List[Dict[str, Any]],
-    stateless_hits: List[Dict[str, Any]],
+    stateful_hits: list[dict[str, Any]],
+    stateless_hits: list[dict[str, Any]],
 ) -> str:
     stateful_trace_tools = [record.tool_name for record in result.stateful_result.trace]
     current_file = result.stateful_result.final_state.get_entity("file", "f1")
@@ -239,12 +238,6 @@ def _build_key_difference(
             )
 
     return (
-        f"Stateful and stateless outcomes diverged under case {case.case_name!r}; inspect trace and goals for details."
+        f"Stateful and stateless outcomes diverged under case {case.case_name!r}; "
+        "inspect trace and goals for details."
     )
-
-
-def _extract_last_query_hits(experiment_result: Any) -> List[Dict[str, Any]]:
-    for record in reversed(experiment_result.trace):
-        if record.tool_name == "search.query":
-            return record.observation.get("hits", [])
-    return []

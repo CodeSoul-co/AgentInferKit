@@ -1,34 +1,38 @@
-﻿"""
-stateless_baseline.py — 最小可运行的 stateless baseline
+"""Stateless baseline runner.
 
-语义约定：
-  - 不使用显式 search_index
-  - search.query 直接基于当前 file 内容做 substring matching
-  - 仍复用 WorldState 作为最小共享存储
+Semantics:
+  - No explicit search_index entities.
+  - search.query directly searches current file content via substring matching.
+  - Still reuses WorldState as minimal shared storage.
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from toolsim.evaluator import CallLevelEvaluator, StateEvaluationResult, StateGoalResult, StateLevelEvaluator
-from toolsim.experiment_runner import ExperimentResult
-from toolsim.file_tools import FILE_TOOLS
-from toolsim.stateful_executor import StatefulExecutor
-from toolsim.stateful_tracer import TraceRecorder
-from toolsim.tool_spec import ToolExecutionResult, ToolSpec
-from toolsim.world_state import WorldState
+from toolsim.core.tool_spec import ToolExecutionResult, ToolSpec
+from toolsim.core.world_state import WorldState
+from toolsim.evaluators.evaluator import (
+    CallLevelEvaluator,
+    StateEvaluationResult,
+    StateGoalResult,
+    StateLevelEvaluator,
+)
+from toolsim.execution.stateful_executor import StatefulExecutor
+from toolsim.execution.stateful_tracer import TraceRecorder
+from toolsim.runners.experiment_runner import ExperimentResult
+from toolsim.tools.file_tools import FILE_TOOLS
 
 
 class StatelessSearchQueryTool(ToolSpec):
-    """直接遍历当前 file 实体内容做 substring matching。"""
+    """Search query that directly scans current file entity content via substring matching."""
 
     tool_name: str = "search.query"
     description: str = (
         "Search current file contents directly using simple substring matching. "
         "No explicit search index is required."
     )
-    input_schema: Dict[str, Any] = {
+    input_schema: dict[str, Any] = {
         "type": "object",
         "properties": {
             "query": {"type": "string", "description": "Substring to search for."},
@@ -36,8 +40,8 @@ class StatelessSearchQueryTool(ToolSpec):
         "required": ["query"],
     }
 
-    def execute(self, state: WorldState, args: Dict[str, Any]) -> ToolExecutionResult:
-        query: Optional[str] = args.get("query")
+    def execute(self, state: WorldState, args: dict[str, Any]) -> ToolExecutionResult:
+        query: str | None = args.get("query")
 
         if not query:
             return ToolExecutionResult(
@@ -46,17 +50,15 @@ class StatelessSearchQueryTool(ToolSpec):
                 state_changed=False,
             )
 
-        hits: List[Dict[str, Any]] = []
+        hits: list[dict[str, Any]] = []
         for file_id, file_entity in state.entities.get("file", {}).items():
             content = file_entity.get("content", "")
             if query in content:
-                hits.append(
-                    {
-                        "file_id": file_id,
-                        "content": content,
-                        "metadata": file_entity.get("metadata", {}),
-                    }
-                )
+                hits.append({
+                    "file_id": file_id,
+                    "content": content,
+                    "metadata": file_entity.get("metadata", {}),
+                })
 
         return ToolExecutionResult(
             success=True,
@@ -69,16 +71,16 @@ class StatelessSearchQueryTool(ToolSpec):
         )
 
 
-STATELESS_TOOLS: Dict[str, ToolSpec] = {
+STATELESS_TOOLS: dict[str, ToolSpec] = {
     **FILE_TOOLS,
     "search.query": StatelessSearchQueryTool(),
 }
 
 
 class StatelessStateLevelEvaluator(StateLevelEvaluator):
-    """与 stateless query 语义对齐的最小 state-level evaluator。"""
+    """State-level evaluator aligned with stateless query semantics."""
 
-    def _evaluate_goal(self, state: WorldState, goal: Dict[str, Any]) -> StateGoalResult:
+    def _evaluate_goal(self, state: WorldState, goal: dict[str, Any]) -> StateGoalResult:
         goal_type = goal.get("type", "unknown")
 
         if goal_type == "indexed_contains":
@@ -108,13 +110,13 @@ class StatelessStateLevelEvaluator(StateLevelEvaluator):
 
 
 class StatelessExperimentRunner:
-    """与 stateful ExperimentRunner 接口相近的最小 stateless runner。"""
+    """Stateless experiment runner with an interface similar to :class:`ExperimentRunner`."""
 
     def __init__(
         self,
-        executor: Optional[StatefulExecutor] = None,
-        call_evaluator: Optional[CallLevelEvaluator] = None,
-        state_evaluator: Optional[StatelessStateLevelEvaluator] = None,
+        executor: StatefulExecutor | None = None,
+        call_evaluator: CallLevelEvaluator | None = None,
+        state_evaluator: StatelessStateLevelEvaluator | None = None,
     ) -> None:
         self._executor = executor
         self._call_evaluator = call_evaluator or CallLevelEvaluator()
@@ -122,9 +124,9 @@ class StatelessExperimentRunner:
 
     def run(
         self,
-        tool_calls: List[Dict[str, Any]],
-        initial_state: Optional[WorldState] = None,
-        goals: Optional[List[Dict[str, Any]]] = None,
+        tool_calls: list[dict[str, Any]],
+        initial_state: WorldState | None = None,
+        goals: list[dict[str, Any]] | None = None,
     ) -> ExperimentResult:
         state = initial_state if initial_state is not None else WorldState()
         tracer = TraceRecorder()
@@ -137,7 +139,7 @@ class StatelessExperimentRunner:
 
         trace = tracer.get_records()
         call_metrics = self._call_evaluator.evaluate(trace)
-        state_metrics: Optional[StateEvaluationResult] = (
+        state_metrics: StateEvaluationResult | None = (
             self._state_evaluator.evaluate(state, goals) if goals is not None else None
         )
 

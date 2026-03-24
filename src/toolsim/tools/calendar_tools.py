@@ -1,46 +1,54 @@
-﻿from __future__ import annotations
+"""Calendar event tools backed by WorldState entities."""
 
-from typing import Any, Dict, List, Optional
+from __future__ import annotations
 
-from toolsim.tool_spec import PostconditionSpec, PreconditionSpec, ToolExecutionResult, ToolMetadata, ToolSpec
-from toolsim.world_state import WorldState
+from typing import Any
 
-_EVENT_ENTITY_TYPE = "calendar_event"
+from toolsim.core.constants import CALENDAR_ALLOWED_STATUSES, EntityType
+from toolsim.core.tool_spec import PostconditionSpec, PreconditionSpec, ToolExecutionResult, ToolMetadata, ToolSpec
+from toolsim.core.world_state import WorldState
+
 _DEFAULT_CALENDAR_ID = "default"
-_ALLOWED_STATUS = {"confirmed", "cancelled"}
 
 
-def _calendar_policy(state: WorldState) -> Dict[str, Any]:
-    return state.policies.get("calendar", {}) if isinstance(state.policies.get("calendar", {}), dict) else {}
+def _calendar_policy(state: WorldState) -> dict[str, Any]:
+    """Extract calendar policy from world state."""
+    policy = state.policies.get("calendar", {})
+    return policy if isinstance(policy, dict) else {}
 
 
-def _iter_events(state: WorldState) -> List[Dict[str, Any]]:
-    events = state.entities.get(_EVENT_ENTITY_TYPE, {})
+def _iter_events(state: WorldState) -> list[dict[str, Any]]:
+    """Iterate over all calendar events sorted by id."""
+    events = state.entities.get(EntityType.CALENDAR_EVENT, {})
     return [event for _, event in sorted(events.items())]
 
 
-def _find_event(state: WorldState, event_id: str) -> Optional[Dict[str, Any]]:
-    return state.get_entity(_EVENT_ENTITY_TYPE, event_id)
+def _find_event(state: WorldState, event_id: str) -> dict[str, Any] | None:
+    """Retrieve a single event by id, or None if absent."""
+    return state.get_entity(EntityType.CALENDAR_EVENT, event_id)
 
 
 def _time_overlap(start_a: float, end_a: float, start_b: float, end_b: float) -> bool:
+    """Return True when two closed-open intervals overlap."""
     return start_a < end_b and start_b < end_a
 
 
-def _participants_overlap(left: List[str], right: List[str]) -> bool:
+def _participants_overlap(left: list[str], right: list[str]) -> bool:
+    """Return True when participant lists share at least one name."""
     return bool(set(left or []) & set(right or []))
 
 
 def _find_conflicts(
     state: WorldState,
     *,
-    event_id: Optional[str],
+    event_id: str | None,
     calendar_id: str,
     start_time: float,
     end_time: float,
-    participants: List[str],
-) -> List[Dict[str, Any]]:
-    conflicts: List[Dict[str, Any]] = []
+    participants: list[str],
+) -> list[dict[str, Any]]:
+    """Return confirmed events that conflict with the given time and participants."""
+    conflicts: list[dict[str, Any]] = []
     for event in _iter_events(state):
         if event_id is not None and event.get("event_id") == event_id:
             continue
@@ -48,23 +56,25 @@ def _find_conflicts(
             continue
         if event.get("calendar_id", _DEFAULT_CALENDAR_ID) != calendar_id:
             continue
-        if not _time_overlap(start_time, end_time, float(event.get("start_time", 0.0)), float(event.get("end_time", 0.0))):
+        if not _time_overlap(
+            start_time, end_time,
+            float(event.get("start_time", 0.0)), float(event.get("end_time", 0.0)),
+        ):
             continue
         if not _participants_overlap(participants, event.get("participants", [])):
             continue
-        conflicts.append(
-            {
-                "event_id": event.get("event_id"),
-                "title": event.get("title"),
-                "start_time": event.get("start_time"),
-                "end_time": event.get("end_time"),
-                "participants": event.get("participants", []),
-            }
-        )
+        conflicts.append({
+            "event_id": event.get("event_id"),
+            "title": event.get("title"),
+            "start_time": event.get("start_time"),
+            "end_time": event.get("end_time"),
+            "participants": event.get("participants", []),
+        })
     return conflicts
 
 
-def _serialize_event(event: Dict[str, Any]) -> Dict[str, Any]:
+def _serialize_event(event: dict[str, Any]) -> dict[str, Any]:
+    """Return a serialisable snapshot of an event entity."""
     return {
         "event_id": event.get("event_id"),
         "title": event.get("title"),
@@ -81,9 +91,11 @@ def _serialize_event(event: Dict[str, Any]) -> Dict[str, Any]:
 
 
 class CalendarCreateEventTool(ToolSpec):
+    """Create a calendar event with conflict detection and policy checks."""
+
     tool_name = "calendar.create_event"
     description = "Create a calendar event with conflict detection and policy checks."
-    input_schema: Dict[str, Any] = {
+    input_schema: dict[str, Any] = {
         "type": "object",
         "properties": {
             "event_id": {"type": "string"},
@@ -107,14 +119,22 @@ class CalendarCreateEventTool(ToolSpec):
         idempotency="non_idempotent",
     )
     preconditions = [
-        PreconditionSpec(kind="entity_absent", message="Event id must be new", config={"entity_type": _EVENT_ENTITY_TYPE, "arg_field": "event_id"})
+        PreconditionSpec(
+            kind="entity_absent",
+            message="Event id must be new",
+            config={"entity_type": EntityType.CALENDAR_EVENT, "arg_field": "event_id"},
+        )
     ]
     postconditions = [
-        PostconditionSpec(kind="entity_exists", message="Created event should exist", config={"entity_type": _EVENT_ENTITY_TYPE, "arg_field": "event_id"}),
+        PostconditionSpec(
+            kind="entity_exists",
+            message="Created event should exist",
+            config={"entity_type": EntityType.CALENDAR_EVENT, "arg_field": "event_id"},
+        ),
         PostconditionSpec(kind="state_hash_changed", message="Calendar state hash should change after create"),
     ]
 
-    def execute(self, state_or_context: Any, args: Dict[str, Any]) -> ToolExecutionResult:
+    def execute(self, state_or_context: Any, args: dict[str, Any]) -> ToolExecutionResult:
         state = self.get_state_from_input(state_or_context)
         clock = state_or_context.now() if hasattr(state_or_context, "now") else state.now()
 
@@ -169,19 +189,27 @@ class CalendarCreateEventTool(ToolSpec):
             "updated_at": clock,
             "calendar_id": calendar_id,
         }
-        state.set_entity(_EVENT_ENTITY_TYPE, event_id, event)
+        state.set_entity(EntityType.CALENDAR_EVENT, event_id, event)
 
         return ToolExecutionResult(
             success=True,
-            observation={"event_id": event_id, "status": event["status"], "conflict_detected": bool(conflicts), "created": True, "event": _serialize_event(event)},
+            observation={
+                "event_id": event_id,
+                "status": event["status"],
+                "conflict_detected": bool(conflicts),
+                "created": True,
+                "event": _serialize_event(event),
+            },
             state_changed=True,
         )
 
 
 class CalendarSearchEventsTool(ToolSpec):
+    """Search calendar events by time window, participant, status, calendar, or text query."""
+
     tool_name = "calendar.search_events"
     description = "Search calendar events by time window, participant, status, calendar, or text query."
-    input_schema: Dict[str, Any] = {
+    input_schema: dict[str, Any] = {
         "type": "object",
         "properties": {
             "start_time": {"type": "number"},
@@ -202,7 +230,7 @@ class CalendarSearchEventsTool(ToolSpec):
         idempotency="idempotent",
     )
 
-    def execute(self, state: WorldState, args: Dict[str, Any]) -> ToolExecutionResult:
+    def execute(self, state: WorldState, args: dict[str, Any]) -> ToolExecutionResult:
         start_time = args.get("start_time")
         end_time = args.get("end_time")
         participant = args.get("participant")
@@ -210,7 +238,7 @@ class CalendarSearchEventsTool(ToolSpec):
         status = args.get("status")
         query = (args.get("query") or "").lower()
 
-        hits: List[Dict[str, Any]] = []
+        hits: list[dict[str, Any]] = []
         for event in _iter_events(state):
             if start_time is not None and float(event.get("end_time", 0.0)) <= float(start_time):
                 continue
@@ -232,9 +260,11 @@ class CalendarSearchEventsTool(ToolSpec):
 
 
 class CalendarUpdateEventTool(ToolSpec):
+    """Update an existing calendar event with conflict detection and policy checks."""
+
     tool_name = "calendar.update_event"
     description = "Update an existing calendar event with conflict detection and policy checks."
-    input_schema: Dict[str, Any] = {
+    input_schema: dict[str, Any] = {
         "type": "object",
         "properties": {
             "event_id": {"type": "string"},
@@ -258,11 +288,17 @@ class CalendarUpdateEventTool(ToolSpec):
         idempotency="non_idempotent",
     )
     preconditions = [
-        PreconditionSpec(kind="entity_exists", message="Event must exist before update", config={"entity_type": _EVENT_ENTITY_TYPE, "arg_field": "event_id"})
+        PreconditionSpec(
+            kind="entity_exists",
+            message="Event must exist before update",
+            config={"entity_type": EntityType.CALENDAR_EVENT, "arg_field": "event_id"},
+        )
     ]
-    postconditions = [PostconditionSpec(kind="state_hash_changed", message="Calendar state hash should change after update")]
+    postconditions = [
+        PostconditionSpec(kind="state_hash_changed", message="Calendar state hash should change after update")
+    ]
 
-    def execute(self, state_or_context: Any, args: Dict[str, Any]) -> ToolExecutionResult:
+    def execute(self, state_or_context: Any, args: dict[str, Any]) -> ToolExecutionResult:
         state = self.get_state_from_input(state_or_context)
         clock = state_or_context.now() if hasattr(state_or_context, "now") else state.now()
         event_id = args.get("event_id")
@@ -285,7 +321,7 @@ class CalendarUpdateEventTool(ToolSpec):
             updated["end_time"] = float(args.get("end_time"))
         if "status" in args:
             new_status = args.get("status")
-            if new_status not in _ALLOWED_STATUS:
+            if new_status not in CALENDAR_ALLOWED_STATUSES:
                 return ToolExecutionResult(success=False, error=f"Unsupported status: {new_status!r}")
             updated["status"] = new_status
 
@@ -307,17 +343,32 @@ class CalendarUpdateEventTool(ToolSpec):
             participants=list(updated.get("participants", [])),
         )
         if conflicts and not allow_conflicts and updated.get("status", "confirmed") == "confirmed":
-            return ToolExecutionResult(success=False, error="Conflict detected for participant schedule", observation={"conflicts": conflicts, "conflict_detected": True})
+            return ToolExecutionResult(
+                success=False,
+                error="Conflict detected for participant schedule",
+                observation={"conflicts": conflicts, "conflict_detected": True},
+            )
 
         updated["updated_at"] = clock
-        state.set_entity(_EVENT_ENTITY_TYPE, event_id, updated)
-        return ToolExecutionResult(success=True, observation={"event_id": event_id, "updated": True, "event": _serialize_event(updated), "conflict_detected": bool(conflicts)}, state_changed=True)
+        state.set_entity(EntityType.CALENDAR_EVENT, event_id, updated)
+        return ToolExecutionResult(
+            success=True,
+            observation={
+                "event_id": event_id,
+                "updated": True,
+                "event": _serialize_event(updated),
+                "conflict_detected": bool(conflicts),
+            },
+            state_changed=True,
+        )
 
 
 class CalendarDeleteEventTool(ToolSpec):
+    """Soft-delete a calendar event by marking it cancelled."""
+
     tool_name = "calendar.delete_event"
     description = "Soft-delete a calendar event by marking it cancelled."
-    input_schema: Dict[str, Any] = {
+    input_schema: dict[str, Any] = {
         "type": "object",
         "properties": {"event_id": {"type": "string"}},
         "required": ["event_id"],
@@ -332,13 +383,21 @@ class CalendarDeleteEventTool(ToolSpec):
         idempotency="non_idempotent",
     )
     preconditions = [
-        PreconditionSpec(kind="entity_exists", message="Event must exist before delete", config={"entity_type": _EVENT_ENTITY_TYPE, "arg_field": "event_id"})
+        PreconditionSpec(
+            kind="entity_exists",
+            message="Event must exist before delete",
+            config={"entity_type": EntityType.CALENDAR_EVENT, "arg_field": "event_id"},
+        )
     ]
     postconditions = [
-        PostconditionSpec(kind="entity_field_equals", message="Deleted event should be marked cancelled", config={"entity_type": _EVENT_ENTITY_TYPE, "arg_field": "event_id", "field": "status", "expected": "cancelled"})
+        PostconditionSpec(
+            kind="entity_field_equals",
+            message="Deleted event should be marked cancelled",
+            config={"entity_type": EntityType.CALENDAR_EVENT, "arg_field": "event_id", "field": "status", "expected": "cancelled"},
+        )
     ]
 
-    def execute(self, state_or_context: Any, args: Dict[str, Any]) -> ToolExecutionResult:
+    def execute(self, state_or_context: Any, args: dict[str, Any]) -> ToolExecutionResult:
         state = self.get_state_from_input(state_or_context)
         clock = state_or_context.now() if hasattr(state_or_context, "now") else state.now()
         event_id = args.get("event_id")
@@ -356,11 +415,15 @@ class CalendarDeleteEventTool(ToolSpec):
         updated = dict(event)
         updated["status"] = "cancelled"
         updated["updated_at"] = clock
-        state.set_entity(_EVENT_ENTITY_TYPE, event_id, updated)
-        return ToolExecutionResult(success=True, observation={"event_id": event_id, "deleted": True, "event": _serialize_event(updated)}, state_changed=True)
+        state.set_entity(EntityType.CALENDAR_EVENT, event_id, updated)
+        return ToolExecutionResult(
+            success=True,
+            observation={"event_id": event_id, "deleted": True, "event": _serialize_event(updated)},
+            state_changed=True,
+        )
 
 
-CALENDAR_TOOLS: Dict[str, ToolSpec] = {
+CALENDAR_TOOLS: dict[str, ToolSpec] = {
     tool.tool_name: tool
     for tool in [
         CalendarCreateEventTool(),

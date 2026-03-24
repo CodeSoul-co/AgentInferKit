@@ -3,7 +3,7 @@
 from typing import Any, Dict, List, Optional
 
 from toolsim.backends.base import BaseBackend
-from toolsim.world_state import PendingEffect, WorldState
+from toolsim.core.world_state import PendingEffect, WorldState
 
 
 class MockBackend(BaseBackend):

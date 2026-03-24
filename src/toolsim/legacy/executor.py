@@ -1,9 +1,13 @@
-from typing import Any, Dict, List, Optional
+"""Legacy mock executor based on tool schema mock_responses."""
+
+from __future__ import annotations
+
+from typing import Any
 
 from loguru import logger
 
-from src.toolsim.registry import ToolRegistry
-from src.toolsim.tracer import ToolCallTracer
+from toolsim.core.registry import ToolRegistry
+from toolsim.legacy.tracer import ToolCallTracer
 
 
 class MockExecutor:
@@ -14,11 +18,11 @@ class MockExecutor:
     and records the call via the tracer.
     """
 
-    def __init__(self, registry: ToolRegistry, tracer: Optional[ToolCallTracer] = None) -> None:
+    def __init__(self, registry: ToolRegistry, tracer: ToolCallTracer | None = None) -> None:
         self._registry = registry
         self._tracer = tracer
 
-    def execute(self, tool_id: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, tool_id: str, parameters: dict[str, Any]) -> dict[str, Any]:
         """Execute a mock tool call.
 
         Args:
@@ -51,8 +55,8 @@ class MockExecutor:
 
     def _match_response(
         self,
-        mock_responses: List[Dict[str, Any]],
-        parameters: Dict[str, Any],
+        mock_responses: list[dict[str, Any]],
+        parameters: dict[str, Any],
     ) -> tuple:
         """Find the first matching mock response for the given parameters.
 

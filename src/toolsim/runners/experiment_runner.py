@@ -1,27 +1,41 @@
-﻿from __future__ import annotations
+"""Experiment runner: execute predefined tool-call sequences and evaluate outcomes."""
+
+from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 from toolsim.backends.base import BaseBackend
 from toolsim.backends.mock_backend import MockBackend
-from toolsim.environment import ToolEnvironment
-from toolsim.evaluator import CallEvaluationResult, CallLevelEvaluator, StateEvaluationResult, StateLevelEvaluator
-from toolsim.stateful_executor import ExecutionRecord, ExecutorConfig, StatefulExecutor, create_default_tool_registry
-from toolsim.stateful_tracer import TraceRecorder
-from toolsim.world_state import WorldState
+from toolsim.core.environment import ToolEnvironment
+from toolsim.core.world_state import WorldState
+from toolsim.evaluators.evaluator import (
+    CallEvaluationResult,
+    CallLevelEvaluator,
+    StateEvaluationResult,
+    StateLevelEvaluator,
+)
+from toolsim.execution.stateful_executor import (
+    ExecutionRecord,
+    ExecutorConfig,
+    StatefulExecutor,
+    create_default_tool_registry,
+)
+from toolsim.execution.stateful_tracer import TraceRecorder
 
 
 @dataclass
 class ExperimentResult:
+    """Result of a single experiment run."""
+
     final_state: WorldState
-    trace: List[ExecutionRecord]
+    trace: list[ExecutionRecord]
     call_metrics: CallEvaluationResult
-    state_metrics: Optional[StateEvaluationResult]
+    state_metrics: StateEvaluationResult | None
     all_calls_succeeded: bool
     final_state_hash: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "final_state": self.final_state.to_dict(),
             "trace": [record.to_dict() for record in self.trace],
@@ -37,11 +51,11 @@ class ExperimentRunner:
 
     def __init__(
         self,
-        executor: Optional[StatefulExecutor] = None,
-        call_evaluator: Optional[CallLevelEvaluator] = None,
-        state_evaluator: Optional[StateLevelEvaluator] = None,
-        executor_config: Optional[ExecutorConfig] = None,
-        backend: Optional[BaseBackend] = None,
+        executor: StatefulExecutor | None = None,
+        call_evaluator: CallLevelEvaluator | None = None,
+        state_evaluator: StateLevelEvaluator | None = None,
+        executor_config: ExecutorConfig | None = None,
+        backend: BaseBackend | None = None,
     ) -> None:
         self._executor = executor
         self._call_evaluator = call_evaluator or CallLevelEvaluator()
@@ -51,12 +65,12 @@ class ExperimentRunner:
 
     def run(
         self,
-        tool_calls: List[Dict[str, Any]],
-        initial_state: Optional[WorldState] = None,
-        goals: Optional[List[Dict[str, Any]]] = None,
-        permissions: Optional[Set[str]] = None,
-        environment: Optional[ToolEnvironment] = None,
-        backend: Optional[BaseBackend] = None,
+        tool_calls: list[dict[str, Any]],
+        initial_state: WorldState | None = None,
+        goals: list[dict[str, Any]] | None = None,
+        permissions: set[str] | None = None,
+        environment: ToolEnvironment | None = None,
+        backend: BaseBackend | None = None,
     ) -> ExperimentResult:
         active_backend = backend or environment.backend if environment is not None else backend or self._backend
 
@@ -100,11 +114,22 @@ class ExperimentRunner:
 
     def _build_executor(self, tracer: TraceRecorder, backend: BaseBackend) -> StatefulExecutor:
         if self._executor is not None:
-            return StatefulExecutor(self._executor._tools, tracer=tracer, config=self._executor_config, backend=backend)
-        return StatefulExecutor(create_default_tool_registry(), tracer=tracer, config=self._executor_config, backend=backend)
+            return StatefulExecutor(
+                self._executor._tools,
+                tracer=tracer,
+                config=self._executor_config,
+                backend=backend,
+            )
+        return StatefulExecutor(
+            create_default_tool_registry(),
+            tracer=tracer,
+            config=self._executor_config,
+            backend=backend,
+        )
 
 
-def build_file_search_demo_calls() -> List[Dict[str, Any]]:
+def build_file_search_demo_calls() -> list[dict[str, Any]]:
+    """Return the default file-search demo tool-call sequence."""
     return [
         {"tool_name": "file.write", "args": {"file_id": "f1", "content": "hello world"}},
         {"tool_name": "search.query", "args": {"query": "hello"}},
@@ -113,7 +138,8 @@ def build_file_search_demo_calls() -> List[Dict[str, Any]]:
     ]
 
 
-def build_file_search_demo_goals() -> List[Dict[str, Any]]:
+def build_file_search_demo_goals() -> list[dict[str, Any]]:
+    """Return the default file-search demo goal assertions."""
     return [
         {"type": "entity_exists", "entity_type": "file", "entity_id": "f1"},
         {"type": "indexed_contains", "file_id": "f1", "substring": "hello"},

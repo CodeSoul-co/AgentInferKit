@@ -1,25 +1,26 @@
 ﻿"""
-comparison_runner.py — 最小可运行的 Stateless vs Stateful 对比执行器
+comparison_runner.py — Stateless vs Stateful comparison runner
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from toolsim.experiment_runner import ExperimentRunner, ExperimentResult
-from toolsim.stateless_baseline import StatelessExperimentRunner
-from toolsim.world_state import WorldState
+from toolsim.runners.experiment_runner import ExperimentResult, ExperimentRunner
+from toolsim.runners.stateless_baseline import StatelessExperimentRunner
+from toolsim.core.utils import extract_last_query_hits
+from toolsim.core.world_state import WorldState
 
 
 @dataclass
 class ComparisonCase:
     case_name: str
     description: str
-    stateful_tool_calls: List[Dict[str, Any]]
-    stateless_tool_calls: List[Dict[str, Any]]
-    goals_stateful: Optional[List[Dict[str, Any]]] = None
-    goals_stateless: Optional[List[Dict[str, Any]]] = None
+    stateful_tool_calls: list[dict[str, Any]]
+    stateless_tool_calls: list[dict[str, Any]]
+    goals_stateful: list[dict[str, Any]] | None = None
+    goals_stateless: list[dict[str, Any]] | None = None
 
 
 @dataclass
@@ -27,9 +28,9 @@ class ComparisonResult:
     case_name: str
     stateful_result: ExperimentResult
     stateless_result: ExperimentResult
-    summary: Dict[str, Any]
+    summary: dict[str, Any]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "case_name": self.case_name,
             "stateful_result": self.stateful_result.to_dict(),
@@ -37,14 +38,14 @@ class ComparisonResult:
             "summary": self.summary,
         }
 
-    def to_readable_summary(self) -> Dict[str, Any]:
-        """导出一个更适合直接查看的紧凑摘要。"""
+    def to_readable_summary(self) -> dict[str, Any]:
+        """Export a compact summary suitable for direct inspection."""
         return {
             "case_name": self.case_name,
             "stateful_trace_length": len(self.stateful_result.trace),
             "stateless_trace_length": len(self.stateless_result.trace),
-            "stateful_final_hits": _extract_last_query_hits(self.stateful_result),
-            "stateless_final_hits": _extract_last_query_hits(self.stateless_result),
+            "stateful_final_hits": extract_last_query_hits(self.stateful_result.trace),
+            "stateless_final_hits": extract_last_query_hits(self.stateless_result.trace),
             "stateful_call_metrics": self.stateful_result.call_metrics.to_dict(),
             "stateless_call_metrics": self.stateless_result.call_metrics.to_dict(),
             "stateful_state_metrics": (
@@ -62,12 +63,12 @@ class ComparisonResult:
 
 
 class ComparisonRunner:
-    """运行单个对比 case 的 stateful / stateless 实验。"""
+    """Run a single comparison case with both stateful and stateless runners."""
 
     def __init__(
         self,
-        stateful_runner: Optional[ExperimentRunner] = None,
-        stateless_runner: Optional[StatelessExperimentRunner] = None,
+        stateful_runner: ExperimentRunner | None = None,
+        stateless_runner: StatelessExperimentRunner | None = None,
     ) -> None:
         self._stateful_runner = stateful_runner or ExperimentRunner()
         self._stateless_runner = stateless_runner or StatelessExperimentRunner()
@@ -102,17 +103,17 @@ class ComparisonRunner:
             summary=summary,
         )
 
-    def run_cases(self, cases: List[ComparisonCase]) -> List[ComparisonResult]:
-        """顺序运行多个 comparison cases。"""
+    def run_cases(self, cases: list[ComparisonCase]) -> list[ComparisonResult]:
+        """Run multiple comparison cases sequentially."""
         return [self.run_case(case) for case in cases]
 
-    def run_cases_with_readable_summary(self, cases: List[ComparisonCase]) -> List[Dict[str, Any]]:
-        """顺序运行多个 comparison cases，并返回便于查看的摘要列表。"""
+    def run_cases_with_readable_summary(self, cases: list[ComparisonCase]) -> list[dict[str, Any]]:
+        """Run multiple comparison cases and return a list of human-readable summaries."""
         return [result.to_readable_summary() for result in self.run_cases(cases)]
 
 
-def build_stateless_vs_stateful_cases() -> List[ComparisonCase]:
-    """构造突出显式索引依赖差异的最小案例集合。"""
+def build_stateless_vs_stateful_cases() -> list[ComparisonCase]:
+    """Build the default case set highlighting explicit-index dependency differences."""
     return [
         ComparisonCase(
             case_name="write_then_query",
@@ -177,10 +178,3 @@ def build_stateless_vs_stateful_cases() -> List[ComparisonCase]:
             ],
         ),
     ]
-
-
-def _extract_last_query_hits(result: ExperimentResult) -> List[Dict[str, Any]]:
-    for record in reversed(result.trace):
-        if record.tool_name == "search.query":
-            return record.observation.get("hits", [])
-    return []
