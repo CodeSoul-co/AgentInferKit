@@ -10,7 +10,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from toolsim.backends.mock_backend import MockBackend
 from toolsim.backends.sandbox_backend import SandboxBackend
 from toolsim.core.environment import ToolEnvironment
-from toolsim.runners.experiment_runner import ExperimentRunner, build_file_search_demo_calls, build_file_search_demo_goals
+from toolsim.runners.experiment_runner import (
+    ExperimentRunner,
+    build_file_search_demo_calls,
+    build_file_search_demo_goals,
+    build_issue_tracker_demo_calls,
+    build_issue_tracker_demo_goals,
+)
 from toolsim.core.world_state import WorldState
 
 
@@ -142,6 +148,45 @@ def test_experiment_runner_can_create_state_from_mock_backend():
     assert result.final_state.get_entity("file", "f1")["content"] == "backend hello"
 
 
+def test_issue_tracker_demo_flow_behaves_as_expected():
+    runner = ExperimentRunner()
+    result = runner.run(
+        tool_calls=build_issue_tracker_demo_calls(),
+        goals=build_issue_tracker_demo_goals(),
+        permissions={"issue.create", "issue.assign", "issue.close", "issue.comment"},
+    )
+
+    assert result.trace[1].tool_name == "issue.close"
+    assert result.trace[1].success is False
+    assert result.trace[3].tool_name == "issue.close"
+    assert result.trace[3].success is True
+    assert result.final_state.get_entity("issue", "iss1")["status"] == "closed"
+    assert result.state_metrics is not None
+    assert result.state_metrics.all_passed is True
+
+
+def test_experiment_runner_can_run_issue_flow():
+    runner = ExperimentRunner()
+    result = runner.run(
+        tool_calls=[
+            {"tool_name": "issue.create", "args": {"issue_id": "iss1", "title": "Search bug"}},
+            {"tool_name": "issue.assign", "args": {"issue_id": "iss1", "assignee": "bob"}},
+            {"tool_name": "issue.close", "args": {"issue_id": "iss1", "resolution": "fixed"}},
+        ],
+        goals=[
+            {"type": "issue_exists", "issue_id": "iss1"},
+            {"type": "issue_status_is", "issue_id": "iss1", "status": "closed"},
+        ],
+        permissions={"issue.create", "issue.assign", "issue.close"},
+    )
+
+    assert len(result.trace) == 3
+    assert result.trace[2].tool_name == "issue.close"
+    assert result.final_state.get_entity("issue", "iss1")["status"] == "closed"
+    assert result.state_metrics is not None
+    assert result.state_metrics.all_passed is True
+
+
 def test_experiment_runner_can_run_calendar_flow_with_sandbox_backend():
     backend = SandboxBackend(session_id="runner_box")
     runner = ExperimentRunner(backend=backend)
@@ -169,6 +214,8 @@ def run_all_tests() -> None:
     test_experiment_runner_reuses_environment_for_delayed_effects()
     test_experiment_runner_can_advance_time_without_external_environment_object()
     test_experiment_runner_can_create_state_from_mock_backend()
+    test_issue_tracker_demo_flow_behaves_as_expected()
+    test_experiment_runner_can_run_issue_flow()
     test_experiment_runner_can_run_calendar_flow_with_sandbox_backend()
     print("All experiment_runner tests passed!")
 

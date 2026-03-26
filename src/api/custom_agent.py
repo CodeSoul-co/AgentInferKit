@@ -22,6 +22,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from src.toolsim.adapters.stateful_runtime import StatefulToolRuntime
+
 from fastapi import APIRouter, HTTPException
 from loguru import logger
 from pydantic import BaseModel, Field
@@ -34,6 +36,7 @@ router = APIRouter(tags=["custom_agent"])
 # In-memory session store
 # ---------------------------------------------------------------------------
 _sessions: Dict[str, Dict[str, Any]] = {}
+_stateful_runtime = StatefulToolRuntime()
 
 
 # ---------------------------------------------------------------------------
@@ -53,7 +56,10 @@ class AgentSessionCreateRequest(BaseModel):
         default=["difficulty", "metadata.topic"],
         description="Grouping dimensions for evaluation"
     )
+    tool_permissions: List[str] = Field(default_factory=list, description="Permissions granted to stateful tool runtime sessions")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Arbitrary metadata about this agent run")
+    tool_runtime: str = Field(default="legacy", description="Tool runtime to use: legacy or stateful")
+    tool_backend: str = Field(default="mock", description="Backend for stateful runtime: mock or sandbox")
 
 
 class AgentSessionCreateResponse(BaseModel):
@@ -164,6 +170,9 @@ async def create_session(request: AgentSessionCreateRequest):
         "evaluators": request.evaluators,
         "group_by": request.group_by,
         "metadata": request.metadata,
+        "tool_runtime": request.tool_runtime,
+        "tool_backend": request.tool_backend,
+        "tool_permissions": request.tool_permissions,
         "status": "active",
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -195,26 +204,44 @@ async def tool_call(session_id: str, request: ToolCallRequest):
         raise HTTPException(status_code=409, detail="Session is not active")
 
     try:
-        from src.toolsim.registry import ToolRegistry
-        from src.toolsim.executor import MockExecutor
+        runtime = session.get("tool_runtime", "legacy")
+        if runtime == "stateful":
+            result = _stateful_runtime.execute_tool_call(
+                session_id=session_id,
+                tool_id=request.tool_id,
+                parameters=request.parameters,
+                permissions=set(session.get("tool_permissions", [])) or None,
+                backend=session.get("tool_backend", "mock"),
+            ).to_dict()
+            trace_observation = result
+            success = bool(result.get("success", False))
+            error = result.get("error")
+        else:
+            from src.toolsim.registry import ToolRegistry
+            from src.toolsim.executor import MockExecutor
 
-        registry = ToolRegistry()
-        executor = MockExecutor(registry)
-        result = executor.execute(request.tool_id, request.parameters)
+            registry = ToolRegistry()
+            executor = MockExecutor(registry)
+            result = executor.execute(request.tool_id, request.parameters)
+            trace_observation = result
+            success = True
+            error = None
 
         # Track tool trace
         trace_entry = {
             "tool_id": request.tool_id,
             "parameters": request.parameters,
-            "observation": result,
+            "observation": trace_observation,
             "timestamp": datetime.now(timezone.utc).isoformat(),
+            "runtime": runtime,
         }
         session["tool_traces"].setdefault(request.sample_id, []).append(trace_entry)
 
         return ResponseEnvelope(data=ToolCallResponse(
             tool_id=request.tool_id,
             observation=result,
-            success=True,
+            success=success,
+            error=error,
         ))
     except Exception as e:
         return ResponseEnvelope(data=ToolCallResponse(

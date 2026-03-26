@@ -73,6 +73,9 @@ class RunnerConfig(BaseModel):
     concurrency: int = Field(default=5, ge=1, le=50, description="Number of concurrent inference requests")
     retry_times: int = Field(default=3, ge=0, le=10, description="Number of retries on failure")
     resume: bool = Field(default=True, description="Whether to resume from checkpoint on restart")
+    tool_runtime: Literal["legacy", "stateful"] = Field(default="legacy", description="Tool runtime for api_calling tasks")
+    tool_backend: Literal["mock", "sandbox"] = Field(default="mock", description="Backend for the stateful tool runtime")
+    tool_permissions: List[str] = Field(default_factory=list, description="Permissions granted to the stateful tool runtime")
 
 
 class EvalConfig(BaseModel):

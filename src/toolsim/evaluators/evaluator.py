@@ -242,6 +242,58 @@ class StateLevelEvaluator:
             msg = f"Calendar search hit event {event_id}" if passed else f"Calendar search did not hit event {event_id}"
             return StateGoalResult(goal_type=goal_type, passed=passed, message=msg)
 
+        if goal_type == "issue_exists":
+            issue_id = goal.get("issue_id")
+            issue = state.get_entity("issue", issue_id)
+            passed = issue is not None
+            msg = f"Issue exists: {issue_id}" if passed else f"Issue missing: {issue_id}"
+            return StateGoalResult(goal_type=goal_type, passed=passed, message=msg)
+
+        if goal_type == "issue_field_equals":
+            issue_id = goal.get("issue_id")
+            field_name = goal.get("field")
+            expected = goal.get("expected")
+            issue = state.get_entity("issue", issue_id)
+            if issue is None:
+                return StateGoalResult(goal_type=goal_type, passed=False, message=f"Issue missing: {issue_id}")
+            actual = issue.get(field_name)
+            passed = actual == expected
+            msg = f"Issue field matched: {issue_id}.{field_name} == {expected!r}" if passed else f"Issue field mismatch: {issue_id}.{field_name} expected {expected!r}, got {actual!r}"
+            return StateGoalResult(goal_type=goal_type, passed=passed, message=msg)
+
+        if goal_type == "issue_status_is":
+            issue_id = goal.get("issue_id")
+            expected_status = goal.get("status")
+            issue = state.get_entity("issue", issue_id)
+            if issue is None:
+                return StateGoalResult(goal_type=goal_type, passed=False, message=f"Issue missing: {issue_id}")
+            actual_status = issue.get("status")
+            passed = actual_status == expected_status
+            msg = f"Issue status matched: {issue_id} == {expected_status!r}" if passed else f"Issue status mismatch: {issue_id} expected {expected_status!r}, got {actual_status!r}"
+            return StateGoalResult(goal_type=goal_type, passed=passed, message=msg)
+
+        if goal_type == "issue_has_assignee":
+            issue_id = goal.get("issue_id")
+            expected_assignee = goal.get("assignee")
+            issue = state.get_entity("issue", issue_id)
+            if issue is None:
+                return StateGoalResult(goal_type=goal_type, passed=False, message=f"Issue missing: {issue_id}")
+            actual_assignee = issue.get("assignee")
+            passed = actual_assignee == expected_assignee
+            msg = f"Issue assignee matched: {issue_id} == {expected_assignee!r}" if passed else f"Issue assignee mismatch: {issue_id} expected {expected_assignee!r}, got {actual_assignee!r}"
+            return StateGoalResult(goal_type=goal_type, passed=passed, message=msg)
+
+        if goal_type == "issue_comment_count_is":
+            issue_id = goal.get("issue_id")
+            expected_count = goal.get("count")
+            issue = state.get_entity("issue", issue_id)
+            if issue is None:
+                return StateGoalResult(goal_type=goal_type, passed=False, message=f"Issue missing: {issue_id}")
+            actual_count = issue.get("comment_count")
+            passed = actual_count == expected_count
+            msg = f"Issue comment count matched: {issue_id} == {expected_count!r}" if passed else f"Issue comment count mismatch: {issue_id} expected {expected_count!r}, got {actual_count!r}"
+            return StateGoalResult(goal_type=goal_type, passed=passed, message=msg)
+
         return StateGoalResult(goal_type=goal_type, passed=False, message=f"Unsupported goal type: {goal_type}")
 
 
