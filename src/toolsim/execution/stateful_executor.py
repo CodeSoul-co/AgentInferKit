@@ -13,6 +13,7 @@ from toolsim.backends.mock_backend import MockBackend
 from toolsim.tools.calendar_tools import CALENDAR_TOOLS
 from toolsim.core.environment import ToolEnvironment
 from toolsim.tools.file_tools import FILE_TOOLS
+from toolsim.tools.issue_tools import ISSUE_TOOLS
 from toolsim.tools.search_tools import SEARCH_TOOLS
 from toolsim.core.tool_spec import (
     ConditionCheckResult,
@@ -424,6 +425,7 @@ def create_default_tool_registry() -> dict[str, ToolSpec]:
     registry.update(FILE_TOOLS)
     registry.update(SEARCH_TOOLS)
     registry.update(CALENDAR_TOOLS)
+    registry.update(ISSUE_TOOLS)
     return registry
 
 

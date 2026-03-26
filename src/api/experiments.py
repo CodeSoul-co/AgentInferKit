@@ -157,7 +157,7 @@ async def _run_experiment_task(experiment_id: str, exp: Dict[str, Any]):
         # Create appropriate runner
         rag_config = exp.get("rag", {})
         if task_type == "api_calling":
-            runner = AgentRunner(adapter, strategy, model_config=model_config, rag_config=rag_config)
+            runner = AgentRunner(adapter, strategy, model_config=model_config, rag_config=rag_config, runner_config=exp.get("runner", {}))
         elif task_type in ("text_exam", "image_mcq"):
             runner = ExamRunner(adapter, strategy, model_config=model_config, rag_config=rag_config)
         else:

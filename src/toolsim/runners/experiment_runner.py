@@ -145,3 +145,24 @@ def build_file_search_demo_goals() -> list[dict[str, Any]]:
         {"type": "indexed_contains", "file_id": "f1", "substring": "hello"},
         {"type": "query_hits_file", "query": "hello", "file_id": "f1"},
     ]
+
+
+def build_issue_tracker_demo_calls() -> list[dict[str, Any]]:
+    """Return the default issue-tracker demo tool-call sequence."""
+    return [
+        {"tool_name": "issue.create", "args": {"issue_id": "iss1", "title": "Search bug", "reporter": "alice"}},
+        {"tool_name": "issue.close", "args": {"issue_id": "iss1", "resolution": "fixed"}},
+        {"tool_name": "issue.assign", "args": {"issue_id": "iss1", "assignee": "bob"}},
+        {"tool_name": "issue.close", "args": {"issue_id": "iss1", "resolution": "fixed"}},
+        {"tool_name": "issue.comment", "args": {"issue_id": "iss1", "comment_id": "c1", "content": "Patched and verified"}},
+    ]
+
+
+def build_issue_tracker_demo_goals() -> list[dict[str, Any]]:
+    """Return the default issue-tracker demo goal assertions."""
+    return [
+        {"type": "issue_exists", "issue_id": "iss1"},
+        {"type": "issue_status_is", "issue_id": "iss1", "status": "closed"},
+        {"type": "issue_has_assignee", "issue_id": "iss1", "assignee": "bob"},
+        {"type": "issue_comment_count_is", "issue_id": "iss1", "count": 1},
+    ]

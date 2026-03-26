@@ -16,6 +16,7 @@ from src.api.schemas import Message
 from src.langchain_bridge import TokenUsageTracker
 from src.runners.base import BaseRunner
 from src.strategies.base import BaseStrategy
+from src.toolsim.adapters.stateful_runtime import StatefulToolRuntime
 from src.toolsim.executor import MockExecutor
 from src.toolsim.registry import ToolRegistry
 
@@ -35,13 +36,20 @@ class AgentRunner(BaseRunner):
         strategy: BaseStrategy,
         model_config: Optional[Dict[str, Any]] = None,
         rag_config: Optional[Dict[str, Any]] = None,
+        runner_config: Optional[Dict[str, Any]] = None,
     ) -> None:
         self._adapter = adapter
         self._strategy = strategy
         self._model_config = {**(model_config or {}), **strategy.get_model_overrides()}
         self._rag_config = rag_config or {}
+        self._runner_config = runner_config or {}
         self._tool_registry = ToolRegistry()
         self._mock_executor = MockExecutor(self._tool_registry)
+        runtime_cfg = self._runner_config or (getattr(strategy, "_runtime_cfg", {}) if hasattr(strategy, "_runtime_cfg") else {})
+        self._tool_runtime = runtime_cfg.get("tool_runtime", "legacy")
+        self._tool_backend = runtime_cfg.get("tool_backend", "mock")
+        self._tool_permissions = set(runtime_cfg.get("tool_permissions", []))
+        self._stateful_runtime = StatefulToolRuntime() if self._tool_runtime == "stateful" else None
 
     async def run_single(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         """Run inference on a single api_calling sample."""
@@ -64,7 +72,16 @@ class AgentRunner(BaseRunner):
         tool_schemas = self._tool_registry.get_tools_for_sample(tool_ids)
 
         try:
-            result = strategy.run_react_loop(sample, self._model_config, tool_schemas)
+            result = strategy.run_react_loop(
+                sample,
+                self._model_config,
+                tool_schemas,
+                tool_runtime=self._tool_runtime,
+                tool_backend=self._tool_backend,
+                tool_permissions=self._tool_permissions,
+                session_id=sample.get("sample_id", ""),
+                stateful_runtime=self._stateful_runtime,
+            )
         except Exception as e:
             elapsed = (time.perf_counter() - start) * 1000
             tracker = TokenUsageTracker()

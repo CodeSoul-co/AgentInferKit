@@ -16,6 +16,7 @@ from loguru import logger
 from src.api.schemas import Message
 from src.langchain_bridge import TokenUsageTracker, make_langchain_llm
 from src.strategies.base import BaseStrategy
+from src.toolsim.adapters.stateful_runtime import StatefulToolRuntime
 
 
 # ---------------------------------------------------------------------------
@@ -71,6 +72,11 @@ class ReActStrategy(BaseStrategy):
         sample: Dict[str, Any],
         model_config: Dict[str, Any],
         tool_schemas: List[Dict[str, Any]],
+        tool_runtime: str = "legacy",
+        tool_backend: str = "mock",
+        tool_permissions: Optional[set[str]] = None,
+        session_id: str = "",
+        stateful_runtime: Optional[StatefulToolRuntime] = None,
     ) -> Dict[str, Any]:
         """Run the Thought->Action->Observation loop from vendor/ReAct.
 
@@ -94,6 +100,7 @@ class ReActStrategy(BaseStrategy):
 
         registry = ToolRegistry()
         executor = MockExecutor(registry)
+        runtime = stateful_runtime or (StatefulToolRuntime() if tool_runtime == "stateful" else None)
 
         # Build tool description for the instruction
         tool_desc_parts = []
@@ -176,16 +183,46 @@ class ReActStrategy(BaseStrategy):
             if tool_match:
                 tool_name = tool_match.group(1).lower()
                 tool_input = tool_match.group(2)
-                result = executor.execute(tool_name, {"input": tool_input})
-                obs = json.dumps(
-                    result.get("response", result), ensure_ascii=False
-                )
-                tool_trace.append({
-                    "tool_id": tool_name,
-                    "parameters": {"input": tool_input},
-                    "response": obs,
-                    "status": "success" if "error" not in result else "error",
-                })
+                try:
+                    params = json.loads(tool_input)
+                except (json.JSONDecodeError, TypeError):
+                    params = {"input": tool_input}
+                if not isinstance(params, dict):
+                    params = {"input": str(params)}
+
+                if tool_runtime == "stateful" and runtime is not None:
+                    runtime_result = runtime.execute_tool_call(
+                        session_id=session_id or sample.get("sample_id", "react_session"),
+                        tool_id=tool_name,
+                        parameters=params,
+                        permissions=tool_permissions or None,
+                        backend=tool_backend,
+                    ).to_dict()
+                    obs_payload = runtime_result.get("observation", {}) if runtime_result.get("success") else {
+                        "error": runtime_result.get("error"),
+                        "status": runtime_result.get("status"),
+                        "observation": runtime_result.get("observation", {}),
+                    }
+                    obs = json.dumps(obs_payload, ensure_ascii=False)
+                    tool_trace.append({
+                        "tool_id": tool_name,
+                        "parameters": params,
+                        "response": runtime_result,
+                        "status": runtime_result.get("status", "failed"),
+                        "runtime": "stateful",
+                    })
+                else:
+                    result = executor.execute(tool_name, params)
+                    obs = json.dumps(
+                        result.get("response", result), ensure_ascii=False
+                    )
+                    tool_trace.append({
+                        "tool_id": tool_name,
+                        "parameters": params,
+                        "response": result,
+                        "status": "success" if "error" not in result else "error",
+                        "runtime": "legacy",
+                    })
             else:
                 obs = f"Invalid action format: {action}"
                 logger.warning(f"ReAct step {i}: invalid action: {action}")

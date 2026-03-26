@@ -98,6 +98,35 @@ def test_state_level_evaluator_checks_query_hits_file():
     assert result.failed_count == 0
 
 
+def test_state_level_evaluator_checks_issue_goals():
+    ws = WorldState()
+    executor = StatefulExecutor(create_default_tool_registry())
+    executor.execute(
+        "issue.create",
+        ws,
+        {"issue_id": "iss1", "title": "Search bug", "reporter": "alice"},
+        permissions={"issue.create"},
+    )
+    executor.execute("issue.assign", ws, {"issue_id": "iss1", "assignee": "bob"}, permissions={"issue.assign"})
+    executor.execute("issue.comment", ws, {"issue_id": "iss1", "comment_id": "c1", "content": "Looking into it"}, permissions={"issue.comment"})
+    executor.execute("issue.close", ws, {"issue_id": "iss1", "resolution": "fixed"}, permissions={"issue.close"})
+
+    goals = [
+        {"type": "issue_exists", "issue_id": "iss1"},
+        {"type": "issue_field_equals", "issue_id": "iss1", "field": "resolution", "expected": "fixed"},
+        {"type": "issue_status_is", "issue_id": "iss1", "status": "closed"},
+        {"type": "issue_has_assignee", "issue_id": "iss1", "assignee": "bob"},
+        {"type": "issue_comment_count_is", "issue_id": "iss1", "count": 1},
+    ]
+
+    result = StateLevelEvaluator().evaluate(ws, goals)
+
+    assert result.goal_count == 5
+    assert result.passed_count == 5
+    assert result.failed_count == 0
+    assert result.all_passed is True
+
+
 def test_state_level_evaluator_checks_calendar_goals():
     ws = WorldState(clock=5.0, policies={"calendar": {"allow_delete_started_event": True}})
     executor = StatefulExecutor(create_default_tool_registry())
@@ -155,6 +184,7 @@ def run_all_tests() -> None:
     test_state_level_evaluator_checks_indexed_contains()
     test_state_level_evaluator_checks_query_hits_file()
     test_state_level_evaluator_checks_calendar_goals()
+    test_state_level_evaluator_checks_issue_goals()
     test_state_level_evaluator_mixed_goals_reports_counts()
     print("All evaluator tests passed!")
 

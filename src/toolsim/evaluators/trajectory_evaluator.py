@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import TYPE_CHECKING, Any, Optional, Sequence
 
 from toolsim.execution.stateful_executor import ExecutionRecord
 from toolsim.execution.stateful_tracer import TraceRecorder
@@ -28,6 +28,7 @@ class TrajectoryMetrics:
     query_before_index_detected: bool
     explicit_dependency_resolution_detected: bool
     overwrite_without_reindex_detected: bool
+    issue_close_recovery_detected: bool
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -44,6 +45,7 @@ class TrajectoryMetrics:
             "query_before_index_detected": self.query_before_index_detected,
             "explicit_dependency_resolution_detected": self.explicit_dependency_resolution_detected,
             "overwrite_without_reindex_detected": self.overwrite_without_reindex_detected,
+            "issue_close_recovery_detected": self.issue_close_recovery_detected,
         }
 
 
@@ -103,6 +105,7 @@ class TrajectoryLevelEvaluator:
             query_before_index_detected=detect_query_before_index(records),
             explicit_dependency_resolution_detected=detect_explicit_dependency_resolution(records),
             overwrite_without_reindex_detected=detect_overwrite_without_reindex_pattern(records),
+            issue_close_recovery_detected=detect_issue_close_recovery_pattern(records),
         )
 
 
@@ -127,6 +130,22 @@ def detect_explicit_dependency_resolution(records_or_tracer: Sequence[ExecutionR
         if record.tool_name == "search.index":
             seen_index = True
         elif record.tool_name == "search.query" and seen_index:
+            return True
+    return False
+
+
+def detect_issue_close_recovery_pattern(records_or_tracer: Sequence[ExecutionRecord] | TraceRecorder) -> bool:
+    records = _normalize_records(records_or_tracer)
+    failed_close_issue_ids: set[str] = set()
+    assigned_issue_ids: set[str] = set()
+
+    for record in records:
+        issue_id = record.args.get("issue_id")
+        if record.tool_name == "issue.close" and not record.success and issue_id:
+            failed_close_issue_ids.add(issue_id)
+        elif record.tool_name == "issue.assign" and record.success and issue_id in failed_close_issue_ids:
+            assigned_issue_ids.add(issue_id)
+        elif record.tool_name == "issue.close" and record.success and issue_id in assigned_issue_ids:
             return True
     return False
 

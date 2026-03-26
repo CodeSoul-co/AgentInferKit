@@ -52,6 +52,7 @@ from toolsim.core.side_effects import (
 
 # Tool implementations
 from toolsim.tools.file_tools import FILE_TOOLS, FileReadTool, FileWriteTool
+from toolsim.tools.issue_tools import ISSUE_TOOLS, IssueAssignTool, IssueCloseTool, IssueCommentTool, IssueCreateTool, IssueReopenTool
 from toolsim.tools.search_tools import SEARCH_TOOLS, SearchIndexTool, SearchQueryTool
 from toolsim.tools.calendar_tools import (
     CALENDAR_TOOLS,
@@ -77,6 +78,7 @@ from toolsim.evaluators.trajectory_evaluator import (
     TrajectoryLevelEvaluator,
     TrajectoryMetrics,
     detect_explicit_dependency_resolution,
+    detect_issue_close_recovery_pattern,
     detect_overwrite_without_reindex_pattern,
     detect_query_before_index,
     summarize_trajectory_difference,
@@ -99,7 +101,14 @@ from toolsim.runners.comparison_runner import (
     ComparisonRunner,
     build_stateless_vs_stateful_cases,
 )
-from toolsim.runners.experiment_runner import ExperimentResult, ExperimentRunner
+from toolsim.runners.experiment_runner import (
+    ExperimentResult,
+    ExperimentRunner,
+    build_file_search_demo_calls,
+    build_file_search_demo_goals,
+    build_issue_tracker_demo_calls,
+    build_issue_tracker_demo_goals,
+)
 from toolsim.runners.stateless_baseline import StatelessExperimentRunner
 
 # Registry
@@ -140,8 +149,14 @@ __all__ = [
     "FILE_TOOLS",
     "SEARCH_TOOLS",
     "CALENDAR_TOOLS",
+    "ISSUE_TOOLS",
     "FileWriteTool",
     "FileReadTool",
+    "IssueCreateTool",
+    "IssueAssignTool",
+    "IssueCommentTool",
+    "IssueCloseTool",
+    "IssueReopenTool",
     "SearchIndexTool",
     "SearchQueryTool",
     "CalendarCreateEventTool",
@@ -164,6 +179,7 @@ __all__ = [
     "detect_query_before_index",
     "detect_explicit_dependency_resolution",
     "detect_overwrite_without_reindex_pattern",
+    "detect_issue_close_recovery_pattern",
     "summarize_trajectory_difference",
     # Reporting
     "BatchComparisonRunner",
@@ -181,6 +197,10 @@ __all__ = [
     "build_stateless_vs_stateful_cases",
     "ExperimentRunner",
     "ExperimentResult",
+    "build_file_search_demo_calls",
+    "build_file_search_demo_goals",
+    "build_issue_tracker_demo_calls",
+    "build_issue_tracker_demo_goals",
     "StatelessExperimentRunner",
     # Registry
     "ToolRegistry",

@@ -8,6 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from toolsim.runners.comparison_runner import ComparisonRunner, build_stateless_vs_stateful_cases
+from toolsim.runners.experiment_runner import ExperimentRunner, build_issue_tracker_demo_calls, build_issue_tracker_demo_goals
 from toolsim.reporting.reporting import BatchComparisonRunner, render_markdown_report
 from toolsim.evaluators.trajectory_evaluator import TrajectoryLevelEvaluator, summarize_trajectory_difference
 
@@ -61,6 +62,18 @@ def test_detects_overwrite_without_reindex_pattern():
     assert metrics.overwrite_without_reindex_detected is True
 
 
+def test_detects_issue_close_recovery_pattern():
+    result = ExperimentRunner().run(
+        tool_calls=build_issue_tracker_demo_calls(),
+        goals=build_issue_tracker_demo_goals(),
+        permissions={"issue.create", "issue.assign", "issue.close", "issue.comment"},
+    )
+    metrics = TrajectoryLevelEvaluator().evaluate(result.trace)
+
+    assert metrics.issue_close_recovery_detected is True
+    assert metrics.first_failure_step == 2
+
+
 def test_comparison_level_trajectory_difference_text_is_reasonable():
     results = [ComparisonRunner().run_case(case) for case in build_stateless_vs_stateful_cases()]
     summaries = [summarize_trajectory_difference(result) for result in results]
@@ -84,6 +97,7 @@ def run_all_tests() -> None:
     test_detects_query_before_index_pattern()
     test_detects_explicit_dependency_resolution_pattern()
     test_detects_overwrite_without_reindex_pattern()
+    test_detects_issue_close_recovery_pattern()
     test_comparison_level_trajectory_difference_text_is_reasonable()
     test_markdown_report_contains_step_counts_or_sequences()
     print("All trajectory_evaluator tests passed!")
