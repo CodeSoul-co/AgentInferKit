@@ -1,6 +1,4 @@
-﻿"""
-comparison_runner.py — Stateless vs Stateful comparison runner
-"""
+﻿"""Stateless vs Stateful comparison runner."""
 
 from __future__ import annotations
 

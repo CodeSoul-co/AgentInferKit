@@ -26,8 +26,8 @@ class TraceRecorder:
         return list(self._records)
 
     def filter_by_status(self, status: str) -> list[ExecutionRecord]:
-        """Return records with the given execution status."""
-        return [record for record in self._records if record.status == status]
+        """Return records with the given execution status (accepts enum value or raw string)."""
+        return [record for record in self._records if getattr(record.status, "value", record.status) == status]
 
     def filter_by_tool(self, tool_name: str) -> list[ExecutionRecord]:
         """Return records for the given tool name."""

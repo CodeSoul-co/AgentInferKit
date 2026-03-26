@@ -283,13 +283,80 @@ Contributions are welcome, especially in:
 
 ---
 
-## Citation
+## Code Review (dev)
 
-```bibtex
-@misc{agentinferkit,
-  title={AgentInferKit: A Modular Platform for Agent Inference, Evaluation, and Training},
-  author={CodeSoul-co},
-  year={2026},
-  howpublished={GitHub repository}
-}
-```
+This section tracks engineering quality issues and improvement opportunities found during review of the `toolsim` module. Items are labelled by severity.
+
+---
+
+### High Priority
+
+**`execution/stateful_executor.py` — `ExecutionRecord.status` uses raw strings**
+The `status` field on `ExecutionRecord` (line 50) is typed as `str` with values like `"failed"`, `"succeeded"` instead of the `ExecutionStatus` enum already defined in `core/constants.py`. Should be: `status: ExecutionStatus = ExecutionStatus.FAILED`.
+
+**`core/world_state.py` — `list_pending_effects(status=...)` accepts `str` instead of `EffectStatus`**
+The `status` parameter on line 227 is `str | None`, but the method compares `effect.status == status` where `effect.status` is `EffectStatus`. This causes type mismatch and relies on `EffectStatus.value` coercion. Should be typed as `EffectStatus | None`.
+
+**`evaluators/trajectory_evaluator.py` — Late runtime import causes `ComparisonResult` to be unknown at static-analysis time**
+`overview_summary.py` imports `ComparisonResult` via `TYPE_CHECKING` but then calls `summarize_trajectory_difference(result)` inside a loop. If `result` is typed loosely, static type checkers cannot validate field access. Ensure `ComparisonResult` is fully resolved before use.
+
+---
+
+### Medium Priority
+
+**`evaluators/trajectory_evaluator.py` — Mixed lowercase/uppercase type hints**
+File imports `Dict` and `List` (line 5: `from typing import Dict, List`) alongside `__future__ annotations`. Should migrate all to modern `dict[...]` / `list[...]` syntax, consistent with the rest of the codebase.
+
+**`evaluators/trajectory_evaluator.py` — Chinese comment in English source**
+Line 77 contains a Chinese comment (`对 trace 做最小 trajectory-level 统计和模式检测。`). Should be replaced with an English equivalent for codebase consistency.
+
+**`backends/base.py`, `backends/mock_backend.py`, `backends/sandbox_backend.py` — Module-level docstrings absent**
+All three backends lack module docstrings. Add a one-line description of each backend's purpose.
+
+**`reporting/reporting.py` — `_build_key_difference` hardcodes `"file"` entity type**
+Line 220: `result.stateful_result.final_state.get_entity("file", "f1")` uses `"file"` as a raw string. Should use `EntityType.FILE` from `core/constants.py`.
+
+**`evaluators/overview_summary.py` — Late `from dict import tuple` in `_normalize_hits`**
+Line 182 uses a local import `from typing import Any, Dict, List` which is redundant since the module already imports from `typing` at the top. Remove the duplicate import and use the existing names.
+
+---
+
+### Low Priority / Style
+
+**`execution/stateful_executor.py` — `ExecutionRecord` dataclass lacks docstring**
+The `ExecutionRecord` dataclass (line 42) has no class-level docstring. Should document its purpose and the meaning of each field.
+
+**`evaluators/trajectory_evaluator.py` — `TrajectoryMetrics` and `TrajectoryComparisonSummary` dataclasses lack docstrings**
+Both dataclasses have no class docstrings. Add one-line descriptions.
+
+**`runners/experiment_runner.py` — Demo helper functions lack docstrings**
+`build_file_search_demo_calls`, `build_file_search_demo_goals`, `build_issue_tracker_demo_calls`, and `build_issue_tracker_demo_goals` have no docstrings. Should document their return value and purpose.
+
+**`core/environment.py` — `ToolEnvironment.run_until_idle` lacks docstring**
+The method on line 48 should have a docstring explaining `max_steps` cap and what constitutes "idle".
+
+**`backends/base.py` — Abstract methods lack docstrings**
+All `@abstractmethod` definitions (`get_backend_name`, `create_state`, etc.) lack docstrings. Add at minimum a one-line description for each.
+
+**`reporting/reporting.py` — Magic string `"file"` and `"f1"` in `_build_key_difference`**
+Lines 220–221 hardcode `"file"` entity type and `"f1"` as the example file ID. These are test fixture values leaking into production code and should be parameterized or replaced with constants.
+
+**`comparison_runner.py` — Module docstring style**
+Uses `"""..."""` on a single line (line 1–3) rather than a clean single-line module docstring. Should be: `"""Stateless vs Stateful comparison runner."""`.
+
+---
+
+### Already Good
+
+- `core/constants.py`: Clean separation of enums, effect kinds, and numeric defaults. No magic strings elsewhere in the module.
+- `core/world_state.py`: Comprehensive `to_dict`/`from_dict` serialization, `__repr__` implemented, `copy.deepcopy` used consistently.
+- `tool_spec.py`: Well-structured abstract base class with `TYPE_CHECKING` guard for runtime-safe imports.
+- `tools/`: All four tool files (`file_tools.py`, `search_tools.py`, `calendar_tools.py`, `issue_tools.py`) have module docstrings, class docstrings, helper functions with docstrings, and use constants from `core/constants.py`.
+- `backends/__init__.py`, `core/__init__.py`, `adapters/__init__.py`: All have proper `__all__` exports and docstrings.
+- `evaluators/evaluator.py`: `CallLevelEvaluator` and `StateLevelEvaluator` have proper docstrings; `StateLevelEvaluator._evaluate_goal` handles all goal types with clear messages.
+- `__init__.py` (root): Comprehensive `__all__` with 80+ public symbols; Quick Start example in module docstring.
+- Circular import chain: Resolved via `TYPE_CHECKING` guards in `evaluator.py` and `overview_summary.py`.
+
+---
+
+## Citation

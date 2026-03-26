@@ -15,6 +15,7 @@ from toolsim.core.environment import ToolEnvironment
 from toolsim.tools.file_tools import FILE_TOOLS
 from toolsim.tools.issue_tools import ISSUE_TOOLS
 from toolsim.tools.search_tools import SEARCH_TOOLS
+from toolsim.core.constants import ExecutionStatus
 from toolsim.core.tool_spec import (
     ConditionCheckResult,
     ExecutionContext,
@@ -47,7 +48,7 @@ class ExecutionRecord:
     tool_name: str
     tool_version: str = "0.1"
     args: dict[str, Any] = field(default_factory=dict)
-    status: str = "failed"
+    status: ExecutionStatus = ExecutionStatus.FAILED
     success: bool = False
     observation: dict[str, Any] = field(default_factory=dict)
     error: str | None = None
@@ -139,7 +140,7 @@ class StatefulExecutor:
                 call_id=call_id,
                 tool_name=tool_name,
                 args=dict(args),
-                status="failed",
+                status=ExecutionStatus.FAILED,
                 success=False,
                 observation={},
                 error=f"Tool not found: {tool_name!r}",
@@ -162,7 +163,7 @@ class StatefulExecutor:
                 tool_name=metadata.name,
                 tool_version=metadata.version,
                 args=dict(args),
-                status="failed",
+                status=ExecutionStatus.FAILED,
                 success=False,
                 observation={},
                 error=self._build_failure_message(permission_results, precondition_results),
@@ -203,7 +204,7 @@ class StatefulExecutor:
                 tool_name=metadata.name,
                 tool_version=metadata.version,
                 args=dict(args),
-                status="failed",
+                status=ExecutionStatus.FAILED,
                 success=False,
                 observation={},
                 error=f"Tool execution raised an exception: {exc}",

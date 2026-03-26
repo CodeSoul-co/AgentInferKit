@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Sequence
 
 from toolsim.execution.stateful_executor import ExecutionRecord
 from toolsim.execution.stateful_tracer import TraceRecorder
@@ -15,14 +15,16 @@ if TYPE_CHECKING:
 
 @dataclass
 class TrajectoryMetrics:
+    """Aggregate trajectory-level statistics for a sequence of execution records."""
+
     total_steps: int
-    tool_sequence: List[str]
-    unique_tools: List[str]
-    repeated_calls: Dict[str, int]
+    tool_sequence: list[str]
+    unique_tools: list[str]
+    repeated_calls: dict[str, int]
     contains_index_step: bool
     read_only_call_count: int
     state_changing_call_count: int
-    first_failure_step: Optional[int]
+    first_failure_step: int | None
     successful_steps: int
     failed_steps: int
     query_before_index_detected: bool
@@ -30,7 +32,7 @@ class TrajectoryMetrics:
     overwrite_without_reindex_detected: bool
     issue_close_recovery_detected: bool
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "total_steps": self.total_steps,
             "tool_sequence": self.tool_sequence,
@@ -51,16 +53,18 @@ class TrajectoryMetrics:
 
 @dataclass
 class TrajectoryComparisonSummary:
+    """Side-by-side trajectory comparison between stateful and stateless runs."""
+
     stateful_total_steps: int
     stateless_total_steps: int
     step_count_difference: int
     stateful_contains_index_step: bool
     stateless_contains_index_step: bool
     key_process_difference: str
-    stateful_tool_sequence: List[str]
-    stateless_tool_sequence: List[str]
+    stateful_tool_sequence: list[str]
+    stateless_tool_sequence: list[str]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "stateful_total_steps": self.stateful_total_steps,
             "stateless_total_steps": self.stateless_total_steps,
@@ -74,12 +78,12 @@ class TrajectoryComparisonSummary:
 
 
 class TrajectoryLevelEvaluator:
-    """对 trace 做最小 trajectory-level 统计和模式检测。"""
+    """Compute trajectory-level statistics and detect execution patterns from traces."""
 
     def evaluate(self, records_or_tracer: Sequence[ExecutionRecord] | TraceRecorder) -> TrajectoryMetrics:
         records = _normalize_records(records_or_tracer)
         tool_sequence = [record.tool_name for record in records]
-        counts: Dict[str, int] = {}
+        counts: dict[str, int] = {}
         for tool_name in tool_sequence:
             counts[tool_name] = counts.get(tool_name, 0) + 1
 
@@ -152,7 +156,7 @@ def detect_issue_close_recovery_pattern(records_or_tracer: Sequence[ExecutionRec
 
 def detect_overwrite_without_reindex_pattern(records_or_tracer: Sequence[ExecutionRecord] | TraceRecorder) -> bool:
     records = _normalize_records(records_or_tracer)
-    file_states: Dict[str, Dict[str, bool]] = {}
+    file_states: dict[str, dict[str, bool]] = {}
 
     for record in records:
         if record.tool_name == "file.write":
@@ -222,7 +226,7 @@ def _build_key_process_difference(
 _extract_last_query_hits = extract_last_query_hits
 
 
-def _normalize_records(records_or_tracer: Sequence[ExecutionRecord] | TraceRecorder) -> List[ExecutionRecord]:
+def _normalize_records(records_or_tracer: Sequence[ExecutionRecord] | TraceRecorder) -> list[ExecutionRecord]:
     if isinstance(records_or_tracer, TraceRecorder):
         return records_or_tracer.get_records()
     return list(records_or_tracer)

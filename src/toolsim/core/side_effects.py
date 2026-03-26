@@ -78,7 +78,7 @@ class SideEffectScheduler:
 
     def apply_ready_effects(self, state: WorldState) -> list[EffectApplicationResult]:
         results: list[EffectApplicationResult] = []
-        for effect in state.list_pending_effects(status="pending"):
+        for effect in state.list_pending_effects(status=EffectStatus.PENDING):
             if self.is_ready(effect, state):
                 results.append(self.apply_effect(effect, state))
         return results

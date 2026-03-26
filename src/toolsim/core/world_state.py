@@ -224,7 +224,7 @@ class WorldState:
                 return True
         return False
 
-    def list_pending_effects(self, status: str | None = None) -> list[PendingEffect]:
+    def list_pending_effects(self, status: EffectStatus | None = None) -> list[PendingEffect]:
         if status is None:
             return [copy.deepcopy(effect) for effect in self.pending_effects]
         return [copy.deepcopy(effect) for effect in self.pending_effects if effect.status == status]
