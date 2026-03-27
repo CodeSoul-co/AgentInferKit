@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import Any, Sequence
 
 from toolsim.core.utils import extract_last_query_hits
 from toolsim.evaluators.trajectory_evaluator import summarize_trajectory_difference
-
-if TYPE_CHECKING:
-    from toolsim.runners.comparison_runner import ComparisonResult
+from toolsim.runners.comparison_runner import ComparisonResult
 
 
 @dataclass
@@ -54,7 +52,7 @@ class OverviewMetrics:
         }
 
 
-def compute_overview_metrics(results: Sequence["ComparisonResult"]) -> OverviewMetrics:
+def compute_overview_metrics(results: Sequence[ComparisonResult]) -> OverviewMetrics:
     """Aggregate per-case comparison results into a single OverviewMetrics summary."""
     total_cases = len(results)
     stateful_total_steps_sum = 0
@@ -165,7 +163,7 @@ def generate_overall_conclusion(overview_metrics: OverviewMetrics) -> str:
     return " ".join(sentences[:3])
 
 
-def _has_snapshot_semantics_difference(result: "ComparisonResult", trajectory: Any) -> bool:
+def _has_snapshot_semantics_difference(result: ComparisonResult, trajectory: Any) -> bool:
     if "overwrite-without-reindex" not in trajectory.key_process_difference:
         return False
     stateful_hits = extract_last_query_hits(result.stateful_result.trace)
@@ -173,7 +171,7 @@ def _has_snapshot_semantics_difference(result: "ComparisonResult", trajectory: A
     return bool(stateful_hits) and not bool(stateless_hits)
 
 
-def _has_retrieval_outcome_difference(result: "ComparisonResult") -> bool:
+def _has_retrieval_outcome_difference(result: ComparisonResult) -> bool:
     stateful_hits = _normalize_hits(extract_last_query_hits(result.stateful_result.trace))
     stateless_hits = _normalize_hits(extract_last_query_hits(result.stateless_result.trace))
     return stateful_hits != stateless_hits

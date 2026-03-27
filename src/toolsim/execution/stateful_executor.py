@@ -42,7 +42,12 @@ class ExecutorConfig:
 
 @dataclass
 class ExecutionRecord:
-    """Immutable record of a single tool execution call."""
+    """Immutable record of a single tool execution call.
+
+    Captures the invoked tool identity, normalized execution status,
+    observation/error payloads, state-hash transitions, condition checks,
+    and backend/effect bookkeeping for later tracing and evaluation.
+    """
 
     call_id: str
     tool_name: str
@@ -236,7 +241,7 @@ class StatefulExecutor:
 
         if self._config.strict_postconditions and any(not result.passed for result in postcondition_results):
             result.success = False
-            result.status = "failed"
+            result.status = ExecutionStatus.FAILED.value
             if result.error is None:
                 result.error = self._build_failure_message([], postcondition_results)
 
@@ -245,7 +250,7 @@ class StatefulExecutor:
             tool_name=metadata.name,
             tool_version=metadata.version,
             args=dict(args),
-            status=result.status,
+            status=ExecutionStatus(result.status),
             success=result.success,
             observation=result.observation,
             error=result.error,
@@ -436,3 +441,4 @@ def _build_consistency_warning(state_changed: bool, hash_changed: bool) -> str |
     if state_changed and not hash_changed:
         return "Tool reported state_changed=True, but state hash did not change."
     return None
+

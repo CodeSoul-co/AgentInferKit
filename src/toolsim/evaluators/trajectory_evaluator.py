@@ -1,16 +1,14 @@
-﻿"""Trajectory-level evaluator: analyses entire execution traces for patterns."""
+"""Trajectory-level evaluator: analyses entire execution traces for patterns."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import Any, Sequence
 
+from toolsim.core.utils import extract_last_query_hits
 from toolsim.execution.stateful_executor import ExecutionRecord
 from toolsim.execution.stateful_tracer import TraceRecorder
-from toolsim.core.utils import extract_last_query_hits
-
-if TYPE_CHECKING:
-    from toolsim.runners.comparison_runner import ComparisonResult
+from toolsim.runners.comparison_runner import ComparisonResult
 
 
 @dataclass
@@ -181,6 +179,7 @@ def detect_overwrite_without_reindex_pattern(records_or_tracer: Sequence[Executi
 
 
 def summarize_trajectory_difference(comparison_result: ComparisonResult) -> TrajectoryComparisonSummary:
+    """Summarise the key trajectory-level differences between stateful and stateless runs."""
     evaluator = TrajectoryLevelEvaluator()
     stateful_metrics = evaluator.evaluate(comparison_result.stateful_result.trace)
     stateless_metrics = evaluator.evaluate(comparison_result.stateless_result.trace)

@@ -1,4 +1,4 @@
-﻿"""Isolated backend with explicit session identity for sandboxed runs."""
+"""Isolated backend with explicit session identity for sandboxed runs."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from toolsim.core.world_state import PendingEffect, WorldState
 class SandboxBackend(BaseBackend):
     """Isolated backend with explicit session identity for sandboxed runs."""
 
-    def __init__(self, session_id: Optional[str] = None) -> None:
+    def __init__(self, session_id: str | None = None) -> None:
         self.session_id = session_id or f"sandbox_{uuid.uuid4().hex[:8]}"
 
     def get_backend_name(self) -> str:

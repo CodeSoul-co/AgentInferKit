@@ -5,10 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from toolsim.runners.comparison_runner import ComparisonCase, ComparisonResult, ComparisonRunner
+from toolsim.core.constants import EntityType
+from toolsim.core.utils import extract_last_query_hits
 from toolsim.evaluators.overview_summary import OverviewMetrics, compute_overview_metrics, generate_overall_conclusion
 from toolsim.evaluators.trajectory_evaluator import summarize_trajectory_difference
-from toolsim.core.utils import extract_last_query_hits
+from toolsim.runners.comparison_runner import ComparisonCase, ComparisonResult, ComparisonRunner
 
 
 @dataclass
@@ -217,7 +218,12 @@ def _build_key_difference(
     stateless_hits: list[dict[str, Any]],
 ) -> str:
     stateful_trace_tools = [record.tool_name for record in result.stateful_result.trace]
-    current_file = result.stateful_result.final_state.get_entity("file", "f1")
+    file_id = _infer_relevant_file_id(result, stateful_hits, stateless_hits)
+    current_file = (
+        result.stateful_result.final_state.get_entity(EntityType.FILE.value, file_id)
+        if file_id is not None
+        else None
+    )
     current_content = current_file.get("content") if current_file is not None else None
 
     if not stateful_hits and stateless_hits:
@@ -241,3 +247,28 @@ def _build_key_difference(
         f"Stateful and stateless outcomes diverged under case {case.case_name!r}; "
         "inspect trace and goals for details."
     )
+
+
+def _infer_relevant_file_id(
+    result: ComparisonResult,
+    stateful_hits: list[dict[str, Any]],
+    stateless_hits: list[dict[str, Any]],
+) -> str | None:
+    """Infer the file id most relevant to a comparison result."""
+    for hit in [*stateful_hits, *stateless_hits]:
+        file_id = hit.get("file_id")
+        if file_id:
+            return str(file_id)
+
+    for record in result.stateful_result.trace:
+        file_id = record.args.get("file_id")
+        if isinstance(file_id, str) and file_id:
+            return file_id
+
+    for record in result.stateless_result.trace:
+        file_id = record.args.get("file_id")
+        if isinstance(file_id, str) and file_id:
+            return file_id
+
+    entities = result.stateful_result.final_state.entities.get(EntityType.FILE.value, {})
+    return next(iter(entities), None)
