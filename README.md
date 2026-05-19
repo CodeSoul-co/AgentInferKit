@@ -91,8 +91,8 @@ git clone https://github.com/CodeSoul-co/AgentInferKit.git
 cd AgentInferKit
 
 # Create conda environment
-conda create -n benchmark python=3.11 -y
-conda activate benchmark
+conda create -n AgentInferKit python=3.11 -y
+conda activate AgentInferKit
 pip install -r requirements.txt
 
 # Configure API key
