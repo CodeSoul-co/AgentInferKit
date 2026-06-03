@@ -294,6 +294,43 @@ class StateLevelEvaluator:
             msg = f"Issue comment count matched: {issue_id} == {expected_count!r}" if passed else f"Issue comment count mismatch: {issue_id} expected {expected_count!r}, got {actual_count!r}"
             return StateGoalResult(goal_type=goal_type, passed=passed, message=msg)
 
+        if goal_type == "toolsandbox_record_exists":
+            entity_type = goal.get("entity_type")
+            fields = goal.get("fields", {})
+            entity_id = _find_matching_entity_id(state, entity_type, fields)
+            passed = entity_id is not None
+            msg = (
+                f"ToolSandbox record exists: {entity_type}.{entity_id}"
+                if passed
+                else f"ToolSandbox record missing: {entity_type} with {fields!r}"
+            )
+            return StateGoalResult(goal_type=goal_type, passed=passed, message=msg)
+
+        if goal_type == "toolsandbox_record_absent":
+            entity_type = goal.get("entity_type")
+            fields = goal.get("fields", {})
+            entity_id = _find_matching_entity_id(state, entity_type, fields)
+            passed = entity_id is None
+            msg = (
+                f"ToolSandbox record absent: {entity_type} with {fields!r}"
+                if passed
+                else f"Unexpected ToolSandbox record exists: {entity_type}.{entity_id}"
+            )
+            return StateGoalResult(goal_type=goal_type, passed=passed, message=msg)
+
+        if goal_type == "toolsandbox_setting_equals":
+            field_name = goal.get("field")
+            expected = goal.get("expected")
+            setting = state.get_entity("setting", "device") or {}
+            actual = setting.get(field_name)
+            passed = actual == expected
+            msg = (
+                f"ToolSandbox setting matched: {field_name} == {expected!r}"
+                if passed
+                else f"ToolSandbox setting mismatch: {field_name} expected {expected!r}, got {actual!r}"
+            )
+            return StateGoalResult(goal_type=goal_type, passed=passed, message=msg)
+
         return StateGoalResult(goal_type=goal_type, passed=False, message=f"Unsupported goal type: {goal_type}")
 
 
@@ -304,3 +341,10 @@ def _normalize_records(
     if isinstance(records_or_tracer, tracer_cls):
         return records_or_tracer.get_records()
     return list(records_or_tracer)
+
+
+def _find_matching_entity_id(state: WorldState, entity_type: str, fields: dict[str, Any]) -> str | None:
+    for entity_id, entity in state.entities.get(entity_type, {}).items():
+        if all(entity.get(field) == expected for field, expected in fields.items()):
+            return entity_id
+    return None

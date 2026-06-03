@@ -7,6 +7,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from toolsim.backends.mock_backend import MockBackend
 from toolsim.backends.sandbox_backend import SandboxBackend
+from toolsim.backends.live_like_backend import LiveLikeBackend
 from toolsim.core.environment import ToolEnvironment
 from toolsim.execution.stateful_executor import StatefulExecutor, create_default_tool_registry
 from toolsim.core.world_state import PendingEffect
@@ -38,6 +39,16 @@ def test_sandbox_backend_creates_isolated_state_with_session_metadata():
     assert state_a.resources["sandbox_session"] == "sandbox_a"
     assert state_b.resources["sandbox_session"] == "sandbox_b"
     assert backend_b.get_entity(state_b, "calendar_event", "evt1") is None
+
+
+def test_live_like_backend_marks_live_like_session_metadata():
+    backend = LiveLikeBackend(session_id="live_like_test")
+    state = backend.create_state()
+
+    assert backend.get_backend_name() == "live_like"
+    assert state.resources["sandbox_session"] == "live_like_test"
+    assert state.resources["live_like_session"] == "live_like_test"
+    assert state.policies["backend"]["realism"] == "live_like"
 
 
 def test_backend_schedule_effect_compatibility():
@@ -104,3 +115,54 @@ def test_stateful_executor_runs_calendar_domain_with_sandbox_backend():
     assert search_record.success is True
     assert search_record.observation["hits"][0]["event_id"] == "evt1"
     assert state.resources["sandbox_session"] == "calendar_box"
+
+
+def test_sandbox_backend_persists_file_and_search_artifacts(tmp_path):
+    backend = SandboxBackend(session_id="artifact_box", artifact_root=tmp_path)
+    state = backend.create_state()
+    env = ToolEnvironment(state=state, backend=backend)
+    executor = StatefulExecutor(create_default_tool_registry(), backend=backend)
+
+    write_record = executor.execute(
+        "file.write",
+        state,
+        {"file_id": "notes/alpha", "content": "alpha beta", "metadata": {"owner": "qa"}},
+        permissions={"file.write"},
+        environment=env,
+    )
+    read_record = executor.execute(
+        "file.read",
+        state,
+        {"file_id": "notes/alpha"},
+        permissions={"file.read"},
+        environment=env,
+    )
+    index_record = executor.execute(
+        "search.index",
+        state,
+        {"file_id": "notes/alpha"},
+        permissions={"search.index"},
+        environment=env,
+    )
+    query_record = executor.execute(
+        "search.query",
+        state,
+        {"query": "beta"},
+        permissions={"search.query"},
+        environment=env,
+    )
+
+    file_path = Path(write_record.observation["sandbox_artifact_path"])
+    index_path = Path(index_record.observation["sandbox_index_path"])
+
+    assert write_record.success is True
+    assert read_record.observation["read_from_artifact"] is True
+    assert file_path.exists()
+    assert file_path.read_text(encoding="utf-8") == "alpha beta"
+    assert "sandbox_artifact_path" not in state.get_entity("file", "notes/alpha")
+    assert index_record.success is True
+    assert index_path.exists()
+    assert "sandbox_index_path" not in state.get_entity("search_index", "notes/alpha")
+    assert query_record.success is True
+    assert query_record.observation["hits"][0]["file_id"] == "notes/alpha"
+    assert query_record.observation["hits"][0]["source"] == "sandbox_index"

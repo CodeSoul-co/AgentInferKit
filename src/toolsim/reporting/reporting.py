@@ -5,11 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from toolsim.core.constants import EntityType
-from toolsim.core.utils import extract_last_query_hits
+from toolsim.runners.comparison_runner import ComparisonCase, ComparisonResult, ComparisonRunner
 from toolsim.evaluators.overview_summary import OverviewMetrics, compute_overview_metrics, generate_overall_conclusion
 from toolsim.evaluators.trajectory_evaluator import summarize_trajectory_difference
-from toolsim.runners.comparison_runner import ComparisonCase, ComparisonResult, ComparisonRunner
+from toolsim.core.utils import extract_last_query_hits
 
 
 @dataclass
@@ -119,12 +118,14 @@ def summarize_comparison_result(case: ComparisonCase, result: ComparisonResult) 
         hits=stateful_hits,
         trace_length=len(result.stateful_result.trace),
         goals_passed=result.summary.get("stateful_all_goals_passed"),
+        final_state=result.stateful_result.final_state,
     )
     stateless_outcome = _build_outcome_text(
         label="Stateless",
         hits=stateless_hits,
         trace_length=len(result.stateless_result.trace),
         goals_passed=result.summary.get("stateless_all_goals_passed"),
+        final_state=result.stateless_result.final_state,
     )
 
     return CaseComparisonSummary(
@@ -159,8 +160,16 @@ def render_markdown_report(batch_result: BatchComparisonResult) -> str:
         f"- Stateless all-calls-succeeded count: {batch_result.stateless_all_calls_succeeded_count}",
         "",
         "## Overview Metrics",
+        f"- Stateful success rate: {metrics.stateful_success_rate:.2%}",
+        f"- Stateless success rate: {metrics.stateless_success_rate:.2%}",
+        f"- Stateful invalid call rate: {metrics.stateful_invalid_call_rate:.2%}",
+        f"- Stateless invalid call rate: {metrics.stateless_invalid_call_rate:.2%}",
+        f"- Stateful recovery rate: {metrics.stateful_recovery_rate:.2%}",
+        f"- Stateless recovery rate: {metrics.stateless_recovery_rate:.2%}",
         f"- Stateful average steps: {metrics.stateful_avg_steps:.2f}",
         f"- Stateless average steps: {metrics.stateless_avg_steps:.2f}",
+        f"- Stateful final state correctness: {metrics.stateful_final_state_correctness:.2%}",
+        f"- Stateless final state correctness: {metrics.stateless_final_state_correctness:.2%}",
         f"- Cases with step count difference: {metrics.cases_with_step_count_difference}",
         f"- Cases with explicit dependency resolution: {metrics.cases_with_explicit_dependency_resolution}",
         f"- Cases with query before index: {metrics.cases_with_query_before_index}",
@@ -198,6 +207,7 @@ def _build_outcome_text(
     hits: list[dict[str, Any]],
     trace_length: int,
     goals_passed: bool | None,
+    final_state: Any | None = None,
 ) -> str:
     if hits:
         file_ids = ", ".join(hit.get("file_id", "?") for hit in hits)
@@ -205,6 +215,27 @@ def _build_outcome_text(
             f"{label} completed {trace_length} calls and returned {len(hits)} hit(s) "
             f"for file(s): {file_ids}. Goals passed: {goals_passed}."
         )
+    if final_state is not None:
+        issues = final_state.entities.get("issue", {})
+        if issues:
+            issue_states = ", ".join(
+                f"{issue_id}={issue.get('status', '?')}"
+                for issue_id, issue in sorted(issues.items())
+            )
+            return (
+                f"{label} completed {trace_length} calls and final issue state(s): "
+                f"{issue_states}. Goals passed: {goals_passed}."
+            )
+        events = final_state.entities.get("calendar_event", {})
+        if events:
+            event_states = ", ".join(
+                f"{event_id}={event.get('status', '?')}@{event.get('start_time', '?')}"
+                for event_id, event in sorted(events.items())
+            )
+            return (
+                f"{label} completed {trace_length} calls and final event state(s): "
+                f"{event_states}. Goals passed: {goals_passed}."
+            )
     return (
         f"{label} completed {trace_length} calls and returned no final query hits. "
         f"Goals passed: {goals_passed}."
@@ -218,12 +249,7 @@ def _build_key_difference(
     stateless_hits: list[dict[str, Any]],
 ) -> str:
     stateful_trace_tools = [record.tool_name for record in result.stateful_result.trace]
-    file_id = _infer_relevant_file_id(result, stateful_hits, stateless_hits)
-    current_file = (
-        result.stateful_result.final_state.get_entity(EntityType.FILE.value, file_id)
-        if file_id is not None
-        else None
-    )
+    current_file = result.stateful_result.final_state.get_entity("file", "f1")
     current_content = current_file.get("content") if current_file is not None else None
 
     if not stateful_hits and stateless_hits:
@@ -233,6 +259,13 @@ def _build_key_difference(
         )
 
     if stateful_hits and stateless_hits and "search.index" in stateful_trace_tools:
+        stateful_hit_ids = {hit.get("file_id") for hit in stateful_hits}
+        stateless_hit_ids = {hit.get("file_id") for hit in stateless_hits}
+        if stateful_hit_ids != stateless_hit_ids:
+            return (
+                "Stateful search returned only explicitly indexed file snapshots, while stateless search "
+                "scanned all current file content."
+            )
         return "Stateful system required explicit indexing before retrieval, while stateless query did not."
 
     if stateful_hits and not stateless_hits:
@@ -243,32 +276,48 @@ def _build_key_difference(
                 "while stateless query reflected the latest file content."
             )
 
+    stateful_tools = [record.tool_name for record in result.stateful_result.trace]
+    stateless_tools = [record.tool_name for record in result.stateless_result.trace]
+    if "issue.close" in stateful_tools and "issue.close" in stateless_tools:
+        stateful_failed_close = any(record.tool_name == "issue.close" and not record.success for record in result.stateful_result.trace)
+        if stateful_failed_close:
+            return (
+                "Stateful issue workflow rejected close-before-assignment and required recovery, "
+                "while the stateless baseline accepted the direct close."
+            )
+
+    if "issue.reopen" in stateful_tools and "issue.reopen" in stateless_tools:
+        stateful_failed_reopen = any(record.tool_name == "issue.reopen" and not record.success for record in result.stateful_result.trace)
+        if stateful_failed_reopen:
+            return (
+                "Stateful issue workflow rejected reopen-before-close and required a close-then-reopen recovery, "
+                "while the stateless baseline accepted reopening directly."
+            )
+
+    stateful_failed_calendar_conflict = any(
+        record.tool_name in {"calendar.create_event", "calendar.update_event"}
+        and not record.success
+        and "Conflict detected" in (record.error or "")
+        for record in result.stateful_result.trace
+    )
+    if stateful_failed_calendar_conflict:
+        return (
+            "Stateful calendar workflow rejected a participant conflict and required a non-conflicting retry, "
+            "while the stateless baseline accepted the conflicting mutation."
+        )
+
+    if case.case_name.startswith("toolsandbox::"):
+        if stateful_tools != stateless_tools:
+            return (
+                "Stateful ToolSandbox execution preserved helper/search/tool-trace milestones, while the "
+                "stateless baseline collapsed the task to final-state mutations and final user-visible output."
+            )
+        return (
+            "This ToolSandbox case is already a direct final-state mutation, so stateful and stateless "
+            "trajectories remain structurally similar."
+        )
+
     return (
         f"Stateful and stateless outcomes diverged under case {case.case_name!r}; "
         "inspect trace and goals for details."
     )
-
-
-def _infer_relevant_file_id(
-    result: ComparisonResult,
-    stateful_hits: list[dict[str, Any]],
-    stateless_hits: list[dict[str, Any]],
-) -> str | None:
-    """Infer the file id most relevant to a comparison result."""
-    for hit in [*stateful_hits, *stateless_hits]:
-        file_id = hit.get("file_id")
-        if file_id:
-            return str(file_id)
-
-    for record in result.stateful_result.trace:
-        file_id = record.args.get("file_id")
-        if isinstance(file_id, str) and file_id:
-            return file_id
-
-    for record in result.stateless_result.trace:
-        file_id = record.args.get("file_id")
-        if isinstance(file_id, str) and file_id:
-            return file_id
-
-    entities = result.stateful_result.final_state.entities.get(EntityType.FILE.value, {})
-    return next(iter(entities), None)

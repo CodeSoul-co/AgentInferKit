@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import TYPE_CHECKING, Any, Sequence
 
 from toolsim.core.utils import extract_last_query_hits
 from toolsim.evaluators.trajectory_evaluator import summarize_trajectory_difference
-from toolsim.runners.comparison_runner import ComparisonResult
+
+if TYPE_CHECKING:
+    from toolsim.runners.comparison_runner import ComparisonResult
 
 
 @dataclass
@@ -23,6 +25,14 @@ class OverviewMetrics:
     stateless_total_steps_sum: int
     stateful_avg_steps: float
     stateless_avg_steps: float
+    stateful_success_rate: float
+    stateless_success_rate: float
+    stateful_invalid_call_rate: float
+    stateless_invalid_call_rate: float
+    stateful_recovery_rate: float
+    stateless_recovery_rate: float
+    stateful_final_state_correctness: float
+    stateless_final_state_correctness: float
     cases_with_step_count_difference: int
     cases_with_explicit_dependency_resolution: int
     cases_with_query_before_index: int
@@ -42,6 +52,14 @@ class OverviewMetrics:
             "stateless_total_steps_sum": self.stateless_total_steps_sum,
             "stateful_avg_steps": self.stateful_avg_steps,
             "stateless_avg_steps": self.stateless_avg_steps,
+            "stateful_success_rate": self.stateful_success_rate,
+            "stateless_success_rate": self.stateless_success_rate,
+            "stateful_invalid_call_rate": self.stateful_invalid_call_rate,
+            "stateless_invalid_call_rate": self.stateless_invalid_call_rate,
+            "stateful_recovery_rate": self.stateful_recovery_rate,
+            "stateless_recovery_rate": self.stateless_recovery_rate,
+            "stateful_final_state_correctness": self.stateful_final_state_correctness,
+            "stateless_final_state_correctness": self.stateless_final_state_correctness,
             "cases_with_step_count_difference": self.cases_with_step_count_difference,
             "cases_with_explicit_dependency_resolution": self.cases_with_explicit_dependency_resolution,
             "cases_with_query_before_index": self.cases_with_query_before_index,
@@ -52,11 +70,19 @@ class OverviewMetrics:
         }
 
 
-def compute_overview_metrics(results: Sequence[ComparisonResult]) -> OverviewMetrics:
+def compute_overview_metrics(results: Sequence["ComparisonResult"]) -> OverviewMetrics:
     """Aggregate per-case comparison results into a single OverviewMetrics summary."""
     total_cases = len(results)
     stateful_total_steps_sum = 0
     stateless_total_steps_sum = 0
+    stateful_successful_calls = 0
+    stateless_successful_calls = 0
+    stateful_invalid_calls = 0
+    stateless_invalid_calls = 0
+    stateful_recovery_opportunities = 0
+    stateless_recovery_opportunities = 0
+    stateful_recovered_cases = 0
+    stateless_recovered_cases = 0
     cases_with_step_count_difference = 0
     cases_with_explicit_dependency_resolution = 0
     cases_with_query_before_index = 0
@@ -69,6 +95,19 @@ def compute_overview_metrics(results: Sequence[ComparisonResult]) -> OverviewMet
         trajectory = summarize_trajectory_difference(result)
         stateful_total_steps_sum += trajectory.stateful_total_steps
         stateless_total_steps_sum += trajectory.stateless_total_steps
+        stateful_successful_calls += result.stateful_result.call_metrics.successful_calls
+        stateless_successful_calls += result.stateless_result.call_metrics.successful_calls
+        stateful_invalid_calls += result.stateful_result.call_metrics.invalid_calls
+        stateless_invalid_calls += result.stateless_result.call_metrics.invalid_calls
+
+        if result.stateful_result.call_metrics.failed_calls > 0:
+            stateful_recovery_opportunities += 1
+            if result.summary.get("stateful_all_goals_passed") is True:
+                stateful_recovered_cases += 1
+        if result.stateless_result.call_metrics.failed_calls > 0:
+            stateless_recovery_opportunities += 1
+            if result.summary.get("stateless_all_goals_passed") is True:
+                stateless_recovered_cases += 1
 
         if trajectory.stateful_total_steps != trajectory.stateless_total_steps:
             cases_with_step_count_difference += 1
@@ -114,6 +153,14 @@ def compute_overview_metrics(results: Sequence[ComparisonResult]) -> OverviewMet
         stateless_total_steps_sum=stateless_total_steps_sum,
         stateful_avg_steps=(stateful_total_steps_sum / total_cases) if total_cases else 0.0,
         stateless_avg_steps=(stateless_total_steps_sum / total_cases) if total_cases else 0.0,
+        stateful_success_rate=_safe_rate(stateful_successful_calls, stateful_total_steps_sum),
+        stateless_success_rate=_safe_rate(stateless_successful_calls, stateless_total_steps_sum),
+        stateful_invalid_call_rate=_safe_rate(stateful_invalid_calls, stateful_total_steps_sum),
+        stateless_invalid_call_rate=_safe_rate(stateless_invalid_calls, stateless_total_steps_sum),
+        stateful_recovery_rate=_safe_rate(stateful_recovered_cases, stateful_recovery_opportunities),
+        stateless_recovery_rate=_safe_rate(stateless_recovered_cases, stateless_recovery_opportunities),
+        stateful_final_state_correctness=_safe_rate(stateful_goal_pass_count, total_cases),
+        stateless_final_state_correctness=_safe_rate(stateless_goal_pass_count, total_cases),
         cases_with_step_count_difference=cases_with_step_count_difference,
         cases_with_explicit_dependency_resolution=cases_with_explicit_dependency_resolution,
         cases_with_query_before_index=cases_with_query_before_index,
@@ -122,6 +169,10 @@ def compute_overview_metrics(results: Sequence[ComparisonResult]) -> OverviewMet
         cases_with_snapshot_semantics_difference=cases_with_snapshot_semantics_difference,
         cases_with_retrieval_outcome_difference=cases_with_retrieval_outcome_difference,
     )
+
+
+def _safe_rate(numerator: int | float, denominator: int | float) -> float:
+    return (numerator / denominator) if denominator else 0.0
 
 
 def generate_overall_conclusion(overview_metrics: OverviewMetrics) -> str:
@@ -163,7 +214,7 @@ def generate_overall_conclusion(overview_metrics: OverviewMetrics) -> str:
     return " ".join(sentences[:3])
 
 
-def _has_snapshot_semantics_difference(result: ComparisonResult, trajectory: Any) -> bool:
+def _has_snapshot_semantics_difference(result: "ComparisonResult", trajectory: Any) -> bool:
     if "overwrite-without-reindex" not in trajectory.key_process_difference:
         return False
     stateful_hits = extract_last_query_hits(result.stateful_result.trace)
@@ -171,7 +222,7 @@ def _has_snapshot_semantics_difference(result: ComparisonResult, trajectory: Any
     return bool(stateful_hits) and not bool(stateless_hits)
 
 
-def _has_retrieval_outcome_difference(result: ComparisonResult) -> bool:
+def _has_retrieval_outcome_difference(result: "ComparisonResult") -> bool:
     stateful_hits = _normalize_hits(extract_last_query_hits(result.stateful_result.trace))
     stateless_hits = _normalize_hits(extract_last_query_hits(result.stateless_result.trace))
     return stateful_hits != stateless_hits

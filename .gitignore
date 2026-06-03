@@ -16,6 +16,9 @@ outputs/
 # Runtime experiment state (API-created sessions)
 data/experiments/
 
+# Local sandbox/runtime artifacts
+tmp/
+
 # Uploaded dataset files and metadata
 data/processed/
 
