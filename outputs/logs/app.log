@@ -1,0 +1,63 @@
+2026-05-18 15:11:16 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_563c6068535f (tester, 1 samples)
+2026-05-18 15:11:16 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_edad88bc8382 (tester, 1 samples)
+2026-05-18 15:11:16 | ERROR    | toolsim.legacy.executor:execute:41 | "Tool 'missing.tool' not found. Available: ['search_api']"
+2026-05-18 15:20:17 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_64bb7de29643 (tester, 1 samples)
+2026-05-18 15:20:17 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_d4ff3b216327 (tester, 1 samples)
+2026-05-18 15:20:17 | ERROR    | toolsim.legacy.executor:execute:41 | "Tool 'missing.tool' not found. Available: ['search_api']"
+2026-05-18 15:21:11 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_e57d41badd3b (tester, 1 samples)
+2026-05-18 15:21:11 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_6f021c4b94fd (tester, 1 samples)
+2026-05-18 15:21:11 | ERROR    | toolsim.legacy.executor:execute:41 | "Tool 'missing.tool' not found. Available: ['search_api']"
+2026-05-18 15:29:56 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_9ecd9205dfd7 (tester, 1 samples)
+2026-05-18 15:29:56 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_4c05a0c82058 (tester, 1 samples)
+2026-05-18 15:29:56 | ERROR    | toolsim.legacy.executor:execute:41 | "Tool 'missing.tool' not found. Available: ['search_api']"
+2026-05-18 15:41:39 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_9b15c9f4b889 (tester, 1 samples)
+2026-05-18 15:41:39 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_068085379838 (tester, 1 samples)
+2026-05-18 15:41:39 | ERROR    | toolsim.legacy.executor:execute:41 | "Tool 'missing.tool' not found. Available: ['search_api']"
+2026-05-18 15:47:36 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_cf5bbbf80486 (tester, 1 samples)
+2026-05-18 15:47:36 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_312f9982b279 (tester, 1 samples)
+2026-05-18 15:47:36 | ERROR    | toolsim.legacy.executor:execute:41 | "Tool 'missing.tool' not found. Available: ['search_api']"
+2026-06-01 17:13:54 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_5aafe5a4f293 (tester, 1 samples)
+2026-06-01 17:13:54 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_d9303b7901a9 (tester, 1 samples)
+2026-06-01 17:13:54 | ERROR    | toolsim.legacy.executor:execute:41 | "Tool 'missing.tool' not found. Available: ['search_api']"
+2026-06-01 17:19:32 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_c84e59697cc4 (tester, 1 samples)
+2026-06-01 17:19:32 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_b3a9555aa3e9 (tester, 1 samples)
+2026-06-01 17:19:32 | ERROR    | toolsim.legacy.executor:execute:41 | "Tool 'missing.tool' not found. Available: ['search_api']"
+2026-06-01 17:24:59 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_5b0d5c1a741a (tester, 1 samples)
+2026-06-01 17:24:59 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_0338254da618 (tester, 1 samples)
+2026-06-01 17:24:59 | ERROR    | toolsim.legacy.executor:execute:41 | "Tool 'missing.tool' not found. Available: ['search_api']"
+2026-06-01 17:25:51 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_085a91d6a527 (tester, 1 samples)
+2026-06-01 17:25:51 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_22a3e8bd8fc6 (tester, 1 samples)
+2026-06-01 17:25:51 | ERROR    | toolsim.legacy.executor:execute:41 | "Tool 'missing.tool' not found. Available: ['search_api']"
+2026-06-01 17:36:01 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_b70c510b20f1 (tester, 1 samples)
+2026-06-01 17:36:01 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_901ea83e6fde (tester, 1 samples)
+2026-06-01 17:36:01 | ERROR    | toolsim.legacy.executor:execute:41 | "Tool 'missing.tool' not found. Available: ['search_api']"
+2026-06-01 17:42:56 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_84ea31ece835 (tester, 1 samples)
+2026-06-01 17:42:56 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_b2df87836ead (tester, 1 samples)
+2026-06-01 17:42:56 | ERROR    | toolsim.legacy.executor:execute:41 | "Tool 'missing.tool' not found. Available: ['search_api']"
+2026-06-01 17:58:22 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_aa7f8277c1aa (tester, 1 samples)
+2026-06-01 17:58:22 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_c8165ca0160a (tester, 1 samples)
+2026-06-01 17:58:22 | ERROR    | toolsim.legacy.executor:execute:41 | "Tool 'missing.tool' not found. Available: ['search_api']"
+2026-06-01 18:05:52 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_70aef3aab9af (tester, 1 samples)
+2026-06-01 18:05:52 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_dbfa50acea3a (tester, 1 samples)
+2026-06-01 18:05:52 | ERROR    | toolsim.legacy.executor:execute:41 | "Tool 'missing.tool' not found. Available: ['search_api']"
+2026-06-01 18:16:07 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_d75e53a35419 (tester, 1 samples)
+2026-06-01 18:16:07 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_da0655de03b8 (tester, 1 samples)
+2026-06-01 18:16:07 | ERROR    | toolsim.legacy.executor:execute:41 | "Tool 'missing.tool' not found. Available: ['search_api']"
+2026-06-02 11:57:16 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_e9dbfa5777b8 (tester, 1 samples)
+2026-06-02 11:57:16 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_9fa7336b67c9 (tester, 1 samples)
+2026-06-02 11:57:16 | ERROR    | toolsim.legacy.executor:execute:41 | "Tool 'missing.tool' not found. Available: ['search_api']"
+2026-06-02 12:17:29 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_774c0add0600 (tester, 1 samples)
+2026-06-02 12:17:29 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_33cb55c0e82e (tester, 1 samples)
+2026-06-02 12:17:29 | ERROR    | toolsim.legacy.executor:execute:41 | "Tool 'missing.tool' not found. Available: ['search_api']"
+2026-06-03 14:54:06 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_d9d362d72202 (tester, 1 samples)
+2026-06-03 14:54:06 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_5b5249e522d9 (tester, 1 samples)
+2026-06-03 14:54:06 | ERROR    | toolsim.legacy.executor:execute:41 | "Tool 'missing.tool' not found. Available: ['search_api']"
+2026-06-03 14:58:40 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_2835cb5b7f89 (tester, 1 samples)
+2026-06-03 14:58:40 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_e30560ae40aa (tester, 1 samples)
+2026-06-03 14:58:40 | ERROR    | toolsim.legacy.executor:execute:41 | "Tool 'missing.tool' not found. Available: ['search_api']"
+2026-06-03 15:08:47 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_a0123fd45fd3 (tester, 1 samples)
+2026-06-03 15:08:47 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_7b929e110dcb (tester, 1 samples)
+2026-06-03 15:08:47 | ERROR    | toolsim.legacy.executor:execute:41 | "Tool 'missing.tool' not found. Available: ['search_api']"
+2026-06-03 15:09:46 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_368e838b620c (tester, 1 samples)
+2026-06-03 15:09:46 | INFO     | src.api.custom_agent:create_session:180 | Agent session created: agent_2ea36e6eed9f (tester, 1 samples)
+2026-06-03 15:09:46 | ERROR    | toolsim.legacy.executor:execute:41 | "Tool 'missing.tool' not found. Available: ['search_api']"
