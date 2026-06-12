@@ -10,6 +10,7 @@ from typing import Any
 
 from toolsim.backends.base import BaseBackend
 from toolsim.backends.mock_backend import MockBackend
+from toolsim.tools.apibank_tools import APIBANK_TOOLS
 from toolsim.tools.calendar_tools import CALENDAR_TOOLS
 from toolsim.core.environment import ToolEnvironment
 from toolsim.tools.file_tools import FILE_TOOLS
@@ -490,6 +491,7 @@ def create_default_tool_registry() -> dict[str, ToolSpec]:
     registry.update(CALENDAR_TOOLS)
     registry.update(ISSUE_TOOLS)
     registry.update(TOOLSANDBOX_TOOLS)
+    registry.update(APIBANK_TOOLS)
     return registry
 
 

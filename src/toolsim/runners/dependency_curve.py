@@ -13,6 +13,7 @@ from toolsim.runners.comparison_runner import (
     _filter_toolsandbox_stateless_goals,
 )
 from toolsim.runners.experiment_runner import ExperimentResult, ExperimentRunner
+from toolsim.tools.toolsandbox_runtime import ensure_toolsandbox_state
 
 DifficultyLevel = str
 StrategyName = str
@@ -408,6 +409,7 @@ def _build_l1_cases() -> list[DependencyCurveCase]:
             "Send a direct message.",
             [{"tool_name": "send_message_with_phone_number", "args": {"recipient_phone_number": "+100", "content": "hello"}}],
             [{"type": "toolsandbox_record_exists", "entity_type": "messaging", "fields": {"recipient_phone_number": "+100", "content": "hello"}}],
+            initial_state=_toolsandbox_base_state(),
         ),
     ]
 
@@ -478,7 +480,7 @@ def _build_l2_cases() -> list[DependencyCurveCase]:
         "Contact modification depends on searching for the contact.",
         [
             {"tool_name": "search_contacts", "args": {"name": "Ada"}},
-            {"tool_name": "modify_contact", "args": {"name": "Ada", "phone_number": "+200"}},
+            {"tool_name": "modify_contact", "args": {"person_id": "contact_ada", "name": "Ada", "phone_number": "+200"}},
         ],
         [
             {"type": "toolsandbox_record_exists", "entity_type": "sandbox", "fields": {"openai_function_name": "search_contacts"}},
@@ -486,8 +488,8 @@ def _build_l2_cases() -> list[DependencyCurveCase]:
         ],
         initial_state=_state_with_contact("Ada"),
         edges=[DependencyEdge("search_contacts", "modify_contact")],
-        direct=[{"tool_name": "modify_contact", "args": {"name": "Ada", "phone_number": "+200"}}],
-        cot=[{"tool_name": "modify_contact", "args": {"name": "Ada", "phone_number": "+200"}}],
+        direct=[{"tool_name": "modify_contact", "args": {"person_id": "contact_ada", "name": "Ada", "phone_number": "+200"}}],
+        cot=[{"tool_name": "modify_contact", "args": {"person_id": "contact_ada", "name": "Ada", "phone_number": "+200"}}],
     ))
     cases.append(_case(
         "l2_timestamp_add_reminder",
@@ -629,7 +631,7 @@ def _build_l3_cases() -> list[DependencyCurveCase]:
                 {"tool_name": "get_current_timestamp", "args": {}},
                 {"tool_name": "search_messages", "args": {"content": "invoice"}},
                 {"tool_name": "search_contacts", "args": {"name": "Mira"}},
-                {"tool_name": "modify_contact", "args": {"name": "Mira", "phone_number": "+333"}},
+                {"tool_name": "modify_contact", "args": {"person_id": "contact_mira", "name": "Mira", "phone_number": "+333"}},
             ],
             [
                 {"type": "toolsandbox_record_exists", "entity_type": "sandbox", "fields": {"openai_function_name": "search_messages"}},
@@ -638,15 +640,15 @@ def _build_l3_cases() -> list[DependencyCurveCase]:
             ],
             initial_state=_state_with_contact("Mira"),
             edges=[DependencyEdge("search_messages", "search_contacts"), DependencyEdge("search_contacts", "modify_contact")],
-            direct=[{"tool_name": "modify_contact", "args": {"name": "Mira", "phone_number": "+333"}}],
+            direct=[{"tool_name": "modify_contact", "args": {"person_id": "contact_mira", "name": "Mira", "phone_number": "+333"}}],
             cot=[
                 {"tool_name": "search_contacts", "args": {"name": "Mira"}},
-                {"tool_name": "modify_contact", "args": {"name": "Mira", "phone_number": "+333"}},
+                {"tool_name": "modify_contact", "args": {"person_id": "contact_mira", "name": "Mira", "phone_number": "+333"}},
             ],
             react=[
                 {"tool_name": "search_messages", "args": {"content": "invoice"}},
                 {"tool_name": "search_contacts", "args": {"name": "Mira"}},
-                {"tool_name": "modify_contact", "args": {"name": "Mira", "phone_number": "+333"}},
+                {"tool_name": "modify_contact", "args": {"person_id": "contact_mira", "name": "Mira", "phone_number": "+333"}},
             ],
         ),
     ]
@@ -686,13 +688,26 @@ def _case(
 
 
 def _state_with_contact(name: str) -> WorldState:
-    state = WorldState()
+    state = _toolsandbox_base_state()
     state.set_entity("contact", f"contact_{name.lower()}", {
         "person_id": f"contact_{name.lower()}",
         "name": name,
         "phone_number": None,
         "relationship": None,
         "is_self": False,
+    })
+    return state
+
+
+def _toolsandbox_base_state() -> WorldState:
+    state = WorldState()
+    ensure_toolsandbox_state(state)
+    state.set_entity("contact", "self", {
+        "person_id": "self",
+        "name": "Self",
+        "phone_number": "+10000000000",
+        "relationship": None,
+        "is_self": True,
     })
     return state
 

@@ -21,6 +21,7 @@ from toolsim.execution.stateful_executor import ExecutorConfig, ExecutionRecord,
 from toolsim.execution.stateful_tracer import TraceRecorder
 from toolsim.faults import FaultProfile
 from toolsim.runners.experiment_runner import ExperimentResult
+from toolsim.tools.toolsandbox_runtime import ensure_toolsandbox_state
 
 POLICY_STRATEGIES = ["direct", "cot", "react", "self_refine"]
 POLICY_NOISE_TYPES = ["timeout", "schema_drift", "stale_state", "vague_observation", "misleading_observation"]
@@ -825,9 +826,9 @@ def _observation_policy_templates() -> list[dict[str, Any]]:
     contact_state = _state_with_contact("ada", "Ada", "+000")
     reminder_state = _state_with_reminder("rem1", "pay rent", 100.0)
     message_state = _state_with_message("msg1", "invoice pending")
-    setting_state = WorldState()
-    setting_state.set_entity("setting", "device", {"wifi": False})
-    calendar_state = WorldState()
+    setting_state = _toolsandbox_base_state()
+    _set_device_fields(setting_state, wifi=False)
+    calendar_state = _toolsandbox_base_state()
     calendar_state.set_entity("calendar_event", "evt1", {
         "event_id": "evt1",
         "title": "Sync",
@@ -895,7 +896,7 @@ def _observation_policy_templates() -> list[dict[str, Any]]:
 def _stale_policy_templates() -> list[dict[str, Any]]:
     contact_state = _state_with_contact("ada", "Ada", "+000")
     reminder_state = _state_with_reminder("rem1", "pay rent", 100.0)
-    calendar_state = WorldState()
+    calendar_state = _toolsandbox_base_state()
     calendar_state.set_entity("calendar_event", "evt1", {
         "event_id": "evt1",
         "title": "Sync",
@@ -905,9 +906,9 @@ def _stale_policy_templates() -> list[dict[str, Any]]:
         "location": "Room A",
         "status": "scheduled",
     })
-    file_state = WorldState()
-    setting_state = WorldState()
-    setting_state.set_entity("setting", "device", {"wifi": False})
+    file_state = _toolsandbox_base_state()
+    setting_state = _toolsandbox_base_state()
+    _set_device_fields(setting_state, wifi=False)
 
     return [
         {
@@ -976,7 +977,7 @@ def _stale_policy_templates() -> list[dict[str, Any]]:
 
 
 def _state_with_contact(person_id: str, name: str, phone_number: str) -> WorldState:
-    state = WorldState()
+    state = _toolsandbox_base_state()
     state.set_entity("contact", person_id, {
         "person_id": person_id,
         "name": name,
@@ -988,7 +989,7 @@ def _state_with_contact(person_id: str, name: str, phone_number: str) -> WorldSt
 
 
 def _state_with_reminder(reminder_id: str, content: str, timestamp: float) -> WorldState:
-    state = WorldState()
+    state = _toolsandbox_base_state()
     state.set_entity("reminder", reminder_id, {
         "reminder_id": reminder_id,
         "content": content,
@@ -998,13 +999,32 @@ def _state_with_reminder(reminder_id: str, content: str, timestamp: float) -> Wo
 
 
 def _state_with_message(message_id: str, content: str) -> WorldState:
-    state = WorldState()
+    state = _toolsandbox_base_state()
     state.set_entity("messaging", message_id, {
         "message_id": message_id,
         "content": content,
         "recipient_phone_number": "+100",
     })
     return state
+
+
+def _toolsandbox_base_state() -> WorldState:
+    state = WorldState()
+    ensure_toolsandbox_state(state)
+    state.set_entity("contact", "self", {
+        "person_id": "self",
+        "name": "Self",
+        "phone_number": "+10000000000",
+        "relationship": None,
+        "is_self": True,
+    })
+    return state
+
+
+def _set_device_fields(state: WorldState, **fields: Any) -> None:
+    device = dict(state.get_entity("setting", "device") or {})
+    device.update(fields)
+    state.set_entity("setting", "device", device)
 
 
 def _observation_matches_payload(record: ExecutionRecord, payload: dict[str, Any]) -> bool:

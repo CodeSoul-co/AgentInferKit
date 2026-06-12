@@ -8,6 +8,19 @@ from typing import Any, Dict, List, Optional
 
 from toolsim.backends.base import BaseBackend
 from toolsim.core.world_state import PendingEffect, WorldState
+from toolsim.tools.apibank_runtime import (
+    APIBANK_RUNTIME_NAME,
+    call_apibank_api,
+    ensure_apibank_state,
+    persist_apibank_databases,
+)
+from toolsim.tools.toolsandbox_runtime import (
+    TOOLSANDBOX_RUNTIME_NAME,
+    call_toolsandbox_tool,
+    ensure_toolsandbox_state,
+    persist_toolsandbox_databases,
+    record_end_conversation,
+)
 
 
 class SandboxBackend(BaseBackend):
@@ -28,6 +41,8 @@ class SandboxBackend(BaseBackend):
         state.policies.setdefault("sandbox", {})
         state.policies["sandbox"]["session_id"] = self.session_id
         state.policies["sandbox"]["artifact_root"] = str(self.session_root)
+        state.policies.setdefault("backend", {})
+        state.policies["backend"]["realism"] = "sandbox_strict"
         return state
 
     def clone_state(self, state: WorldState) -> WorldState:
@@ -36,6 +51,8 @@ class SandboxBackend(BaseBackend):
         cloned.policies.setdefault("sandbox", {})
         cloned.policies["sandbox"]["session_id"] = self.session_id
         cloned.policies["sandbox"]["artifact_root"] = str(self.session_root)
+        cloned.policies.setdefault("backend", {})
+        cloned.policies["backend"].setdefault("realism", "sandbox_strict")
         return cloned
 
     def snapshot_state(self, state: WorldState, label: Optional[str] = None) -> str:
@@ -48,6 +65,8 @@ class SandboxBackend(BaseBackend):
             state.policies.setdefault("sandbox", {})
             state.policies["sandbox"]["session_id"] = self.session_id
             state.policies["sandbox"]["artifact_root"] = str(self.session_root)
+            state.policies.setdefault("backend", {})
+            state.policies["backend"].setdefault("realism", "sandbox_strict")
         return rolled_back
 
     def get_entity(self, state: WorldState, entity_type: str, entity_id: str) -> Optional[Dict[str, Any]]:
@@ -67,6 +86,42 @@ class SandboxBackend(BaseBackend):
 
     def list_pending_effects(self, state: WorldState, status: Optional[str] = None) -> List[PendingEffect]:
         return state.list_pending_effects(status=status)
+
+    def ensure_apibank_account_state(self, state: WorldState) -> None:
+        """Seed API-Bank databases for deterministic strict sandbox calls."""
+        ensure_apibank_state(state)
+        state.resources.setdefault("api_bank_session", self.session_id)
+        state.policies.setdefault("backend", {})
+        state.policies["backend"]["api_bank_runtime"] = APIBANK_RUNTIME_NAME
+        self._persist_account_database(state)
+
+    def call_apibank_api(self, state: WorldState, api_name: str, args: dict[str, Any]) -> dict[str, Any]:
+        """Run API-Bank APIs with strict deterministic semantics."""
+        self.ensure_apibank_account_state(state)
+        result = call_apibank_api(state, api_name, args)
+        self._persist_account_database(state)
+        return result
+
+    def ensure_toolsandbox_state(self, state: WorldState) -> None:
+        """Seed ToolSandbox databases for deterministic strict sandbox calls."""
+        ensure_toolsandbox_state(state)
+        state.resources.setdefault("toolsandbox_session", self.session_id)
+        state.policies.setdefault("backend", {})
+        state.policies["backend"]["toolsandbox_runtime"] = TOOLSANDBOX_RUNTIME_NAME
+        self._persist_toolsandbox_database(state)
+
+    def call_toolsandbox_tool(self, state: WorldState, tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+        """Run ToolSandbox tools with strict deterministic semantics."""
+        self.ensure_toolsandbox_state(state)
+        result = call_toolsandbox_tool(state, tool_name, args)
+        self._persist_toolsandbox_database(state)
+        return result
+
+    def record_toolsandbox_end_conversation(self, state: WorldState, args: dict[str, Any]) -> dict[str, Any]:
+        self.ensure_toolsandbox_state(state)
+        result = record_end_conversation(state, args)
+        self._persist_toolsandbox_database(state)
+        return result
 
     def write_file_artifact(self, file_id: str, content: str) -> str:
         """Persist a sandbox file as a real artifact for live-ish file IO behavior."""
@@ -107,6 +162,12 @@ class SandboxBackend(BaseBackend):
                 entry.setdefault("sandbox_index_path", str(path))
                 entries.append(entry)
         return entries
+
+    def _persist_account_database(self, state: WorldState) -> None:
+        persist_apibank_databases(state, self.session_root)
+
+    def _persist_toolsandbox_database(self, state: WorldState) -> None:
+        persist_toolsandbox_databases(state, self.session_root)
 
 
 def _safe_name(value: str) -> str:

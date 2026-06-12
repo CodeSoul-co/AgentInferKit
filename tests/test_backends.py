@@ -166,3 +166,63 @@ def test_sandbox_backend_persists_file_and_search_artifacts(tmp_path):
     assert query_record.success is True
     assert query_record.observation["hits"][0]["file_id"] == "notes/alpha"
     assert query_record.observation["hits"][0]["source"] == "sandbox_index"
+
+
+def test_mock_backend_optimistically_allows_invalid_apibank_password_change():
+    backend = MockBackend()
+    state = backend.create_state()
+    executor = StatefulExecutor(create_default_tool_registry(), backend=backend)
+
+    record = executor.execute(
+        "ModifyPassword",
+        state,
+        {
+            "token": "z9x8c7v6b5n4m3q2w1",
+            "old_password": "wrong-old-password",
+            "new_password": "mock-updated",
+        },
+    )
+
+    assert record.success is True
+    assert record.backend_name == "mock"
+    assert state.get_entity("account", "foo")["password"] == "mock-updated"
+
+
+def test_sandbox_backend_strictly_rejects_invalid_apibank_password_change(tmp_path):
+    backend = SandboxBackend(session_id="strict_api", artifact_root=tmp_path)
+    state = backend.create_state()
+    executor = StatefulExecutor(create_default_tool_registry(), backend=backend)
+
+    record = executor.execute(
+        "ModifyPassword",
+        state,
+        {
+            "token": "z9x8c7v6b5n4m3q2w1",
+            "old_password": "wrong-old-password",
+            "new_password": "sandbox-should-not-update",
+        },
+    )
+
+    assert record.success is False
+    assert record.backend_name == "sandbox"
+    assert "old password is incorrect" in record.error
+    assert state.get_entity("account", "foo")["password"] == "bar"
+    assert (tmp_path / "strict_api" / "Account.json").exists()
+
+
+def test_sandbox_backend_strictly_rejects_missing_toolsandbox_contact(tmp_path):
+    backend = SandboxBackend(session_id="strict_toolsandbox", artifact_root=tmp_path)
+    state = backend.create_state()
+    executor = StatefulExecutor(create_default_tool_registry(), backend=backend)
+
+    record = executor.execute(
+        "modify_contact",
+        state,
+        {"person_id": "missing", "name": "Missing", "phone_number": "+15550000000"},
+    )
+
+    assert record.success is False
+    assert record.backend_name == "sandbox"
+    assert "No db entry matching person_id='missing' found" in record.error
+    assert state.get_entity("contact", "missing") is None
+    assert (tmp_path / "strict_toolsandbox" / "Contact.json").exists()

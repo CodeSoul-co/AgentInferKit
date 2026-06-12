@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from toolsim.core.world_state import WorldState
+from toolsim.tools.toolsandbox_runtime import ensure_toolsandbox_state
 
 
 _NAMESPACE_TO_ENTITY = {
@@ -249,11 +250,28 @@ def _case_sort_key(case: ToolSandboxConvertedCase) -> tuple[Any, ...]:
 def build_initial_state(scenario: ToolSandboxScenario) -> WorldState:
     """Build a minimal WorldState from ToolSandbox initial metadata."""
     state = WorldState()
+    ensure_toolsandbox_state(state)
     if scenario.initial_settings:
-        state.set_entity("setting", "device", dict(scenario.initial_settings))
+        settings = dict(state.get_entity("setting", "device") or {})
+        settings.update(dict(scenario.initial_settings))
+        state.set_entity("setting", "device", settings)
+
+    if not any(contact.get("is_self") for contact in state.entities.get("contact", {}).values()):
+        state.set_entity("contact", "self", {
+            "person_id": "self",
+            "name": "Self",
+            "phone_number": "+10000000000",
+            "relationship": None,
+            "is_self": True,
+            "sandbox_message_index": None,
+        })
+
+    _seed_initial_records_from_constraints(state, scenario)
 
     for index, name in enumerate(scenario.initial_contact_names):
         person_id = f"initial_contact_{index}"
+        if any(contact.get("name") == name for contact in state.entities.get("contact", {}).values()):
+            continue
         state.set_entity("contact", person_id, {
             "person_id": person_id,
             "name": name,
@@ -283,6 +301,43 @@ def build_initial_state(scenario: ToolSandboxScenario) -> WorldState:
         })
 
     return state
+
+
+def _seed_initial_records_from_constraints(state: WorldState, scenario: ToolSandboxScenario) -> None:
+    """Recover base records that are referenced by update/remove milestones.
+
+    The exported scenario metadata stores aggregate initial counts and names, but
+    not the full base databases. Update and removal milestones include the stable
+    ids used by the oracle calls, so we seed those rows before executing them.
+    """
+    for constraint in _iter_constraints([*scenario.milestones, *scenario.minefields]):
+        namespace = constraint.get("database_namespace")
+        function = constraint.get("constraint_function")
+        if function not in {"update_similarity", "removal_similarity"}:
+            continue
+        for target in constraint.get("target_records") or []:
+            if namespace == "CONTACT":
+                person_id = target.get("person_id")
+                if person_id and state.get_entity("contact", person_id) is None:
+                    state.set_entity("contact", person_id, {
+                        "person_id": person_id,
+                        "name": target.get("name"),
+                        "phone_number": target.get("phone_number"),
+                        "relationship": target.get("relationship"),
+                        "is_self": bool(target.get("is_self", False)),
+                        "sandbox_message_index": target.get("sandbox_message_index"),
+                    })
+            elif namespace == "REMINDER":
+                reminder_id = target.get("reminder_id")
+                if reminder_id and state.get_entity("reminder", reminder_id) is None:
+                    state.set_entity("reminder", reminder_id, {
+                        "reminder_id": reminder_id,
+                        "content": target.get("content"),
+                        "reminder_timestamp": target.get("reminder_timestamp"),
+                        "latitude": target.get("latitude"),
+                        "longitude": target.get("longitude"),
+                        "sandbox_message_index": target.get("sandbox_message_index"),
+                    })
 
 
 def milestones_to_goals(milestones: list[dict[str, Any]]) -> list[dict[str, Any]]:
