@@ -8,9 +8,6 @@
   <strong>A Modular Platform for Agent Inference, Evaluation, and Training</strong>
 </p>
 
-
-# AgentInferKit
-
 **A Modular Platform for Agent Inference, Evaluation, and Training**
 
 AgentInferKit is an open-source platform for building, running, and analyzing LLM/VLM/Agent systems across text, multimodal, RAG, and tool-use settings. It is designed for **agent inference** today, and built to extend toward **agent reasoning**, **agent training**, and **RL-based optimization** in the future.
