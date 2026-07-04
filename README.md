@@ -1,3 +1,14 @@
+<p align="center">
+  <img src="docs/agent infer kit.png" alt="AgentInferKit Logo" width="220"/>
+</p>
+
+<h1 align="center">AgentInferKit</h1>
+
+<p align="center">
+  <strong>A Modular Platform for Agent Inference, Evaluation, and Training</strong>
+</p>
+
+
 # AgentInferKit
 
 **A Modular Platform for Agent Inference, Evaluation, and Training**
