@@ -48,6 +48,7 @@ class FileWriteTool(ToolSpec):
 
     def execute(self, state_or_context: Any, args: dict[str, Any]) -> ToolExecutionResult:
         state = self.get_state_from_input(state_or_context)
+        backend = getattr(state_or_context, "backend", None)
         clock = state_or_context.now() if hasattr(state_or_context, "now") else state.clock
         file_id: str | None = args.get("file_id")
         content: str | None = args.get("content")
@@ -79,6 +80,10 @@ class FileWriteTool(ToolSpec):
             }
             action = "overwritten"
 
+        artifact_path = None
+        if backend is not None and hasattr(backend, "write_file_artifact"):
+            artifact_path = backend.write_file_artifact(file_id, content)
+
         state.set_entity(EntityType.FILE, file_id, entity)
 
         scheduled_effects = []
@@ -94,18 +99,25 @@ class FileWriteTool(ToolSpec):
                 "source_tool": self.tool_name,
             })
 
+        observation = {
+            "tool_name": self.tool_name,
+            "file_id": file_id,
+            "action": action,
+            "revision": entity["revision"],
+            "updated_at": entity["updated_at"],
+        }
+        metadata_result = {}
+        if artifact_path is not None:
+            observation["sandbox_artifact_path"] = artifact_path
+            metadata_result["sandbox_artifact_path"] = artifact_path
+
         return ToolExecutionResult(
             success=True,
-            observation={
-                "tool_name": self.tool_name,
-                "file_id": file_id,
-                "action": action,
-                "revision": entity["revision"],
-                "updated_at": entity["updated_at"],
-            },
+            observation=observation,
             state_changed=True,
             pending=bool(scheduled_effects),
             scheduled_effects=scheduled_effects,
+            metadata=metadata_result,
         )
 
 
@@ -139,25 +151,42 @@ class FileReadTool(ToolSpec):
         )
     ]
 
-    def execute(self, state: WorldState, args: dict[str, Any]) -> ToolExecutionResult:
+    def execute(self, state_or_context: Any, args: dict[str, Any]) -> ToolExecutionResult:
+        state = self.get_state_from_input(state_or_context)
+        backend = getattr(state_or_context, "backend", None)
         file_id: str | None = args.get("file_id")
         if not file_id:
             return ToolExecutionResult(success=False, error="Missing required argument: file_id", state_changed=False)
         entity = state.get_entity(EntityType.FILE, file_id)
         if entity is None:
             return ToolExecutionResult(success=False, error=f"File not found: {file_id!r}", state_changed=False)
+        artifact_content = None
+        if backend is not None and hasattr(backend, "read_file_artifact"):
+            artifact_content = backend.read_file_artifact(file_id)
+        content = artifact_content if artifact_content is not None else entity.get("content", "")
+        observation = {
+            "tool_name": self.tool_name,
+            "file_id": file_id,
+            "content": content,
+            "metadata": entity.get("metadata", {}),
+            "revision": entity.get("revision", 1),
+            "created_at": entity.get("created_at"),
+            "updated_at": entity.get("updated_at"),
+        }
+        metadata_result = {}
+        if artifact_content is not None:
+            observation["read_from_artifact"] = True
+            artifact_path = None
+            if backend is not None and hasattr(backend, "get_file_artifact_path"):
+                artifact_path = backend.get_file_artifact_path(file_id)
+            if artifact_path is not None:
+                observation["sandbox_artifact_path"] = artifact_path
+                metadata_result["sandbox_artifact_path"] = artifact_path
         return ToolExecutionResult(
             success=True,
-            observation={
-                "tool_name": self.tool_name,
-                "file_id": file_id,
-                "content": entity.get("content", ""),
-                "metadata": entity.get("metadata", {}),
-                "revision": entity.get("revision", 1),
-                "created_at": entity.get("created_at"),
-                "updated_at": entity.get("updated_at"),
-            },
+            observation=observation,
             state_changed=False,
+            metadata=metadata_result,
         )
 
 

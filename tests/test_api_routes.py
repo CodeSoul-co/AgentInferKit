@@ -39,9 +39,9 @@ def test_router_prefixes():
     """Test that routers have correct prefixes."""
     from api import datasets_router, results_router, chat_router
     
-    assert datasets_router.prefix == "/datasets"
-    assert results_router.prefix == "/results"
-    assert chat_router.prefix == "/chat"
+    assert datasets_router.prefix == ""
+    assert results_router.prefix == ""
+    assert chat_router.prefix == ""
     
     print("✓ test_router_prefixes passed")
 
@@ -51,21 +51,21 @@ def test_router_routes():
     from api import datasets_router, results_router, chat_router
     
     datasets_paths = [r.path for r in datasets_router.routes]
-    assert "/datasets/upload" in datasets_paths
-    assert "/datasets" in datasets_paths  # list endpoint
-    assert "/datasets/{dataset_id}/preview" in datasets_paths
-    assert "/datasets/{dataset_id}/stats" in datasets_paths
-    assert "/datasets/{dataset_id}" in datasets_paths  # delete endpoint
+    assert "/upload" in datasets_paths
+    assert "" in datasets_paths  # list endpoint
+    assert "/{dataset_id}/preview" in datasets_paths
+    assert "/{dataset_id}/stats" in datasets_paths
+    assert "/{dataset_id}" in datasets_paths  # delete endpoint
     
     results_paths = [r.path for r in results_router.routes]
-    assert "/results/{experiment_id}/metrics" in results_paths
-    assert "/results/{experiment_id}/predictions" in results_paths
-    assert "/results/compare" in results_paths
-    assert "/results/{experiment_id}/export" in results_paths
+    assert "/{experiment_id}/metrics" in results_paths
+    assert "/{experiment_id}/predictions" in results_paths
+    assert "/compare" in results_paths
+    assert "/{experiment_id}/export" in results_paths
     
     chat_paths = [r.path for r in chat_router.routes]
-    assert "/chat/complete" in chat_paths
-    assert "/chat/stream" in chat_paths
+    assert "/complete" in chat_paths
+    assert "/stream" in chat_paths
     
     print("✓ test_router_routes passed")
 

@@ -10,11 +10,13 @@ from typing import Any
 
 from toolsim.backends.base import BaseBackend
 from toolsim.backends.mock_backend import MockBackend
+from toolsim.tools.apibank_tools import APIBANK_TOOLS
 from toolsim.tools.calendar_tools import CALENDAR_TOOLS
 from toolsim.core.environment import ToolEnvironment
 from toolsim.tools.file_tools import FILE_TOOLS
 from toolsim.tools.issue_tools import ISSUE_TOOLS
 from toolsim.tools.search_tools import SEARCH_TOOLS
+from toolsim.tools.toolsandbox_tools import TOOLSANDBOX_TOOLS
 from toolsim.core.tool_spec import (
     ConditionCheckResult,
     ExecutionContext,
@@ -24,6 +26,7 @@ from toolsim.core.tool_spec import (
     ToolSpec,
 )
 from toolsim.core.world_state import PendingEffect, WorldState
+from toolsim.faults import FaultInjector, FaultProfile
 
 
 @dataclass
@@ -37,6 +40,7 @@ class ExecutorConfig:
     enforce_permissions: bool = True
     auto_advance_clock: float = 0.0
     auto_apply_ready_effects: bool = True
+    fault_profile: FaultProfile | dict[str, Any] | None = None
 
 
 @dataclass
@@ -68,6 +72,9 @@ class ExecutionRecord:
     applied_effect_count: int = 0
     consistency_warning: str | None = None
     backend_name: str = "mock"
+    metadata: dict[str, Any] = field(default_factory=dict)
+    pre_state_snapshot: dict[str, Any] = field(default_factory=dict)
+    post_state_snapshot: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -96,6 +103,9 @@ class ExecutionRecord:
             "applied_effect_count": self.applied_effect_count,
             "consistency_warning": self.consistency_warning,
             "backend_name": self.backend_name,
+            "metadata": self.metadata,
+            "pre_state_snapshot": self.pre_state_snapshot,
+            "post_state_snapshot": self.post_state_snapshot,
         }
 
 
@@ -113,6 +123,8 @@ class StatefulExecutor:
         self._tracer = tracer
         self._config = config or ExecutorConfig()
         self._backend = backend or MockBackend()
+        fault_profile = self._coerce_fault_profile(self._config.fault_profile)
+        self._fault_injector = FaultInjector(fault_profile) if fault_profile is not None else None
 
     def execute(
         self,
@@ -132,6 +144,7 @@ class StatefulExecutor:
         backend = tool_environment.backend
         tool_environment.before_call(tool_name, args)
         pre_state_hash = state.compute_hash()
+        pre_state_snapshot = state.to_dict()
         tool = self._tools.get(tool_name)
 
         if tool is None:
@@ -148,6 +161,8 @@ class StatefulExecutor:
                 post_state_hash=pre_state_hash,
                 hash_changed=False,
                 backend_name=backend.get_backend_name(),
+                pre_state_snapshot=pre_state_snapshot,
+                post_state_snapshot=pre_state_snapshot,
             )
             self._log_record(record)
             return record
@@ -174,6 +189,8 @@ class StatefulExecutor:
                 permission_results=permission_results,
                 timeout_ms=self._config.default_timeout_ms,
                 backend_name=backend.get_backend_name(),
+                pre_state_snapshot=pre_state_snapshot,
+                post_state_snapshot=pre_state_snapshot,
             )
             self._log_record(record)
             return record
@@ -191,8 +208,43 @@ class StatefulExecutor:
             backend=backend,
         )
 
+        fault_decision = self._fault_injector.before_call(metadata.name, args) if self._fault_injector else None
+        if fault_decision is not None and fault_decision.latency_ms > 0:
+            time.sleep(fault_decision.latency_ms / 1000.0)
+
+        if fault_decision is not None and fault_decision.fail_before_execution:
+            duration_ms = (time.perf_counter() - start) * 1000
+            post_state_hash = state.compute_hash()
+            record = ExecutionRecord(
+                call_id=call_id,
+                tool_name=metadata.name,
+                tool_version=metadata.version,
+                args=dict(args),
+                status="failed",
+                success=False,
+                observation={"error": fault_decision.error},
+                error=fault_decision.error,
+                state_changed=False,
+                pre_state_hash=pre_state_hash,
+                post_state_hash=post_state_hash,
+                hash_changed=(pre_state_hash != post_state_hash),
+                precondition_results=precondition_results,
+                permission_results=permission_results,
+                attempt_count=1,
+                duration_ms=duration_ms,
+                timeout_ms=self._config.default_timeout_ms,
+                backend_name=backend.get_backend_name(),
+                metadata={"fault": fault_decision.fault_type or "transient_failure"},
+                pre_state_snapshot=pre_state_snapshot,
+                post_state_snapshot=state.to_dict(),
+            )
+            self._log_record(record)
+            return record
+
         try:
             result = self._invoke_tool(tool, context, args)
+            if self._fault_injector is not None:
+                result = self._fault_injector.after_call(metadata.name, result)
             self._schedule_declared_effects(result.scheduled_effects, state, metadata.name, backend)
             applied_results = tool_environment.after_call(tool_name, args, result)
         except Exception as exc:
@@ -222,6 +274,8 @@ class StatefulExecutor:
                     else None
                 ),
                 backend_name=backend.get_backend_name(),
+                pre_state_snapshot=pre_state_snapshot,
+                post_state_snapshot=state.to_dict(),
             )
             self._log_record(record)
             return record
@@ -265,6 +319,9 @@ class StatefulExecutor:
             applied_effect_count=sum(1 for item in applied_results if item.applied),
             consistency_warning=_build_consistency_warning(result.state_changed, hash_changed),
             backend_name=backend.get_backend_name(),
+            metadata=result.metadata,
+            pre_state_snapshot=pre_state_snapshot,
+            post_state_snapshot=state.to_dict(),
         )
         self._log_record(record)
         return record
@@ -272,6 +329,13 @@ class StatefulExecutor:
     def list_tools(self) -> list[str]:
         """Return the list of registered tool names."""
         return list(self._tools.keys())
+
+    def _coerce_fault_profile(self, profile: FaultProfile | dict[str, Any] | None) -> FaultProfile | None:
+        if profile is None:
+            return None
+        if isinstance(profile, FaultProfile):
+            return profile
+        return FaultProfile.from_dict(profile)
 
     def _schedule_declared_effects(
         self,
@@ -426,6 +490,8 @@ def create_default_tool_registry() -> dict[str, ToolSpec]:
     registry.update(SEARCH_TOOLS)
     registry.update(CALENDAR_TOOLS)
     registry.update(ISSUE_TOOLS)
+    registry.update(TOOLSANDBOX_TOOLS)
+    registry.update(APIBANK_TOOLS)
     return registry
 
 

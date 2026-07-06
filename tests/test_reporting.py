@@ -15,19 +15,19 @@ def test_batch_comparison_runner_returns_batch_result():
     cases = build_stateless_vs_stateful_cases()
     batch_result = BatchComparisonRunner().run(cases)
 
-    assert batch_result.total_cases == 3
-    assert len(batch_result.results) == 3
-    assert len(batch_result.summaries) == 3
+    assert batch_result.total_cases == 9
+    assert len(batch_result.results) == 9
+    assert len(batch_result.summaries) == 9
 
 
 def test_batch_result_counts_are_correct():
     cases = build_stateless_vs_stateful_cases()
     batch_result = BatchComparisonRunner().run(cases)
 
-    assert batch_result.stateful_goal_pass_count == 3
-    assert batch_result.stateless_goal_pass_count == 3
-    assert batch_result.stateful_all_calls_succeeded_count == 3
-    assert batch_result.stateless_all_calls_succeeded_count == 3
+    assert batch_result.stateful_goal_pass_count == 9
+    assert batch_result.stateless_goal_pass_count == 9
+    assert batch_result.stateful_all_calls_succeeded_count == 5
+    assert batch_result.stateless_all_calls_succeeded_count == 9
 
 
 def test_single_comparison_result_can_export_dict():
@@ -45,9 +45,9 @@ def test_batch_comparison_result_can_export_dict():
     batch_result = BatchComparisonRunner().run(cases)
     payload = batch_result.to_dict()
 
-    assert payload["total_cases"] == 3
-    assert len(payload["results"]) == 3
-    assert len(payload["summaries"]) == 3
+    assert payload["total_cases"] == 9
+    assert len(payload["results"]) == 9
+    assert len(payload["summaries"]) == 9
 
 
 def test_markdown_report_renders_string():
@@ -75,6 +75,11 @@ def test_key_difference_rules_cover_existing_cases():
     assert "not indexed" in summaries[0].key_difference
     assert "explicit indexing" in summaries[1].key_difference
     assert "indexed snapshot" in summaries[2].key_difference
+    assert "close-before-assignment" in summaries[3].key_difference
+    assert "explicitly indexed file snapshots" in summaries[4].key_difference
+    assert "participant conflict" in summaries[6].key_difference
+    assert "participant conflict" in summaries[7].key_difference
+    assert "reopen-before-close" in summaries[8].key_difference
 
 
 def run_all_tests() -> None:

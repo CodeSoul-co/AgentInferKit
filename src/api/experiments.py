@@ -25,17 +25,17 @@ from .schemas import (
     ExperimentStopResponse,
     ResponseEnvelope,
 )
-from ..runners.batch_runner import BatchRunner
-from ..runners.qa_runner import QARunner
-from ..runners.exam_runner import ExamRunner
-from ..runners.image_runner import ImageRunner
-from ..runners.agent_runner import AgentRunner
-from ..adapters.registry import load_adapter
-from ..strategies.registry import load_strategy
-from ..evaluators.registry import evaluate_all
-from ..evaluators.group_stats import multi_group_stats
-from ..config import OUTPUTS_METRICS_DIR, OUTPUTS_PREDICTIONS_DIR
-from ..utils.file_io import read_jsonl
+from src.runners.batch_runner import BatchRunner
+from src.runners.qa_runner import QARunner
+from src.runners.exam_runner import ExamRunner
+from src.runners.image_runner import ImageRunner
+from src.runners.agent_runner import AgentRunner
+from src.adapters.registry import load_adapter
+from src.strategies.registry import load_strategy
+from src.evaluators.registry import evaluate_all
+from src.evaluators.group_stats import multi_group_stats
+from src.config import OUTPUTS_METRICS_DIR, OUTPUTS_PREDICTIONS_DIR
+from src.utils.file_io import read_jsonl
 
 
 router = APIRouter(tags=["experiments"])
@@ -214,7 +214,7 @@ async def _run_experiment_task(experiment_id: str, exp: Dict[str, Any]):
                 pred["correct"] = False
         
         # Determine evaluators based on task type
-        from ..evaluators.registry import list_metrics
+        from src.evaluators.registry import list_metrics
         available_metrics = set(list_metrics())
         
         eval_config = exp.get("eval", {})
@@ -348,8 +348,8 @@ async def list_strategy_params():
     constraints (min, max, options). The frontend can use this to render
     dynamic parameter forms when a user selects a strategy.
     """
-    from ..strategies.registry import list_strategies
-    from ..strategies.params import get_strategy_params
+    from src.strategies.registry import list_strategies
+    from src.strategies.params import get_strategy_params
 
     result = []
     for name in list_strategies():
@@ -689,7 +689,7 @@ async def evaluate_experiment(experiment_id: str, body: Dict[str, Any] = Body(de
             pred["correct"] = False
 
     # Determine evaluators
-    from ..evaluators.registry import list_metrics
+    from src.evaluators.registry import list_metrics
     available_metrics = set(list_metrics())
 
     requested_metrics = body.get("metrics", [])

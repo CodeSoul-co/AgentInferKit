@@ -2,6 +2,19 @@
 
 from __future__ import annotations
 
+from toolsim.tools.apibank_tools import (
+    APIBANK_TOOLS,
+    AddAgendaTool,
+    AddMeetingTool,
+    CheckTokenTool,
+    ForgotPasswordTool,
+    GetUserTokenTool,
+    ModifyAgendaTool,
+    ModifyMeetingTool,
+    ModifyPasswordTool,
+    QueryAgendaTool,
+    QueryMeetingTool,
+)
 from toolsim.tools.calendar_tools import (
     CALENDAR_TOOLS,
     CalendarCreateEventTool,
@@ -15,11 +28,22 @@ from toolsim.tools.search_tools import SEARCH_TOOLS, SearchIndexTool, SearchQuer
 
 __all__ = [
     "FILE_TOOLS",
+    "APIBANK_TOOLS",
     "SEARCH_TOOLS",
     "CALENDAR_TOOLS",
     "ISSUE_TOOLS",
     "FileWriteTool",
     "FileReadTool",
+    "CheckTokenTool",
+    "GetUserTokenTool",
+    "ModifyPasswordTool",
+    "ForgotPasswordTool",
+    "AddAgendaTool",
+    "QueryAgendaTool",
+    "ModifyAgendaTool",
+    "AddMeetingTool",
+    "QueryMeetingTool",
+    "ModifyMeetingTool",
     "IssueCreateTool",
     "IssueAssignTool",
     "IssueCommentTool",

@@ -92,6 +92,9 @@ from toolsim.reporting.reporting import (
     render_markdown_report,
     summarize_comparison_result,
 )
+from toolsim.reporting.fault_report import render_fault_robustness_markdown, write_fault_robustness_markdown
+from toolsim.reporting.trace_report import render_stateful_trace_markdown, write_stateful_trace_markdown
+from toolsim.reporting.toolsandbox_report import render_toolsandbox_benchmark_markdown, write_toolsandbox_benchmark_markdown
 from toolsim.evaluators.overview_summary import OverviewMetrics, compute_overview_metrics, generate_overall_conclusion
 
 # Experiment runners
@@ -109,7 +112,35 @@ from toolsim.runners.experiment_runner import (
     build_issue_tracker_demo_calls,
     build_issue_tracker_demo_goals,
 )
+from toolsim.runners.fault_robustness import (
+    FaultRobustnessBatchResult,
+    FaultRobustnessCase,
+    FaultRobustnessCaseResult,
+    FaultRobustnessMetrics,
+    FaultRobustnessRunner,
+    build_default_fault_robustness_cases,
+)
+from toolsim.runners.toolsandbox_benchmark import (
+    ToolSandboxBenchmarkMetrics,
+    ToolSandboxBenchmarkResult,
+    ToolSandboxBenchmarkRunner,
+    ToolSandboxCaseResult,
+    ToolSandboxGroupMetrics,
+)
 from toolsim.runners.stateless_baseline import StatelessExperimentRunner
+
+# Faults
+from toolsim.faults import FaultInjector, FaultProfile, FaultDecision
+
+# External dataset adapters
+from toolsim.adapters.toolsandbox_adapter import (
+    ToolSandboxConvertedCase,
+    ToolSandboxScenario,
+    convert_toolsandbox_file,
+    convert_toolsandbox_scenario,
+    load_toolsandbox_scenarios,
+    write_converted_cases_jsonl,
+)
 
 # Registry
 from toolsim.core.registry import ToolRegistry
@@ -186,7 +217,13 @@ __all__ = [
     "BatchComparisonResult",
     "CaseComparisonSummary",
     "render_markdown_report",
+    "render_fault_robustness_markdown",
+    "render_stateful_trace_markdown",
+    "render_toolsandbox_benchmark_markdown",
     "summarize_comparison_result",
+    "write_fault_robustness_markdown",
+    "write_stateful_trace_markdown",
+    "write_toolsandbox_benchmark_markdown",
     "OverviewMetrics",
     "compute_overview_metrics",
     "generate_overall_conclusion",
@@ -197,11 +234,33 @@ __all__ = [
     "build_stateless_vs_stateful_cases",
     "ExperimentRunner",
     "ExperimentResult",
+    "FaultRobustnessBatchResult",
+    "FaultRobustnessCase",
+    "FaultRobustnessCaseResult",
+    "FaultRobustnessMetrics",
+    "FaultRobustnessRunner",
+    "build_default_fault_robustness_cases",
+    "ToolSandboxBenchmarkMetrics",
+    "ToolSandboxBenchmarkResult",
+    "ToolSandboxBenchmarkRunner",
+    "ToolSandboxCaseResult",
+    "ToolSandboxGroupMetrics",
     "build_file_search_demo_calls",
     "build_file_search_demo_goals",
     "build_issue_tracker_demo_calls",
     "build_issue_tracker_demo_goals",
     "StatelessExperimentRunner",
+    # Faults
+    "FaultInjector",
+    "FaultProfile",
+    "FaultDecision",
+    # ToolSandbox adapter
+    "ToolSandboxConvertedCase",
+    "ToolSandboxScenario",
+    "convert_toolsandbox_file",
+    "convert_toolsandbox_scenario",
+    "load_toolsandbox_scenarios",
+    "write_converted_cases_jsonl",
     # Registry
     "ToolRegistry",
     # Backends

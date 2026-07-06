@@ -29,6 +29,8 @@ class TrajectoryMetrics:
     explicit_dependency_resolution_detected: bool
     overwrite_without_reindex_detected: bool
     issue_close_recovery_detected: bool
+    issue_reopen_recovery_detected: bool
+    calendar_conflict_recovery_detected: bool
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -46,6 +48,8 @@ class TrajectoryMetrics:
             "explicit_dependency_resolution_detected": self.explicit_dependency_resolution_detected,
             "overwrite_without_reindex_detected": self.overwrite_without_reindex_detected,
             "issue_close_recovery_detected": self.issue_close_recovery_detected,
+            "issue_reopen_recovery_detected": self.issue_reopen_recovery_detected,
+            "calendar_conflict_recovery_detected": self.calendar_conflict_recovery_detected,
         }
 
 
@@ -106,6 +110,8 @@ class TrajectoryLevelEvaluator:
             explicit_dependency_resolution_detected=detect_explicit_dependency_resolution(records),
             overwrite_without_reindex_detected=detect_overwrite_without_reindex_pattern(records),
             issue_close_recovery_detected=detect_issue_close_recovery_pattern(records),
+            issue_reopen_recovery_detected=detect_issue_reopen_recovery_pattern(records),
+            calendar_conflict_recovery_detected=detect_calendar_conflict_recovery_pattern(records),
         )
 
 
@@ -150,6 +156,38 @@ def detect_issue_close_recovery_pattern(records_or_tracer: Sequence[ExecutionRec
     return False
 
 
+def detect_issue_reopen_recovery_pattern(records_or_tracer: Sequence[ExecutionRecord] | TraceRecorder) -> bool:
+    records = _normalize_records(records_or_tracer)
+    failed_reopen_issue_ids: set[str] = set()
+    closed_issue_ids: set[str] = set()
+
+    for record in records:
+        issue_id = record.args.get("issue_id")
+        if record.tool_name == "issue.reopen" and not record.success and issue_id:
+            failed_reopen_issue_ids.add(issue_id)
+        elif record.tool_name == "issue.close" and record.success and issue_id in failed_reopen_issue_ids:
+            closed_issue_ids.add(issue_id)
+        elif record.tool_name == "issue.reopen" and record.success and issue_id in closed_issue_ids:
+            return True
+    return False
+
+
+def detect_calendar_conflict_recovery_pattern(records_or_tracer: Sequence[ExecutionRecord] | TraceRecorder) -> bool:
+    records = _normalize_records(records_or_tracer)
+    failed_event_ids: set[str] = set()
+
+    for record in records:
+        event_id = record.args.get("event_id")
+        is_calendar_write = record.tool_name in {"calendar.create_event", "calendar.update_event"}
+        if not is_calendar_write or not event_id:
+            continue
+        if not record.success and "Conflict detected" in (record.error or ""):
+            failed_event_ids.add(event_id)
+        elif record.success and event_id in failed_event_ids:
+            return True
+    return False
+
+
 def detect_overwrite_without_reindex_pattern(records_or_tracer: Sequence[ExecutionRecord] | TraceRecorder) -> bool:
     records = _normalize_records(records_or_tracer)
     file_states: Dict[str, Dict[str, bool]] = {}
@@ -170,6 +208,7 @@ def detect_overwrite_without_reindex_pattern(records_or_tracer: Sequence[Executi
             state = file_states.setdefault(file_id, {"wrote": False, "indexed": False, "overwrote_after_index": False})
             if state["wrote"]:
                 state["indexed"] = True
+                state["overwrote_after_index"] = False
         elif record.tool_name == "search.query":
             if any(state["indexed"] and state["overwrote_after_index"] for state in file_states.values()):
                 return True
@@ -213,6 +252,21 @@ def _build_key_process_difference(
         )
     if stateful_metrics.explicit_dependency_resolution_detected and not stateless_metrics.contains_index_step:
         return "Stateful trajectory included explicit indexing before retrieval, while stateless trajectory did not."
+    if stateful_metrics.issue_close_recovery_detected and not stateless_metrics.issue_close_recovery_detected:
+        return (
+            "Stateful trajectory exposed a failed close, dependency repair via assignment, and retry; "
+            "stateless trajectory closed the issue directly."
+        )
+    if stateful_metrics.issue_reopen_recovery_detected and not stateless_metrics.issue_reopen_recovery_detected:
+        return (
+            "Stateful trajectory exposed a failed reopen, repaired the issue state through close-and-reopen, "
+            "while stateless trajectory reopened directly."
+        )
+    if stateful_metrics.calendar_conflict_recovery_detected and not stateless_metrics.calendar_conflict_recovery_detected:
+        return (
+            "Stateful trajectory exposed a calendar conflict and required a non-conflicting retry, "
+            "while stateless trajectory accepted the conflicting mutation."
+        )
     if stateful_metrics.total_steps != stateless_metrics.total_steps:
         return "Stateful trajectory required an extra dependency-resolution step."
     return "Stateful and stateless trajectories were structurally similar in this case."
