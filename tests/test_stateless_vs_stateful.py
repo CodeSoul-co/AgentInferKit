@@ -5,8 +5,10 @@ Unit tests for Stateless vs Stateful comparison experiments.
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from toolsandbox_fixture_utils import TOOLSANDBOX_JSON_PATH, expand_cases_per_domain
 from toolsim.adapters.toolsandbox_adapter import convert_toolsandbox_file
 from toolsim.runners.comparison_runner import (
     ComparisonRunner,
@@ -14,10 +16,6 @@ from toolsim.runners.comparison_runner import (
     build_toolsandbox_stateless_vs_stateful_cases,
     select_toolsandbox_comparison_subset_cases,
 )
-
-
-ROOT = Path(__file__).parent.parent
-TOOLSANDBOX_JSON_PATH = ROOT / "Toolsandbox" / "tool_sandbox_scenarios.json"
 
 
 def test_case_write_then_query_differs_between_stateful_and_stateless():
@@ -151,22 +149,23 @@ def test_case_issue_reopen_requires_closed_state_in_stateful_only():
 
 def test_toolsandbox_comparison_subset_selects_eight_goal_cases_per_domain():
     source_cases = [case for case in convert_toolsandbox_file(TOOLSANDBOX_JSON_PATH) if case.goals]
-    subset = select_toolsandbox_comparison_subset_cases(source_cases, group_by="domain", per_group=8)
+    expanded_cases = expand_cases_per_domain(source_cases, per_domain=5)
+    subset = select_toolsandbox_comparison_subset_cases(expanded_cases, group_by="domain", per_group=5)
     comparison_cases = build_toolsandbox_stateless_vs_stateful_cases(subset)
 
     counts = {}
     for case in subset:
         counts[case.domain] = counts.get(case.domain, 0) + 1
 
-    assert len(subset) == 40
-    assert len(comparison_cases) == 40
+    assert len(subset) == 25
+    assert len(comparison_cases) == 25
     assert set(counts) == {"contacts", "device_settings", "external_search", "messaging", "reminders"}
-    assert all(count == 8 for count in counts.values())
+    assert all(count == 5 for count in counts.values())
 
 
 def test_toolsandbox_comparison_subset_runs_with_final_state_correctness():
     source_cases = [case for case in convert_toolsandbox_file(TOOLSANDBOX_JSON_PATH) if case.goals]
-    subset = select_toolsandbox_comparison_subset_cases(source_cases, group_by="domain", per_group=5)
+    subset = select_toolsandbox_comparison_subset_cases(expand_cases_per_domain(source_cases, per_domain=5), group_by="domain", per_group=5)
     comparison_cases = build_toolsandbox_stateless_vs_stateful_cases(subset)
     results = ComparisonRunner().run_cases(comparison_cases)
 

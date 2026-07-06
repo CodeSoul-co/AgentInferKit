@@ -1,0 +1,3 @@
+scenario_name,canonical_task_key,is_augmented_variant,real_world_scenario,user_request,system_instruction_to_user,domain,max_messages,required_tool_count,required_tools,categories,distraction_tags,augmentation_tags,wifi,cellular,location_service,low_battery_mode,latitude,longitude,initial_contact_count,initial_message_count,initial_reminder_count,initial_contact_names,milestones_json,minefields_json
+fixture_csv_contact,fixture_csv_contact,False,add contact,add contact,,contacts,5,2,add_contact|end_conversation,SINGLE_TOOL_CALL,,,True,True,True,False,1.0,2.0,0,0,0,,[],[]
+fixture_csv_reminder,fixture_csv_reminder,False,add reminder,add reminder,,reminders,5,2,add_reminder|end_conversation,SINGLE_TOOL_CALL,,,True,True,True,False,1.0,2.0,0,0,0,,[],[]

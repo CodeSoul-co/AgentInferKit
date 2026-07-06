@@ -1,0 +1,166 @@
+[
+  {
+    "scenario_name": "fixture_add_contact",
+    "canonical_task_key": "fixture_add_contact",
+    "user_request": "Add Ada Lovelace with phone number +15550001000.",
+    "domain": "contacts",
+    "required_tools": ["add_contact", "end_conversation"],
+    "categories": ["SINGLE_TOOL_CALL", "SINGLE_USER_TURN"],
+    "initial_settings": {"wifi": true, "cellular": true, "location_service": true, "low_battery_mode": false, "latitude": 1.0, "longitude": 2.0},
+    "initial_contact_names": [],
+    "initial_contact_count": 0,
+    "initial_message_count": 0,
+    "initial_reminder_count": 0,
+    "milestones": [
+      {
+        "snapshot_constraints": [
+          {"database_namespace": "CONTACT", "constraint_function": "addition_similarity", "target_records": [{"person_id": "contact_ada", "name": "Ada Lovelace", "phone_number": "+15550001000", "relationship": null}]},
+          {"database_namespace": "SANDBOX", "constraint_function": "snapshot_similarity", "target_records": [{"sender": "AGENT", "recipient": "USER", "content": "Done"}]}
+        ]
+      }
+    ],
+    "minefields": []
+  },
+  {
+    "scenario_name": "fixture_add_reminder_with_helper",
+    "canonical_task_key": "fixture_add_reminder_with_helper",
+    "user_request": "Remind me to buy milk tomorrow morning.",
+    "domain": "reminders",
+    "required_tools": ["datetime_info_to_timestamp", "add_reminder", "end_conversation"],
+    "categories": ["MULTIPLE_TOOL_CALL", "SINGLE_USER_TURN"],
+    "initial_settings": {"wifi": true, "cellular": true, "location_service": true, "low_battery_mode": false, "latitude": 1.0, "longitude": 2.0},
+    "initial_contact_names": [],
+    "initial_contact_count": 0,
+    "initial_message_count": 0,
+    "initial_reminder_count": 0,
+    "milestones": [
+      {
+        "snapshot_constraints": [
+          {"database_namespace": "SANDBOX", "constraint_function": "snapshot_similarity", "target_records": [{"sender": "EXECUTION_ENVIRONMENT", "recipient": "AGENT", "tool_trace": "{\"tool_name\":\"datetime_info_to_timestamp\",\"arguments\":{\"year\":2026,\"month\":1,\"day\":2,\"hour\":9}}"}]},
+          {"database_namespace": "REMINDER", "constraint_function": "addition_similarity", "target_records": [{"reminder_id": "reminder_milk", "content": "buy milk", "reminder_timestamp": 1767344400.0}]},
+          {"database_namespace": "SANDBOX", "constraint_function": "snapshot_similarity", "target_records": [{"sender": "AGENT", "recipient": "USER", "content": "Reminder added"}]}
+        ]
+      }
+    ],
+    "minefields": []
+  },
+  {
+    "scenario_name": "fixture_send_message",
+    "canonical_task_key": "fixture_send_message",
+    "user_request": "Send hello to +15550001002.",
+    "domain": "messaging",
+    "required_tools": ["send_message_with_phone_number", "end_conversation"],
+    "categories": ["SINGLE_TOOL_CALL", "SINGLE_USER_TURN"],
+    "initial_settings": {"wifi": true, "cellular": true, "location_service": true, "low_battery_mode": false, "latitude": 1.0, "longitude": 2.0},
+    "initial_contact_names": [],
+    "initial_contact_count": 0,
+    "initial_message_count": 0,
+    "initial_reminder_count": 0,
+    "milestones": [
+      {
+        "snapshot_constraints": [
+          {"database_namespace": "MESSAGING", "constraint_function": "addition_similarity", "target_records": [{"message_id": "message_hello", "recipient_phone_number": "+15550001002", "content": "hello"}]},
+          {"database_namespace": "SANDBOX", "constraint_function": "snapshot_similarity", "target_records": [{"sender": "AGENT", "recipient": "USER", "content": "Message sent"}]}
+        ]
+      }
+    ],
+    "minefields": []
+  },
+  {
+    "scenario_name": "fixture_set_wifi",
+    "canonical_task_key": "fixture_set_wifi",
+    "user_request": "Turn off wifi.",
+    "domain": "device_settings",
+    "required_tools": ["set_wifi_status", "end_conversation"],
+    "categories": ["SINGLE_TOOL_CALL", "SINGLE_USER_TURN"],
+    "initial_settings": {"wifi": true, "cellular": true, "location_service": true, "low_battery_mode": false, "latitude": 1.0, "longitude": 2.0},
+    "initial_contact_names": [],
+    "initial_contact_count": 0,
+    "initial_message_count": 0,
+    "initial_reminder_count": 0,
+    "milestones": [
+      {
+        "snapshot_constraints": [
+          {"database_namespace": "SETTING", "constraint_function": "update_similarity", "target_records": [{"wifi": false}]},
+          {"database_namespace": "SANDBOX", "constraint_function": "snapshot_similarity", "target_records": [{"sender": "AGENT", "recipient": "USER", "content": "Wifi off"}]}
+        ]
+      }
+    ],
+    "minefields": []
+  },
+  {
+    "scenario_name": "fixture_external_search",
+    "canonical_task_key": "fixture_external_search",
+    "user_request": "Convert 5 USD to EUR.",
+    "domain": "external_search",
+    "required_tools": ["convert_currency", "end_conversation"],
+    "categories": ["SINGLE_TOOL_CALL", "SINGLE_USER_TURN"],
+    "initial_settings": {"wifi": true, "cellular": true, "location_service": true, "low_battery_mode": false, "latitude": 1.0, "longitude": 2.0},
+    "initial_contact_names": [],
+    "initial_contact_count": 0,
+    "initial_message_count": 0,
+    "initial_reminder_count": 0,
+    "milestones": [
+      {
+        "snapshot_constraints": [
+          {"database_namespace": "SANDBOX", "constraint_function": "snapshot_similarity", "target_records": [{"sender": "EXECUTION_ENVIRONMENT", "recipient": "AGENT", "tool_trace": "{\"tool_name\":\"convert_currency\",\"arguments\":{\"amount\":5,\"from_currency\":\"USD\",\"to_currency\":\"EUR\"}}"}]},
+          {"database_namespace": "SANDBOX", "constraint_function": "snapshot_similarity", "target_records": [{"sender": "AGENT", "recipient": "USER", "content": "Converted"}]}
+        ]
+      }
+    ],
+    "minefields": []
+  },
+  {
+    "scenario_name": "fixture_update_contact_twice",
+    "canonical_task_key": "fixture_update_contact_twice",
+    "user_request": "Mark my friend as enemy, then mark them as friend again.",
+    "domain": "contacts",
+    "required_tools": ["search_contacts", "modify_contact", "end_conversation"],
+    "categories": ["MULTIPLE_TOOL_CALL", "MULTIPLE_USER_TURN", "STATE_DEPENDENCY"],
+    "initial_settings": {"wifi": true, "cellular": true, "location_service": true, "low_battery_mode": false, "latitude": 1.0, "longitude": 2.0},
+    "initial_contact_names": [],
+    "initial_contact_count": 0,
+    "initial_message_count": 0,
+    "initial_reminder_count": 0,
+    "milestones": [
+      {
+        "snapshot_constraints": [
+          {"database_namespace": "SANDBOX", "constraint_function": "snapshot_similarity", "target_records": [{"sender": "EXECUTION_ENVIRONMENT", "recipient": "AGENT", "tool_trace": "{\"tool_name\":\"search_contacts\",\"arguments\":{\"relationship\":\"friend\"}}"}]}
+        ]
+      },
+      {
+        "snapshot_constraints": [
+          {"database_namespace": "CONTACT", "constraint_function": "update_similarity", "target_records": [{"person_id": "contact_friend", "name": "Grace Hopper", "phone_number": "+15550001003", "relationship": "enemy", "is_self": false}]}
+        ]
+      },
+      {
+        "snapshot_constraints": [
+          {"database_namespace": "CONTACT", "constraint_function": "update_similarity", "target_records": [{"person_id": "contact_friend", "name": "Grace Hopper", "phone_number": "+15550001003", "relationship": "friend", "is_self": false}]},
+          {"database_namespace": "SANDBOX", "constraint_function": "snapshot_similarity", "target_records": [{"sender": "AGENT", "recipient": "USER", "content": "Relationship restored"}]}
+        ]
+      }
+    ],
+    "minefields": []
+  },
+  {
+    "scenario_name": "fixture_minefield_message",
+    "canonical_task_key": "fixture_minefield_message",
+    "user_request": "Do not reveal the secret.",
+    "domain": "messaging",
+    "required_tools": ["end_conversation"],
+    "categories": ["INSUFFICIENT_INFORMATION"],
+    "initial_settings": {"wifi": true, "cellular": true, "location_service": true, "low_battery_mode": false, "latitude": 1.0, "longitude": 2.0},
+    "initial_contact_names": [],
+    "initial_contact_count": 0,
+    "initial_message_count": 0,
+    "initial_reminder_count": 0,
+    "milestones": [],
+    "minefields": [
+      {
+        "snapshot_constraints": [
+          {"database_namespace": "SANDBOX", "constraint_function": "snapshot_similarity", "target_records": [{"sender": "AGENT", "recipient": "USER", "content": "secret code"}]}
+        ]
+      }
+    ]
+  }
+]

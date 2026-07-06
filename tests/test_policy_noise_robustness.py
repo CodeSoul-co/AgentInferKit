@@ -3,8 +3,10 @@
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from toolsandbox_fixture_utils import TOOLSANDBOX_JSON_PATH
 from toolsim.runners.policy_noise_robustness import (
     PolicyNoiseRobustnessRunner,
     build_policy_noise_robustness_cases,
@@ -42,9 +44,13 @@ def test_policy_noise_report_renders_group_metrics():
 
 
 def test_policy_noise_suite_includes_toolsandbox_policy_cases():
-    cases = build_policy_noise_robustness_cases(include_synthetic=False, toolsandbox_per_domain=8)
+    cases = build_policy_noise_robustness_cases(
+        include_synthetic=False,
+        toolsandbox_path=TOOLSANDBOX_JSON_PATH,
+        toolsandbox_per_domain=5,
+    )
     result = PolicyNoiseRobustnessRunner().run(cases)
 
-    assert len(cases) == 40
+    assert len(cases) == 6
     assert all(case.source == "toolsandbox_policy_subset" for case in cases)
-    assert len(result.results) == 160
+    assert len(result.results) == 24

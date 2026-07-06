@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -212,7 +213,11 @@ def build_backend_migration_cases(
     if include_apibank:
         cases.extend(_build_apibank_cases())
     if include_toolsandbox:
-        cases.extend(_build_toolsandbox_cases(toolsandbox_path or _default_toolsandbox_path(), toolsandbox_limit))
+        input_path = Path(toolsandbox_path) if toolsandbox_path is not None else _default_toolsandbox_path()
+        if input_path.exists():
+            cases.extend(_build_toolsandbox_cases(input_path, toolsandbox_limit))
+        elif toolsandbox_path is not None:
+            raise FileNotFoundError(input_path)
     return cases
 
 
@@ -1182,6 +1187,8 @@ def _clone_state(state: WorldState) -> WorldState:
 
 
 def _default_toolsandbox_path() -> Path:
+    if env_path := os.environ.get("AGENTINFERKIT_TOOLSANDBOX_PATH"):
+        return Path(env_path)
     return Path(__file__).resolve().parents[3] / "Toolsandbox" / "tool_sandbox_scenarios.json"
 
 

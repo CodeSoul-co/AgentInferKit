@@ -6,6 +6,7 @@ whether the task still reaches its final state goals under structured faults.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -320,16 +321,19 @@ def build_experiment1_noise_robustness_cases(
 
     if include_toolsandbox:
         input_path = Path(toolsandbox_path) if toolsandbox_path is not None else _default_toolsandbox_path()
-        source_cases = [case for case in convert_toolsandbox_file(input_path) if case.goals]
-        subset = select_toolsandbox_comparison_subset_cases(
-            source_cases,
-            group_by="domain",
-            per_group=toolsandbox_per_group,
-        )
-        cases.extend(build_noise_cases_from_comparison_cases(
-            build_toolsandbox_stateless_vs_stateful_cases(subset),
-            source="experiment1_toolsandbox_subset",
-        ))
+        if input_path.exists():
+            source_cases = [case for case in convert_toolsandbox_file(input_path) if case.goals]
+            subset = select_toolsandbox_comparison_subset_cases(
+                source_cases,
+                group_by="domain",
+                per_group=toolsandbox_per_group,
+            )
+            cases.extend(build_noise_cases_from_comparison_cases(
+                build_toolsandbox_stateless_vs_stateful_cases(subset),
+                source="experiment1_toolsandbox_subset",
+            ))
+        elif toolsandbox_path is not None:
+            raise FileNotFoundError(input_path)
     return cases
 
 
@@ -418,6 +422,8 @@ def _clone_state(state: WorldState) -> WorldState:
 
 
 def _default_toolsandbox_path() -> Path:
+    if env_path := os.environ.get("AGENTINFERKIT_TOOLSANDBOX_PATH"):
+        return Path(env_path)
     return Path(__file__).resolve().parents[3] / "Toolsandbox" / "tool_sandbox_scenarios.json"
 
 

@@ -24,8 +24,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run stateful noise robustness experiments.")
     parser.add_argument(
         "--toolsandbox-path",
-        default=str(ROOT / "Toolsandbox" / "tool_sandbox_scenarios.json"),
-        help="Path to ToolSandbox JSON data.",
+        default=None,
+        help="Optional path to external ToolSandbox JSON data.",
     )
     parser.add_argument(
         "--toolsandbox-per-group",

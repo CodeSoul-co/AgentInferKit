@@ -3,8 +3,10 @@
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from toolsandbox_fixture_utils import TOOLSANDBOX_JSON_PATH
 from toolsim.runners.backend_migration import (
     BACKENDS,
     STRATEGIES,
@@ -43,11 +45,16 @@ def test_backend_migration_detects_live_like_gap_for_direct():
 
 
 def test_backend_migration_toolsandbox_subset_and_report():
-    cases = build_backend_migration_cases(include_synthetic=False, include_apibank=False, toolsandbox_limit=6)
+    cases = build_backend_migration_cases(
+        include_synthetic=False,
+        include_apibank=False,
+        toolsandbox_path=TOOLSANDBOX_JSON_PATH,
+        toolsandbox_limit=5,
+    )
     result = BackendMigrationRunner().run(cases)
     report = render_backend_migration_markdown(result)
 
-    assert len(cases) == 6
+    assert len(cases) == 5
     assert all(case.source == "toolsandbox_backend_subset" for case in cases)
     assert "# Backend Migration Report" in report
     assert "Migration Gap" in report

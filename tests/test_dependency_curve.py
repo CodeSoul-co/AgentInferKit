@@ -3,8 +3,10 @@
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from toolsandbox_fixture_utils import TOOLSANDBOX_JSON_PATH, expand_cases_by_level
 from toolsim.reporting.dependency_curve_report import render_dependency_curve_markdown
 from toolsim.adapters.toolsandbox_adapter import convert_toolsandbox_file
 from toolsim.runners.dependency_curve import (
@@ -15,12 +17,9 @@ from toolsim.runners.dependency_curve import (
     DependencyCurveRunner,
     build_synthetic_dependency_curve_cases,
     build_toolsandbox_dependency_curve_cases,
+    classify_toolsandbox_dependency_level,
     select_toolsandbox_dependency_subset_cases,
 )
-
-
-ROOT = Path(__file__).parent.parent
-TOOLSANDBOX_JSON_PATH = ROOT / "Toolsandbox" / "tool_sandbox_scenarios.json"
 
 
 def test_build_synthetic_dependency_curve_cases_has_balanced_levels():
@@ -79,25 +78,33 @@ def test_dependency_curve_markdown_report_renders_summary_tables():
 
 def test_toolsandbox_dependency_subset_selects_balanced_levels():
     source_cases = [case for case in convert_toolsandbox_file(TOOLSANDBOX_JSON_PATH) if case.goals]
-    subset = select_toolsandbox_dependency_subset_cases(source_cases, per_level=8)
+    cases_by_level = {
+        level: next(case for case in source_cases if classify_toolsandbox_dependency_level(case) == level)
+        for level in [L1_SINGLE_TOOL, L2_EXPLICIT_DEP, L3_IMPLICIT_SIDE_EFFECT]
+    }
+    subset = select_toolsandbox_dependency_subset_cases(expand_cases_by_level(cases_by_level, per_level=5), per_level=5)
     curve_cases = build_toolsandbox_dependency_curve_cases(subset)
 
     counts = {}
     for case in curve_cases:
         counts[case.difficulty_level] = counts.get(case.difficulty_level, 0) + 1
 
-    assert len(subset) == 24
-    assert len(curve_cases) == 24
+    assert len(subset) == 15
+    assert len(curve_cases) == 15
     assert counts == {
-        L1_SINGLE_TOOL: 8,
-        L2_EXPLICIT_DEP: 8,
-        L3_IMPLICIT_SIDE_EFFECT: 8,
+        L1_SINGLE_TOOL: 5,
+        L2_EXPLICIT_DEP: 5,
+        L3_IMPLICIT_SIDE_EFFECT: 5,
     }
 
 
 def test_toolsandbox_dependency_curve_runs_all_strategies():
     source_cases = [case for case in convert_toolsandbox_file(TOOLSANDBOX_JSON_PATH) if case.goals]
-    subset = select_toolsandbox_dependency_subset_cases(source_cases, per_level=5)
+    cases_by_level = {
+        level: next(case for case in source_cases if classify_toolsandbox_dependency_level(case) == level)
+        for level in [L1_SINGLE_TOOL, L2_EXPLICIT_DEP, L3_IMPLICIT_SIDE_EFFECT]
+    }
+    subset = select_toolsandbox_dependency_subset_cases(expand_cases_by_level(cases_by_level, per_level=5), per_level=5)
     result = DependencyCurveRunner().run(build_toolsandbox_dependency_curve_cases(subset))
     summaries = {summary.strategy: summary for summary in result.strategy_summaries}
 
