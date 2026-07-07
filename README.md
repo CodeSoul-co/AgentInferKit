@@ -290,14 +290,3 @@ Contributions are welcome, especially in:
 - documentation
 
 ---
-
-## Citation
-
-```bibtex
-@misc{agentinferkit,
-  title={AgentInferKit: A Modular Platform for Agent Inference, Evaluation, and Training},
-  author={CodeSoul-co},
-  year={2026},
-  howpublished={GitHub repository}
-}
-```
