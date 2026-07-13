@@ -8,11 +8,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from toolsim.core.environment import ToolEnvironment
 from toolsim.core.side_effects import SideEffectScheduler, create_default_scheduler
 from toolsim.execution.stateful_executor import StatefulExecutor, create_default_tool_registry
-from toolsim.core.world_state import PendingEffect, WorldState
+from toolsim.core.trace_state import PendingEffect, TraceState
 
 
 def test_scheduler_applies_ready_effect():
-    ws = WorldState(clock=5.0)
+    ws = TraceState(clock=5.0)
     ws.set_entity("file", "f1", {"content": "hello world", "metadata": {}, "revision": 1})
     ws.schedule_effect(PendingEffect(effect_id="eff1", kind="search.reindex_file_snapshot", scheduled_at=0.0, execute_after=3.0, payload={"file_id": "f1"}))
 
@@ -25,7 +25,7 @@ def test_scheduler_applies_ready_effect():
 
 
 def test_scheduler_does_not_apply_not_ready_effect():
-    ws = WorldState(clock=1.0)
+    ws = TraceState(clock=1.0)
     ws.set_entity("file", "f1", {"content": "hello world", "metadata": {}, "revision": 1})
     ws.schedule_effect(PendingEffect(effect_id="eff1", kind="search.reindex_file_snapshot", scheduled_at=0.0, execute_after=3.0, payload={"file_id": "f1"}))
 
@@ -37,7 +37,7 @@ def test_scheduler_does_not_apply_not_ready_effect():
 
 
 def test_scheduler_marks_unknown_handler_failed():
-    ws = WorldState(clock=5.0)
+    ws = TraceState(clock=5.0)
     ws.schedule_effect(PendingEffect(effect_id="eff_unknown", kind="unknown.effect", scheduled_at=0.0, execute_after=0.0, payload={}))
 
     results = SideEffectScheduler().apply_ready_effects(ws)
@@ -49,7 +49,7 @@ def test_scheduler_marks_unknown_handler_failed():
 
 
 def test_environment_advance_time_applies_ready_effects():
-    ws = WorldState(clock=0.0)
+    ws = TraceState(clock=0.0)
     ws.set_entity("file", "f1", {"content": "alpha", "metadata": {}, "revision": 1})
     ws.schedule_effect(PendingEffect(effect_id="eff1", kind="search.reindex_file_snapshot", scheduled_at=0.0, execute_after=2.0, payload={"file_id": "f1"}))
     env = ToolEnvironment(state=ws)
@@ -63,7 +63,7 @@ def test_environment_advance_time_applies_ready_effects():
 
 
 def test_executor_delayed_reindex_flow_requires_time_advance():
-    ws = WorldState()
+    ws = TraceState()
     env = ToolEnvironment(state=ws, auto_apply_ready_effects=True)
     executor = StatefulExecutor(create_default_tool_registry())
 
@@ -87,7 +87,7 @@ def test_executor_delayed_reindex_flow_requires_time_advance():
 
 
 def test_executor_record_includes_applied_effect_ids_when_effect_ready_immediately():
-    ws = WorldState()
+    ws = TraceState()
     env = ToolEnvironment(state=ws)
     executor = StatefulExecutor(create_default_tool_registry())
 

@@ -1,4 +1,4 @@
-"""File read/write tools backed by WorldState entities."""
+"""File read/write tools backed by TraceState entities."""
 
 from __future__ import annotations
 
@@ -6,15 +6,15 @@ from typing import Any
 
 from toolsim.core.constants import DEFAULT_REINDEX_DELAY, EFFECT_KIND_REINDEX_FILE_SNAPSHOT, EntityType
 from toolsim.core.tool_spec import PostconditionSpec, PreconditionSpec, ToolExecutionResult, ToolMetadata, ToolSpec
-from toolsim.core.world_state import WorldState
+from toolsim.core.trace_state import TraceState
 
 
 class FileWriteTool(ToolSpec):
-    """Write or overwrite a file entity inside WorldState."""
+    """Write or overwrite a file entity inside TraceState."""
 
     tool_name: str = "file.write"
     description: str = (
-        "Write or overwrite a virtual file in the world state. "
+        "Write or overwrite a virtual file in the trace state. "
         "Creates the file if it does not exist."
     )
     input_schema: dict[str, Any] = {
@@ -122,11 +122,11 @@ class FileWriteTool(ToolSpec):
 
 
 class FileReadTool(ToolSpec):
-    """Read a file entity from WorldState without mutating it."""
+    """Read a file entity from TraceState without mutating it."""
 
     tool_name: str = "file.read"
     description: str = (
-        "Read the content of a virtual file from the world state. "
+        "Read the content of a virtual file from the trace state. "
         "Returns an error if the file does not exist."
     )
     input_schema: dict[str, Any] = {

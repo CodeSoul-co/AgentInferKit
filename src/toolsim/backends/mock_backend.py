@@ -3,7 +3,7 @@
 from typing import Any, Dict, List, Optional
 
 from toolsim.backends.base import BaseBackend
-from toolsim.core.world_state import PendingEffect, WorldState
+from toolsim.core.trace_state import PendingEffect, TraceState
 from toolsim.tools.apibank_runtime import APIBANK_VERIFICATION_CODE, ensure_apibank_state
 from toolsim.tools.toolsandbox_runtime import (
     CONTACT,
@@ -17,42 +17,42 @@ from toolsim.tools.toolsandbox_runtime import (
 
 
 class MockBackend(BaseBackend):
-    """In-memory backend that delegates directly to WorldState."""
+    """In-memory backend that delegates directly to TraceState."""
 
     def get_backend_name(self) -> str:
         return "mock"
 
-    def create_state(self) -> WorldState:
-        return WorldState()
+    def create_state(self) -> TraceState:
+        return TraceState()
 
-    def clone_state(self, state: WorldState) -> WorldState:
-        return WorldState.from_dict(state.to_dict())
+    def clone_state(self, state: TraceState) -> TraceState:
+        return TraceState.from_dict(state.to_dict())
 
-    def snapshot_state(self, state: WorldState, label: Optional[str] = None) -> str:
+    def snapshot_state(self, state: TraceState, label: Optional[str] = None) -> str:
         return state.create_snapshot(label)
 
-    def rollback_state(self, state: WorldState, snapshot_id: str) -> bool:
+    def rollback_state(self, state: TraceState, snapshot_id: str) -> bool:
         return state.rollback_to(snapshot_id)
 
-    def get_entity(self, state: WorldState, entity_type: str, entity_id: str) -> Optional[Dict[str, Any]]:
+    def get_entity(self, state: TraceState, entity_type: str, entity_id: str) -> Optional[Dict[str, Any]]:
         return state.get_entity(entity_type, entity_id)
 
-    def set_entity(self, state: WorldState, entity_type: str, entity_id: str, value: Dict[str, Any]) -> None:
+    def set_entity(self, state: TraceState, entity_type: str, entity_id: str, value: Dict[str, Any]) -> None:
         state.set_entity(entity_type, entity_id, value)
 
-    def delete_entity(self, state: WorldState, entity_type: str, entity_id: str) -> bool:
+    def delete_entity(self, state: TraceState, entity_type: str, entity_id: str) -> bool:
         return state.delete_entity(entity_type, entity_id)
 
-    def list_entities(self, state: WorldState, entity_type: str) -> List[Dict[str, Any]]:
+    def list_entities(self, state: TraceState, entity_type: str) -> List[Dict[str, Any]]:
         return list(state.entities.get(entity_type, {}).values())
 
-    def schedule_effect(self, state: WorldState, effect: PendingEffect) -> None:
+    def schedule_effect(self, state: TraceState, effect: PendingEffect) -> None:
         state.schedule_effect(effect)
 
-    def list_pending_effects(self, state: WorldState, status: Optional[str] = None) -> List[PendingEffect]:
+    def list_pending_effects(self, state: TraceState, status: Optional[str] = None) -> List[PendingEffect]:
         return state.list_pending_effects(status=status)
 
-    def call_apibank_api(self, state: WorldState, api_name: str, args: dict[str, Any]) -> dict[str, Any]:
+    def call_apibank_api(self, state: TraceState, api_name: str, args: dict[str, Any]) -> dict[str, Any]:
         """Optimistically execute API-Bank-style calls for baseline mock runs.
 
         Mock intentionally models a permissive state machine: malformed
@@ -102,7 +102,7 @@ class MockBackend(BaseBackend):
             "error": None,
         }
 
-    def call_toolsandbox_tool(self, state: WorldState, tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+    def call_toolsandbox_tool(self, state: TraceState, tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
         """Optimistically execute ToolSandbox-style tools for mock baselines."""
         ensure_toolsandbox_state(state)
         output: Any = None
@@ -161,7 +161,7 @@ class MockBackend(BaseBackend):
             "error": None,
         }
 
-    def record_toolsandbox_end_conversation(self, state: WorldState, args: dict[str, Any]) -> dict[str, Any]:
+    def record_toolsandbox_end_conversation(self, state: TraceState, args: dict[str, Any]) -> dict[str, Any]:
         ensure_toolsandbox_state(state)
         content = args.get("content")
         if content:
@@ -180,13 +180,13 @@ class MockBackend(BaseBackend):
             "error": None,
         }
 
-    def _username_for_token(self, state: WorldState, token: str) -> str:
+    def _username_for_token(self, state: TraceState, token: str) -> str:
         for username, account in state.entities.get("account", {}).items():
             if account.get("token") == token:
                 return str(username)
         return "foo"
 
-    def _mock_forgot_password(self, state: WorldState, args: dict[str, Any]) -> tuple[Any, bool]:
+    def _mock_forgot_password(self, state: TraceState, args: dict[str, Any]) -> tuple[Any, bool]:
         if args.get("status") == "Forgot Password":
             username = str(args.get("username") or "foo")
             state.set_entity("password_reset", "current", {
@@ -209,7 +209,7 @@ class MockBackend(BaseBackend):
         })
         return "success", True
 
-    def _upsert_agenda(self, state: WorldState, args: dict[str, Any]) -> None:
+    def _upsert_agenda(self, state: TraceState, args: dict[str, Any]) -> None:
         entity_id = next(iter(state.entities.get("agenda", {})), "1")
         state.set_entity("agenda", str(entity_id), {
             "username": self._username_for_token(state, str(args.get("token", ""))),
@@ -218,7 +218,7 @@ class MockBackend(BaseBackend):
             "location": args.get("location"),
         })
 
-    def _upsert_meeting(self, state: WorldState, args: dict[str, Any]) -> None:
+    def _upsert_meeting(self, state: TraceState, args: dict[str, Any]) -> None:
         entity_id = next(iter(state.entities.get("meeting", {})), "0")
         state.set_entity("meeting", str(entity_id), {
             "username": self._username_for_token(state, str(args.get("token", ""))),
@@ -229,13 +229,13 @@ class MockBackend(BaseBackend):
             "attendees": list(args.get("attendees", [])),
         })
 
-    def _query_first(self, state: WorldState, entity_type: str, args: dict[str, Any], keys: tuple[str, ...]) -> dict[str, Any] | None:
+    def _query_first(self, state: TraceState, entity_type: str, args: dict[str, Any], keys: tuple[str, ...]) -> dict[str, Any] | None:
         for record in state.entities.get(entity_type, {}).values():
             if any(args.get(key) and record.get(key) == args.get(key) for key in keys):
                 return dict(record)
         return next((dict(record) for record in state.entities.get(entity_type, {}).values()), None)
 
-    def _upsert_contact(self, state: WorldState, args: dict[str, Any]) -> str:
+    def _upsert_contact(self, state: TraceState, args: dict[str, Any]) -> str:
         person_id = str(args.get("person_id") or f"mock_contact_{len(state.entities.get(CONTACT, {})) + 1}")
         existing = state.get_entity(CONTACT, person_id) or {}
         updated = {
@@ -248,7 +248,7 @@ class MockBackend(BaseBackend):
         state.set_entity(CONTACT, person_id, updated)
         return person_id
 
-    def _upsert_reminder(self, state: WorldState, args: dict[str, Any]) -> str:
+    def _upsert_reminder(self, state: TraceState, args: dict[str, Any]) -> str:
         reminder_id = str(args.get("reminder_id") or f"mock_reminder_{len(state.entities.get(REMINDER, {})) + 1}")
         existing = state.get_entity(REMINDER, reminder_id) or {}
         updated = dict(existing)
@@ -257,7 +257,7 @@ class MockBackend(BaseBackend):
         state.set_entity(REMINDER, reminder_id, updated)
         return reminder_id
 
-    def _send_message(self, state: WorldState, args: dict[str, Any]) -> str:
+    def _send_message(self, state: TraceState, args: dict[str, Any]) -> str:
         message_id = str(args.get("message_id") or f"mock_message_{len(state.entities.get(MESSAGE, {})) + 1}")
         phone_number = args.get("phone_number", args.get("recipient_phone_number"))
         state.set_entity(MESSAGE, message_id, {
@@ -267,7 +267,7 @@ class MockBackend(BaseBackend):
         })
         return message_id
 
-    def _match_records(self, state: WorldState, entity_type: str, args: dict[str, Any]) -> list[dict[str, Any]]:
+    def _match_records(self, state: TraceState, entity_type: str, args: dict[str, Any]) -> list[dict[str, Any]]:
         criteria = {key: value for key, value in args.items() if value is not None}
         if not criteria:
             return [dict(record) for record in state.entities.get(entity_type, {}).values()]

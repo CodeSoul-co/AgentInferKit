@@ -66,7 +66,7 @@ def render_stateful_trace_markdown(
         ])
 
     if final_state is not None:
-        lines.extend(["## Final World State", ""])
+        lines.extend(["## Final Trace State", ""])
         lines.extend(_render_final_state(final_state))
 
     return "\n".join(lines)

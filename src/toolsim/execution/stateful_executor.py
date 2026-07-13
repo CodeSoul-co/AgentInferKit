@@ -25,7 +25,7 @@ from toolsim.core.tool_spec import (
     ToolExecutionResult,
     ToolSpec,
 )
-from toolsim.core.world_state import PendingEffect, WorldState
+from toolsim.core.trace_state import PendingEffect, TraceState
 from toolsim.faults import FaultInjector, FaultProfile
 
 
@@ -110,7 +110,7 @@ class ExecutionRecord:
 
 
 class StatefulExecutor:
-    """Execute tools against a :class:`WorldState` with pre/postcondition enforcement and tracing."""
+    """Execute tools against a :class:`TraceState` with pre/postcondition enforcement and tracing."""
 
     def __init__(
         self,
@@ -129,7 +129,7 @@ class StatefulExecutor:
     def execute(
         self,
         tool_name: str,
-        state: WorldState,
+        state: TraceState,
         args: dict[str, Any],
         permissions: set[str] | None = None,
         environment: ToolEnvironment | None = None,
@@ -340,7 +340,7 @@ class StatefulExecutor:
     def _schedule_declared_effects(
         self,
         scheduled_effects: list[dict[str, Any]],
-        state: WorldState,
+        state: TraceState,
         source_tool: str,
         backend: BaseBackend,
     ) -> None:
@@ -363,7 +363,7 @@ class StatefulExecutor:
         self,
         action: str,
         required_permissions: list[str],
-        state: WorldState,
+        state: TraceState,
         args: dict[str, Any],
         permissions: set[str] | None,
     ) -> list[ConditionCheckResult]:
@@ -392,7 +392,7 @@ class StatefulExecutor:
     def _check_preconditions(
         self,
         specs: list[PreconditionSpec],
-        state: WorldState,
+        state: TraceState,
         args: dict[str, Any],
     ) -> list[ConditionCheckResult]:
         return [self._evaluate_condition(spec, state, args, None, None) for spec in specs]
@@ -400,7 +400,7 @@ class StatefulExecutor:
     def _check_postconditions(
         self,
         specs: list[PostconditionSpec],
-        state: WorldState,
+        state: TraceState,
         args: dict[str, Any],
         pre_state_hash: str,
         post_state_hash: str,
@@ -410,7 +410,7 @@ class StatefulExecutor:
     def _evaluate_condition(
         self,
         spec: PreconditionSpec | PostconditionSpec,
-        state: WorldState,
+        state: TraceState,
         args: dict[str, Any],
         pre_state_hash: str | None,
         post_state_hash: str | None,

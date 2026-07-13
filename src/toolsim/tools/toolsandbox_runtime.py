@@ -8,7 +8,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from toolsim.core.world_state import WorldState
+from toolsim.core.trace_state import TraceState
 
 CONTACT = "contact"
 REMINDER = "reminder"
@@ -23,7 +23,7 @@ _NOT_GIVEN = object()
 _PHONE_RE = re.compile(r"^\+?[0-9][0-9\s().-]{1,31}$")
 
 
-def ensure_toolsandbox_state(state: WorldState) -> None:
+def ensure_toolsandbox_state(state: TraceState) -> None:
     """Seed the ToolSandbox-style databases used by the local runtime."""
     state.entities.setdefault(CONTACT, {})
     state.entities.setdefault(REMINDER, {})
@@ -42,7 +42,7 @@ def ensure_toolsandbox_state(state: WorldState) -> None:
     state.policies["backend"]["toolsandbox_runtime"] = TOOLSANDBOX_RUNTIME_NAME
 
 
-def persist_toolsandbox_databases(state: WorldState, database_dir: str | Path) -> None:
+def persist_toolsandbox_databases(state: TraceState, database_dir: str | Path) -> None:
     """Persist ToolSandbox-style databases as session artifacts."""
     path = Path(database_dir)
     path.mkdir(parents=True, exist_ok=True)
@@ -59,7 +59,7 @@ def persist_toolsandbox_databases(state: WorldState, database_dir: str | Path) -
         )
 
 
-def call_toolsandbox_tool(state: WorldState, tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+def call_toolsandbox_tool(state: TraceState, tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
     """Run one supported ToolSandbox tool and return a normalized result."""
     ensure_toolsandbox_state(state)
     try:
@@ -96,7 +96,7 @@ def call_toolsandbox_tool(state: WorldState, tool_name: str, args: dict[str, Any
     }
 
 
-def record_end_conversation(state: WorldState, args: dict[str, Any]) -> dict[str, Any]:
+def record_end_conversation(state: TraceState, args: dict[str, Any]) -> dict[str, Any]:
     ensure_toolsandbox_state(state)
     content = args.get("content")
     if content:
@@ -116,7 +116,7 @@ def record_end_conversation(state: WorldState, args: dict[str, Any]) -> dict[str
     }
 
 
-def _dispatch_tool(state: WorldState, tool_name: str, args: dict[str, Any]) -> tuple[Any, bool]:
+def _dispatch_tool(state: TraceState, tool_name: str, args: dict[str, Any]) -> tuple[Any, bool]:
     if tool_name == "add_contact":
         return _add_contact(state, args), True
     if tool_name == "modify_contact":
@@ -153,12 +153,12 @@ def _dispatch_tool(state: WorldState, tool_name: str, args: dict[str, Any]) -> t
     raise Exception(f"Unsupported ToolSandbox tool: {tool_name}")
 
 
-def _settings(state: WorldState) -> dict[str, Any]:
+def _settings(state: TraceState) -> dict[str, Any]:
     ensure_toolsandbox_state(state)
     return dict(state.entities[SETTING]["device"])
 
 
-def _write_settings(state: WorldState, settings: dict[str, Any]) -> None:
+def _write_settings(state: TraceState, settings: dict[str, Any]) -> None:
     state.set_entity(SETTING, "device", settings)
 
 
@@ -183,14 +183,14 @@ def _setting_value_for_args(args: dict[str, Any], field_name: str) -> bool:
     raise Exception(f"Missing boolean argument for {field_name}")
 
 
-def _get_setting(state: WorldState, field_name: str) -> bool:
+def _get_setting(state: TraceState, field_name: str) -> bool:
     settings = _settings(state)
     if field_name not in settings:
         raise KeyError(f"{field_name} is not a boolean column")
     return bool(settings[field_name])
 
 
-def _set_setting(state: WorldState, field_name: str, on: bool) -> None:
+def _set_setting(state: TraceState, field_name: str, on: bool) -> None:
     settings = _settings(state)
     if field_name not in settings:
         raise KeyError(f"{field_name} is not a boolean column")
@@ -207,14 +207,14 @@ def _set_setting(state: WorldState, field_name: str, on: bool) -> None:
     _write_settings(state, settings)
 
 
-def _get_current_location(state: WorldState) -> dict[str, float]:
+def _get_current_location(state: TraceState) -> dict[str, float]:
     settings = _settings(state)
     if not bool(settings.get("location_service")):
         raise PermissionError("Location service is not enabled.")
     return {"latitude": float(settings["latitude"]), "longitude": float(settings["longitude"])}
 
 
-def _add_contact(state: WorldState, args: dict[str, Any]) -> str:
+def _add_contact(state: TraceState, args: dict[str, Any]) -> str:
     phone_number = args.get("phone_number")
     _validate_phone_number(phone_number)
     is_self = bool(args.get("is_self", False))
@@ -234,7 +234,7 @@ def _add_contact(state: WorldState, args: dict[str, Any]) -> str:
     return person_id
 
 
-def _modify_contact(state: WorldState, args: dict[str, Any]) -> None:
+def _modify_contact(state: TraceState, args: dict[str, Any]) -> None:
     update_fields = {field: args[field] for field in ("name", "phone_number", "relationship", "is_self") if field in args}
     if not update_fields:
         raise ValueError("No update information given. At least one new field should be provided among [name, phone_number, relationship, is_self] in order to modify contact")
@@ -256,7 +256,7 @@ def _modify_contact(state: WorldState, args: dict[str, Any]) -> None:
     state.set_entity(CONTACT, str(person_id), updated)
 
 
-def _remove_contact(state: WorldState, args: dict[str, Any]) -> None:
+def _remove_contact(state: TraceState, args: dict[str, Any]) -> None:
     person_id = args.get("person_id")
     if not person_id:
         raise Exception("person_id is required to remove contact")
@@ -264,7 +264,7 @@ def _remove_contact(state: WorldState, args: dict[str, Any]) -> None:
         raise Exception(f"No db entry matching person_id='{person_id}' found")
 
 
-def _search_contacts(state: WorldState, args: dict[str, Any]) -> list[dict[str, Any]]:
+def _search_contacts(state: TraceState, args: dict[str, Any]) -> list[dict[str, Any]]:
     criteria = {key: value for key, value in args.items() if value is not None}
     if not criteria:
         raise ValueError("At least one search argument should be provided")
@@ -290,7 +290,7 @@ def _matches_contact(contact: dict[str, Any], criteria: dict[str, Any]) -> bool:
     return True
 
 
-def _add_reminder(state: WorldState, args: dict[str, Any]) -> str:
+def _add_reminder(state: TraceState, args: dict[str, Any]) -> str:
     reminder_timestamp = _validate_timestamp(args.get("reminder_timestamp"), "reminder_timestamp", required=True)
     latitude = _validate_latitude(args.get("latitude"))
     longitude = _validate_longitude(args.get("longitude"))
@@ -308,7 +308,7 @@ def _add_reminder(state: WorldState, args: dict[str, Any]) -> str:
     return reminder_id
 
 
-def _modify_reminder(state: WorldState, args: dict[str, Any]) -> None:
+def _modify_reminder(state: TraceState, args: dict[str, Any]) -> None:
     reminder_id = args.get("reminder_id")
     if not reminder_id:
         raise Exception("reminder_id is required to modify reminder")
@@ -331,7 +331,7 @@ def _modify_reminder(state: WorldState, args: dict[str, Any]) -> None:
     state.set_entity(REMINDER, str(reminder_id), updated)
 
 
-def _remove_reminder(state: WorldState, args: dict[str, Any]) -> None:
+def _remove_reminder(state: TraceState, args: dict[str, Any]) -> None:
     reminder_id = args.get("reminder_id")
     if not reminder_id:
         raise Exception("reminder_id is required to remove reminder")
@@ -339,7 +339,7 @@ def _remove_reminder(state: WorldState, args: dict[str, Any]) -> None:
         raise Exception(f"No db entry matching reminder_id='{reminder_id}' found")
 
 
-def _search_reminder(state: WorldState, args: dict[str, Any]) -> list[dict[str, Any]]:
+def _search_reminder(state: TraceState, args: dict[str, Any]) -> list[dict[str, Any]]:
     if not any(value is not None for value in args.values()):
         raise ValueError("At least one search argument should be provided")
     hits = []
@@ -369,7 +369,7 @@ def _matches_reminder(reminder: dict[str, Any], criteria: dict[str, Any]) -> boo
     return True
 
 
-def _send_message_with_phone_number(state: WorldState, args: dict[str, Any]) -> str:
+def _send_message_with_phone_number(state: TraceState, args: dict[str, Any]) -> str:
     phone_number = args.get("phone_number", args.get("recipient_phone_number"))
     _validate_phone_number(phone_number)
     if not _get_setting(state, "cellular"):
@@ -393,7 +393,7 @@ def _send_message_with_phone_number(state: WorldState, args: dict[str, Any]) -> 
     return message_id
 
 
-def _search_messages(state: WorldState, args: dict[str, Any]) -> list[dict[str, Any]]:
+def _search_messages(state: TraceState, args: dict[str, Any]) -> list[dict[str, Any]]:
     if not any(value is not None for value in args.values()):
         raise ValueError("At least one search argument should be provided")
     hits = []
@@ -426,7 +426,7 @@ def _matches_message(message: dict[str, Any], criteria: dict[str, Any]) -> bool:
 
 
 def _record_sandbox_event(
-    state: WorldState,
+    state: TraceState,
     *,
     sender: str,
     recipient: str,

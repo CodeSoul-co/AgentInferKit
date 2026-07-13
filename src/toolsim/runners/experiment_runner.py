@@ -8,7 +8,7 @@ from typing import Any
 from toolsim.backends.base import BaseBackend
 from toolsim.backends.mock_backend import MockBackend
 from toolsim.core.environment import ToolEnvironment
-from toolsim.core.world_state import WorldState
+from toolsim.core.trace_state import TraceState
 from toolsim.evaluators.evaluator import (
     CallEvaluationResult,
     CallLevelEvaluator,
@@ -28,7 +28,7 @@ from toolsim.execution.stateful_tracer import TraceRecorder
 class ExperimentResult:
     """Result of a single experiment run."""
 
-    final_state: WorldState
+    final_state: TraceState
     trace: list[ExecutionRecord]
     call_metrics: CallEvaluationResult
     state_metrics: StateEvaluationResult | None
@@ -66,7 +66,7 @@ class ExperimentRunner:
     def run(
         self,
         tool_calls: list[dict[str, Any]],
-        initial_state: WorldState | None = None,
+        initial_state: TraceState | None = None,
         goals: list[dict[str, Any]] | None = None,
         permissions: set[str] | None = None,
         environment: ToolEnvironment | None = None,

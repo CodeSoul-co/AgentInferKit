@@ -11,7 +11,7 @@ from toolsim.evaluators.evaluator import CallLevelEvaluator, StateLevelEvaluator
 from toolsim.execution.stateful_executor import ExecutionRecord, StatefulExecutor, create_default_tool_registry
 from toolsim.execution.stateful_tracer import TraceRecorder
 from toolsim.core.tool_spec import ConditionCheckResult
-from toolsim.core.world_state import WorldState
+from toolsim.core.trace_state import TraceState
 
 
 def _record(**kwargs):
@@ -52,7 +52,7 @@ def test_call_level_evaluator_accepts_trace_recorder():
 
 
 def test_state_level_evaluator_checks_entity_exists():
-    ws = WorldState()
+    ws = TraceState()
     executor = StatefulExecutor(create_default_tool_registry())
     executor.execute("file.write", ws, {"file_id": "f1", "content": "hello world"})
 
@@ -64,7 +64,7 @@ def test_state_level_evaluator_checks_entity_exists():
 
 
 def test_state_level_evaluator_checks_entity_field_equals():
-    ws = WorldState()
+    ws = TraceState()
     executor = StatefulExecutor(create_default_tool_registry())
     executor.execute("file.write", ws, {"file_id": "f1", "content": "hello world"})
 
@@ -75,7 +75,7 @@ def test_state_level_evaluator_checks_entity_field_equals():
 
 
 def test_state_level_evaluator_checks_indexed_contains():
-    ws = WorldState()
+    ws = TraceState()
     executor = StatefulExecutor(create_default_tool_registry())
     executor.execute("file.write", ws, {"file_id": "f1", "content": "hello world"})
     executor.execute("search.index", ws, {"file_id": "f1"})
@@ -87,7 +87,7 @@ def test_state_level_evaluator_checks_indexed_contains():
 
 
 def test_state_level_evaluator_checks_query_hits_file():
-    ws = WorldState()
+    ws = TraceState()
     executor = StatefulExecutor(create_default_tool_registry())
     executor.execute("file.write", ws, {"file_id": "f1", "content": "hello world"})
     executor.execute("search.index", ws, {"file_id": "f1"})
@@ -99,7 +99,7 @@ def test_state_level_evaluator_checks_query_hits_file():
 
 
 def test_state_level_evaluator_checks_issue_goals():
-    ws = WorldState()
+    ws = TraceState()
     executor = StatefulExecutor(create_default_tool_registry())
     executor.execute(
         "issue.create",
@@ -128,7 +128,7 @@ def test_state_level_evaluator_checks_issue_goals():
 
 
 def test_state_level_evaluator_checks_calendar_goals():
-    ws = WorldState(clock=5.0, policies={"calendar": {"allow_delete_started_event": True}})
+    ws = TraceState(clock=5.0, policies={"calendar": {"allow_delete_started_event": True}})
     executor = StatefulExecutor(create_default_tool_registry())
     executor.execute(
         "calendar.create_event",
@@ -154,7 +154,7 @@ def test_state_level_evaluator_checks_calendar_goals():
 
 
 def test_state_level_evaluator_mixed_goals_reports_counts():
-    ws = WorldState()
+    ws = TraceState()
     executor = StatefulExecutor(create_default_tool_registry())
     executor.execute("file.write", ws, {"file_id": "f1", "content": "hello world"})
     executor.execute("search.index", ws, {"file_id": "f1"})

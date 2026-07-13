@@ -12,7 +12,7 @@ from toolsim.backends.base import BaseBackend
 from toolsim.backends.live_like_backend import LiveLikeBackend
 from toolsim.backends.mock_backend import MockBackend
 from toolsim.backends.sandbox_backend import SandboxBackend
-from toolsim.core.world_state import WorldState
+from toolsim.core.trace_state import TraceState
 from toolsim.execution.stateful_executor import ExecutorConfig
 from toolsim.faults import FaultProfile
 from toolsim.runners.experiment_runner import ExperimentResult, ExperimentRunner
@@ -33,7 +33,7 @@ class BackendMigrationCase:
     live_like_fault: str
     live_like_fault_count: int
     strategy_tool_calls: dict[str, list[dict[str, Any]]]
-    initial_state: WorldState = field(default_factory=WorldState)
+    initial_state: TraceState = field(default_factory=TraceState)
 
     def tool_calls_for_strategy(self, strategy: str) -> list[dict[str, Any]]:
         return self.strategy_tool_calls.get(strategy, self.strategy_tool_calls["direct"])
@@ -278,7 +278,7 @@ def render_backend_migration_markdown(result: BackendMigrationResult) -> str:
 
 
 def _build_synthetic_cases() -> list[BackendMigrationCase]:
-    contact_state = WorldState()
+    contact_state = TraceState()
     contact_state.set_entity("contact", "mig_ada", {
         "person_id": "mig_ada",
         "name": "Ada",
@@ -296,7 +296,7 @@ def _build_synthetic_cases() -> list[BackendMigrationCase]:
             1,
             [{"tool_name": "file.write", "args": {"file_id": "mig_file", "content": "ready"}}],
             [{"type": "entity_field_equals", "entity_type": "file", "entity_id": "mig_file", "field": "content", "expected": "ready"}],
-            WorldState(),
+            TraceState(),
         ),
         (
             "wifi_setting",
@@ -305,7 +305,7 @@ def _build_synthetic_cases() -> list[BackendMigrationCase]:
             1,
             [{"tool_name": "set_wifi_status", "args": {"wifi": True}}],
             [{"type": "toolsandbox_setting_equals", "field": "wifi", "expected": True}],
-            WorldState(),
+            TraceState(),
         ),
         (
             "contact_modify",
@@ -327,7 +327,7 @@ def _build_synthetic_cases() -> list[BackendMigrationCase]:
                 {"tool_name": "search.query", "args": {"query": "alpha"}},
             ],
             [{"type": "query_hits_file", "query": "alpha", "file_id": "mig_search"}],
-            WorldState(),
+            TraceState(),
         ),
         (
             "send_message",
@@ -815,7 +815,7 @@ def _apibank_case(
     fault_count: int,
     description: str,
     *,
-    initial_state: WorldState | None = None,
+    initial_state: TraceState | None = None,
 ) -> BackendMigrationCase:
     return BackendMigrationCase(
         case_name=f"apibank_backend::{name}",
@@ -830,8 +830,8 @@ def _apibank_case(
     )
 
 
-def _toolsandbox_base_state() -> WorldState:
-    state = WorldState()
+def _toolsandbox_base_state() -> TraceState:
+    state = TraceState()
     ensure_toolsandbox_state(state)
     state.set_entity("contact", "self", {
         "person_id": "self",
@@ -848,8 +848,8 @@ def _apibank_state(
     account_password: str = "bar",
     agenda: dict[str, dict[str, Any]] | None = None,
     meeting: dict[str, dict[str, Any]] | None = None,
-) -> WorldState:
-    state = WorldState()
+) -> TraceState:
+    state = TraceState()
     state.set_entity("account", "foo", {
         "username": "foo",
         "password": account_password,
@@ -1182,8 +1182,8 @@ def _round_robin_by_domain(cases: list[Any]) -> list[Any]:
     return result
 
 
-def _clone_state(state: WorldState) -> WorldState:
-    return WorldState.from_dict(state.to_dict())
+def _clone_state(state: TraceState) -> TraceState:
+    return TraceState.from_dict(state.to_dict())
 
 
 def _default_toolsandbox_path() -> Path:

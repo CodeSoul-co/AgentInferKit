@@ -1,5 +1,5 @@
 ﻿"""
-Unit tests for toolsim.world_state.WorldState.
+Unit tests for toolsim.trace_state.TraceState.
 """
 
 import sys
@@ -7,11 +7,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from toolsim.core.world_state import PendingEffect, WorldState
+from toolsim.core.trace_state import PendingEffect, TraceState
 
 
 def test_set_and_get_entity():
-    ws = WorldState()
+    ws = TraceState()
     ws.set_entity("user", "u1", {"name": "Alice", "age": 30})
 
     result = ws.get_entity("user", "u1")
@@ -21,13 +21,13 @@ def test_set_and_get_entity():
 
 
 def test_get_entity_not_found():
-    ws = WorldState()
+    ws = TraceState()
     assert ws.get_entity("user", "nonexistent") is None
     assert ws.get_entity("missing_type", "any") is None
 
 
 def test_set_entity_increments_version():
-    ws = WorldState()
+    ws = TraceState()
     assert ws.version == 0
     ws.set_entity("file", "f1", {"path": "/tmp/a.txt"})
     assert ws.version == 1
@@ -36,7 +36,7 @@ def test_set_entity_increments_version():
 
 
 def test_delete_entity():
-    ws = WorldState()
+    ws = TraceState()
     ws.set_entity("user", "u1", {"name": "Bob"})
     version_before = ws.version
 
@@ -47,14 +47,14 @@ def test_delete_entity():
 
 
 def test_delete_entity_cleans_empty_bucket():
-    ws = WorldState()
+    ws = TraceState()
     ws.set_entity("item", "i1", {"val": 1})
     ws.delete_entity("item", "i1")
     assert "item" not in ws.entities
 
 
 def test_delete_entity_not_found():
-    ws = WorldState()
+    ws = TraceState()
     version_before = ws.version
     deleted = ws.delete_entity("ghost", "g999")
     assert deleted is False
@@ -62,7 +62,7 @@ def test_delete_entity_not_found():
 
 
 def test_set_entity_deep_copies_value():
-    ws = WorldState()
+    ws = TraceState()
     data = {"x": [1, 2, 3]}
     ws.set_entity("obj", "o1", data)
     data["x"].append(99)
@@ -71,7 +71,7 @@ def test_set_entity_deep_copies_value():
 
 
 def test_snapshot_returns_deep_copy():
-    ws = WorldState()
+    ws = TraceState()
     ws.set_entity("user", "u1", {"name": "Carol"})
     snap = ws.snapshot()
     ws.set_entity("user", "u1", {"name": "Changed"})
@@ -79,7 +79,7 @@ def test_snapshot_returns_deep_copy():
 
 
 def test_restore_from_snapshot():
-    ws = WorldState()
+    ws = TraceState()
     ws.set_entity("user", "u1", {"name": "Dave"})
     ws.resources["gold"] = 100
     ws.clock = 42.0
@@ -99,7 +99,7 @@ def test_restore_from_snapshot():
 
 
 def test_restore_preserves_version():
-    ws = WorldState()
+    ws = TraceState()
     ws.set_entity("x", "1", {})
     snap = ws.snapshot()
     ws.set_entity("x", "2", {})
@@ -108,7 +108,7 @@ def test_restore_preserves_version():
 
 
 def test_named_snapshot_and_rollback_restore_previous_state():
-    ws = WorldState()
+    ws = TraceState()
     ws.set_entity("doc", "d1", {"value": 1})
     snapshot_id = ws.create_snapshot("before-change")
     ws.set_entity("doc", "d1", {"value": 2})
@@ -121,7 +121,7 @@ def test_named_snapshot_and_rollback_restore_previous_state():
 
 
 def test_clock_helpers_increment_state_version():
-    ws = WorldState()
+    ws = TraceState()
     ws.set_clock(10)
     version_after_set = ws.version
     ws.advance_clock(2.5)
@@ -131,12 +131,12 @@ def test_clock_helpers_increment_state_version():
 
 
 def test_pending_effects_roundtrip_and_affect_hash():
-    ws = WorldState()
+    ws = TraceState()
     before_hash = ws.compute_hash()
     effect = PendingEffect(effect_id="eff1", kind="delayed.write", scheduled_at=0.0, execute_after=3.0, payload={"x": 1})
     ws.schedule_effect(effect)
     after_hash = ws.compute_hash()
-    clone = WorldState.from_dict(ws.to_dict())
+    clone = TraceState.from_dict(ws.to_dict())
 
     assert before_hash != after_hash
     assert len(ws.list_pending_effects()) == 1
@@ -144,7 +144,7 @@ def test_pending_effects_roundtrip_and_affect_hash():
 
 
 def test_policy_check_uses_blocked_actions_and_required_permissions():
-    ws = WorldState(
+    ws = TraceState(
         policies={
             "blocked_actions": ["file.delete"],
             "required_permissions": {"file.write": ["file.write"]},
@@ -161,7 +161,7 @@ def test_policy_check_uses_blocked_actions_and_required_permissions():
 
 
 def test_hash_changes_after_mutation():
-    ws = WorldState()
+    ws = TraceState()
     h1 = ws.compute_hash()
     ws.set_entity("node", "n1", {"active": True})
     h2 = ws.compute_hash()
@@ -169,11 +169,11 @@ def test_hash_changes_after_mutation():
 
 
 def test_hash_consistent_for_same_state():
-    ws1 = WorldState()
+    ws1 = TraceState()
     ws1.set_entity("role", "admin", {"level": 9})
     ws1.clock = 10.0
 
-    ws2 = WorldState()
+    ws2 = TraceState()
     ws2.set_entity("role", "admin", {"level": 9})
     ws2.clock = 10.0
 
@@ -181,7 +181,7 @@ def test_hash_consistent_for_same_state():
 
 
 def test_hash_after_restore_equals_snapshot_hash():
-    ws = WorldState()
+    ws = TraceState()
     ws.set_entity("item", "sword", {"damage": 50})
     snap = ws.snapshot()
     hash_before = ws.compute_hash()
@@ -191,7 +191,7 @@ def test_hash_after_restore_equals_snapshot_hash():
 
 
 def test_to_dict_and_from_dict_roundtrip():
-    ws = WorldState()
+    ws = TraceState()
     ws.set_entity("agent", "a1", {"goal": "explore"})
     ws.relations["a1->a2"] = "ally"
     ws.resources["energy"] = 75
@@ -199,7 +199,7 @@ def test_to_dict_and_from_dict_roundtrip():
     ws.clock = 3.14
 
     data = ws.to_dict()
-    ws2 = WorldState.from_dict(data)
+    ws2 = TraceState.from_dict(data)
 
     assert ws2.get_entity("agent", "a1") == {"goal": "explore"}
     assert ws2.relations["a1->a2"] == "ally"
@@ -228,7 +228,7 @@ def run_all_tests() -> None:
     test_hash_consistent_for_same_state()
     test_hash_after_restore_equals_snapshot_hash()
     test_to_dict_and_from_dict_roundtrip()
-    print("All WorldState tests passed!")
+    print("All TraceState tests passed!")
 
 
 if __name__ == "__main__":

@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from toolsim.adapters.toolsandbox_adapter import convert_toolsandbox_file
-from toolsim.core.world_state import WorldState
+from toolsim.core.trace_state import TraceState
 from toolsim.execution.stateful_executor import ExecutorConfig
 from toolsim.faults import FaultProfile
 from toolsim.runners.comparison_runner import (
@@ -44,8 +44,8 @@ class FaultRobustnessCase:
     pass_k_tool_calls: list[dict[str, Any]] | None = None
     k: int = 2
     permissions: set[str] | None = None
-    clean_initial_state: WorldState | None = None
-    fault_initial_state: WorldState | None = None
+    clean_initial_state: TraceState | None = None
+    fault_initial_state: TraceState | None = None
 
 
 @dataclass
@@ -152,7 +152,7 @@ class FaultRobustnessRunner:
     def run_case(self, case: FaultRobustnessCase) -> FaultRobustnessCaseResult:
         clean_result = ExperimentRunner().run(
             tool_calls=case.clean_tool_calls,
-            initial_state=_clone_state(case.clean_initial_state) if case.clean_initial_state is not None else WorldState(),
+            initial_state=_clone_state(case.clean_initial_state) if case.clean_initial_state is not None else TraceState(),
             goals=case.goals,
             permissions=case.permissions,
         )
@@ -160,7 +160,7 @@ class FaultRobustnessRunner:
             executor_config=ExecutorConfig(fault_profile=case.fault_profile)
         ).run(
             tool_calls=case.success_at_1_tool_calls or case.fault_tool_calls,
-            initial_state=_clone_state(case.fault_initial_state) if case.fault_initial_state is not None else WorldState(),
+            initial_state=_clone_state(case.fault_initial_state) if case.fault_initial_state is not None else TraceState(),
             goals=case.goals,
             permissions=case.permissions,
         )
@@ -168,7 +168,7 @@ class FaultRobustnessRunner:
             executor_config=ExecutorConfig(fault_profile=case.fault_profile)
         ).run(
             tool_calls=case.pass_k_tool_calls or case.fault_tool_calls,
-            initial_state=_clone_state(case.fault_initial_state) if case.fault_initial_state is not None else WorldState(),
+            initial_state=_clone_state(case.fault_initial_state) if case.fault_initial_state is not None else TraceState(),
             goals=case.goals,
             permissions=case.permissions,
         )
@@ -417,8 +417,8 @@ def _total_latency(result: ExperimentResult) -> float:
     return sum(record.duration_ms for record in result.trace)
 
 
-def _clone_state(state: WorldState) -> WorldState:
-    return WorldState.from_dict(state.to_dict())
+def _clone_state(state: TraceState) -> TraceState:
+    return TraceState.from_dict(state.to_dict())
 
 
 def _default_toolsandbox_path() -> Path:

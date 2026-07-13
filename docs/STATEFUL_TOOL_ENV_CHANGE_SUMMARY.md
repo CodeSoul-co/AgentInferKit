@@ -6,7 +6,7 @@ This document summarizes the architectural changes made to AgentInferKit while e
 
 The goal of this round of work was not to add more standalone tools, but to upgrade the tool execution substrate so that the project can support:
 
-- shared world state
+- shared trace state
 - explicit state transitions
 - delayed side effects
 - environment-aware execution
@@ -54,9 +54,9 @@ This allows tools to declare:
 
 The implementation remains backward compatible with older tools that still use the simpler `execute(state, args)` pattern.
 
-#### `src/toolsim/world_state.py`
+#### `src/toolsim/trace_state.py`
 
-Expanded `WorldState` into a stronger execution substrate.
+Expanded `TraceState` into a stronger execution substrate.
 
 Added support for:
 
@@ -114,7 +114,7 @@ Relevant test files include:
 
 - `tests/test_stateful_executor.py`
 - `tests/test_stateful_tracer.py`
-- `tests/test_world_state.py`
+- `tests/test_trace_state.py`
 - `tests/test_evaluator.py`
 
 #### `src/toolsim/evaluator.py`
@@ -151,7 +151,7 @@ The first built-in delayed side effect is:
 
 Added `ToolEnvironment`, which now manages:
 
-- world state
+- trace state
 - backend
 - side-effect scheduler
 - automatic time advancement
@@ -212,7 +212,7 @@ Added four tools:
 - update-time conflict checks
 - soft delete via `status="cancelled"`
 - policy-based restriction on deleting already-started events
-- use of `WorldState.clock` for time-sensitive behavior
+- use of `TraceState.clock` for time-sensitive behavior
 
 ### Registration
 
@@ -359,7 +359,7 @@ That domain is a good fit for validating:
 Core implementation files:
 
 - `src/toolsim/tool_spec.py`
-- `src/toolsim/world_state.py`
+- `src/toolsim/trace_state.py`
 - `src/toolsim/stateful_executor.py`
 - `src/toolsim/stateful_tracer.py`
 - `src/toolsim/environment.py`
@@ -375,7 +375,7 @@ Main test files:
 
 - `tests/test_stateful_executor.py`
 - `tests/test_stateful_tracer.py`
-- `tests/test_world_state.py`
+- `tests/test_trace_state.py`
 - `tests/test_environment.py`
 - `tests/test_calendar_tools.py`
 - `tests/test_backends.py`

@@ -10,18 +10,18 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from toolsim.core.world_state import WorldState
+from toolsim.core.trace_state import TraceState
 from toolsim.tools.file_tools import FileWriteTool, FileReadTool, FILE_TOOLS
 from toolsim.core.tool_spec import ToolExecutionResult
 
 
 # ------------------------------------------------------------------
-# 场景 1：file.write 正确写入 WorldState
+# 场景 1：file.write 正确写入 TraceState
 # ------------------------------------------------------------------
 
 def test_file_write_creates_entity():
-    """Test file.write creates a file entity in WorldState."""
-    ws = WorldState()
+    """Test file.write creates a file entity in TraceState."""
+    ws = TraceState()
     tool = FileWriteTool()
 
     result = tool.execute(ws, {"file_id": "doc1", "content": "Hello World"})
@@ -43,7 +43,7 @@ def test_file_write_creates_entity():
 
 def test_file_write_observation_fields():
     """Test file.write observation contains required fields."""
-    ws = WorldState()
+    ws = TraceState()
     result = FileWriteTool().execute(ws, {"file_id": "f1", "content": "data"})
 
     obs = result.observation
@@ -57,7 +57,7 @@ def test_file_write_observation_fields():
 
 def test_file_write_with_metadata():
     """Test file.write persists optional metadata."""
-    ws = WorldState()
+    ws = TraceState()
     meta = {"author": "Alice", "tags": ["draft"]}
     FileWriteTool().execute(ws, {"file_id": "readme", "content": "# README", "metadata": meta})
 
@@ -74,7 +74,7 @@ def test_file_write_with_metadata():
 
 def test_file_read_returns_written_content():
     """Test file.read retrieves content previously written by file.write."""
-    ws = WorldState()
+    ws = TraceState()
     FileWriteTool().execute(ws, {"file_id": "note", "content": "remember this"})
 
     result = FileReadTool().execute(ws, {"file_id": "note"})
@@ -90,7 +90,7 @@ def test_file_read_returns_written_content():
 
 def test_file_read_observation_has_all_fields():
     """Test file.read observation includes revision, created_at, updated_at."""
-    ws = WorldState(clock=5.0)
+    ws = TraceState(clock=5.0)
     FileWriteTool().execute(ws, {"file_id": "x", "content": "v1"})
 
     result = FileReadTool().execute(ws, {"file_id": "x"})
@@ -110,7 +110,7 @@ def test_file_read_observation_has_all_fields():
 
 def test_file_read_missing_file_returns_failure():
     """Test file.read returns success=False when file does not exist."""
-    ws = WorldState()
+    ws = TraceState()
     result = FileReadTool().execute(ws, {"file_id": "ghost"})
 
     assert result.success is False
@@ -123,7 +123,7 @@ def test_file_read_missing_file_returns_failure():
 
 def test_file_read_empty_file_id_returns_failure():
     """Test file.read returns error when file_id is missing."""
-    ws = WorldState()
+    ws = TraceState()
     result = FileReadTool().execute(ws, {})
 
     assert result.success is False
@@ -138,7 +138,7 @@ def test_file_read_empty_file_id_returns_failure():
 
 def test_file_write_overwrite_updates_content():
     """Test file.write overwrites content when file already exists."""
-    ws = WorldState(clock=1.0)
+    ws = TraceState(clock=1.0)
     write = FileWriteTool()
 
     write.execute(ws, {"file_id": "log", "content": "v1"})
@@ -161,7 +161,7 @@ def test_file_write_overwrite_updates_content():
 
 def test_file_write_overwrite_preserves_metadata_if_not_provided():
     """Test that re-writing without metadata keeps the original metadata."""
-    ws = WorldState()
+    ws = TraceState()
     write = FileWriteTool()
     write.execute(ws, {"file_id": "cfg", "content": "old", "metadata": {"env": "prod"}})
 
@@ -181,7 +181,7 @@ def test_file_write_overwrite_preserves_metadata_if_not_provided():
 
 def test_file_write_changes_version_and_hash():
     """Test file.write increments version and changes state hash."""
-    ws = WorldState()
+    ws = TraceState()
     version_before = ws.version
     hash_before = ws.compute_hash()
 
@@ -195,7 +195,7 @@ def test_file_write_changes_version_and_hash():
 
 def test_file_read_does_not_change_version_or_hash():
     """Test file.read leaves version and hash unchanged."""
-    ws = WorldState()
+    ws = TraceState()
     FileWriteTool().execute(ws, {"file_id": "b", "content": "data"})
 
     version_after_write = ws.version
@@ -211,7 +211,7 @@ def test_file_read_does_not_change_version_or_hash():
 
 def test_multiple_writes_increment_version_each_time():
     """Test each write call increments version by exactly 1."""
-    ws = WorldState()
+    ws = TraceState()
     write = FileWriteTool()
 
     for i in range(5):
@@ -242,7 +242,7 @@ def test_file_tools_registry():
 
 def test_file_write_missing_file_id_returns_failure():
     """Test file.write returns error when file_id is missing."""
-    ws = WorldState()
+    ws = TraceState()
     result = FileWriteTool().execute(ws, {"content": "text"})
 
     assert result.success is False
@@ -254,7 +254,7 @@ def test_file_write_missing_file_id_returns_failure():
 
 def test_file_write_missing_content_returns_failure():
     """Test file.write returns error when content is missing."""
-    ws = WorldState()
+    ws = TraceState()
     result = FileWriteTool().execute(ws, {"file_id": "f1"})
 
     assert result.success is False

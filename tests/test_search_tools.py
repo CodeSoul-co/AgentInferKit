@@ -12,12 +12,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from toolsim.tools.file_tools import FileWriteTool
 from toolsim.tools.search_tools import SEARCH_TOOLS, SearchIndexTool, SearchQueryTool
-from toolsim.core.world_state import WorldState
+from toolsim.core.trace_state import TraceState
 
 
 def test_search_query_cannot_find_unindexed_file():
     """file.write alone should not make content searchable."""
-    ws = WorldState()
+    ws = TraceState()
     FileWriteTool().execute(ws, {"file_id": "doc1", "content": "alpha beta"})
 
     result = SearchQueryTool().execute(ws, {"query": "alpha"})
@@ -29,7 +29,7 @@ def test_search_query_cannot_find_unindexed_file():
 
 def test_search_query_finds_file_after_index():
     """search.index should make the current file snapshot searchable."""
-    ws = WorldState(clock=10.0)
+    ws = TraceState(clock=10.0)
     FileWriteTool().execute(
         ws,
         {"file_id": "doc1", "content": "alpha beta", "metadata": {"topic": "demo"}},
@@ -54,7 +54,7 @@ def test_search_query_finds_file_after_index():
 
 def test_search_query_returns_empty_hits_when_no_match():
     """Non-matching substrings should return an empty hit list."""
-    ws = WorldState()
+    ws = TraceState()
     FileWriteTool().execute(ws, {"file_id": "doc1", "content": "alpha beta"})
     SearchIndexTool().execute(ws, {"file_id": "doc1"})
 
@@ -66,7 +66,7 @@ def test_search_query_returns_empty_hits_when_no_match():
 
 def test_search_index_missing_file_returns_failure():
     """Indexing a missing file should fail without mutating state."""
-    ws = WorldState()
+    ws = TraceState()
     version_before = ws.version
     hash_before = ws.compute_hash()
 
@@ -81,7 +81,7 @@ def test_search_index_missing_file_returns_failure():
 
 def test_search_query_uses_stale_snapshot_until_reindexed():
     """After overwrite, query should still reflect the old indexed snapshot."""
-    ws = WorldState(clock=1.0)
+    ws = TraceState(clock=1.0)
     write_tool = FileWriteTool()
     index_tool = SearchIndexTool()
     query_tool = SearchQueryTool()
@@ -102,7 +102,7 @@ def test_search_query_uses_stale_snapshot_until_reindexed():
 
 def test_search_query_reflects_latest_content_after_reindex():
     """Re-indexing should replace the stale snapshot with the latest file content."""
-    ws = WorldState(clock=1.0)
+    ws = TraceState(clock=1.0)
     write_tool = FileWriteTool()
     index_tool = SearchIndexTool()
     query_tool = SearchQueryTool()
@@ -126,7 +126,7 @@ def test_search_query_reflects_latest_content_after_reindex():
 
 def test_search_query_does_not_change_version_or_hash():
     """search.query should be a pure read against indexed snapshots."""
-    ws = WorldState()
+    ws = TraceState()
     FileWriteTool().execute(ws, {"file_id": "doc1", "content": "alpha beta"})
     SearchIndexTool().execute(ws, {"file_id": "doc1"})
 

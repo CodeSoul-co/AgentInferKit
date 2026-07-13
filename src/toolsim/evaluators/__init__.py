@@ -1,4 +1,4 @@
-"""Evaluators for toolsim execution traces and world states."""
+"""Evaluators for toolsim execution traces and trace states."""
 
 from __future__ import annotations
 

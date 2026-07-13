@@ -1,16 +1,16 @@
 """
 toolsim — Stateful simulation framework for evaluating LLM tool-use strategies.
 
-Provides a minimal but extensible world model (``WorldState``), a registry
+Provides a minimal but extensible world model (``TraceState``), a registry
 of typed tools (``FileWriteTool``, ``SearchIndexTool``, ``CalendarCreateEventTool``, …),
 a stateful executor with pre/postcondition enforcement, side-effect scheduling,
 multiple backends, and a multi-level evaluation system (call, state, trajectory).
 
 Quick start::
 
-    from toolsim import WorldState, StatefulExecutor, create_default_tool_registry, TraceRecorder
+    from toolsim import TraceState, StatefulExecutor, create_default_tool_registry, TraceRecorder
 
-    state = WorldState()
+    state = TraceState()
     tracer = TraceRecorder()
     executor = StatefulExecutor(create_default_tool_registry(), tracer=tracer)
 
@@ -24,11 +24,11 @@ Quick start::
 from __future__ import annotations
 
 # Core state model
-from toolsim.core.world_state import (
+from toolsim.core.trace_state import (
     PendingEffect,
     PolicyDecision,
     StateSnapshot,
-    WorldState,
+    TraceState,
 )
 
 # Tool abstractions
@@ -159,7 +159,7 @@ from toolsim.core.constants import (
 
 __all__ = [
     # State
-    "WorldState",
+    "TraceState",
     "PendingEffect",
     "StateSnapshot",
     "PolicyDecision",

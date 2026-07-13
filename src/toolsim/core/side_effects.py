@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from toolsim.core.constants import EFFECT_KIND_REINDEX_FILE_SNAPSHOT, EntityType, EffectStatus
-from toolsim.core.world_state import PendingEffect, WorldState
+from toolsim.core.trace_state import PendingEffect, TraceState
 
 
 @dataclass
@@ -25,7 +25,7 @@ class EffectApplicationResult:
         }
 
 
-def _reindex_file_snapshot(state: WorldState, effect: PendingEffect) -> bool:
+def _reindex_file_snapshot(state: TraceState, effect: PendingEffect) -> bool:
     file_id = effect.payload.get("file_id")
     if not file_id:
         raise ValueError("Missing file_id in effect payload")
@@ -47,16 +47,16 @@ def _reindex_file_snapshot(state: WorldState, effect: PendingEffect) -> bool:
 class SideEffectScheduler:
     """Apply pending effects once they become ready."""
 
-    def __init__(self, handlers: dict[str, Callable[[WorldState, PendingEffect], bool]] | None = None) -> None:
-        self._handlers: dict[str, Callable[[WorldState, PendingEffect], bool]] = dict(handlers or {})
+    def __init__(self, handlers: dict[str, Callable[[TraceState, PendingEffect], bool]] | None = None) -> None:
+        self._handlers: dict[str, Callable[[TraceState, PendingEffect], bool]] = dict(handlers or {})
 
-    def register_handler(self, kind: str, handler: Callable[[WorldState, PendingEffect], bool]) -> None:
+    def register_handler(self, kind: str, handler: Callable[[TraceState, PendingEffect], bool]) -> None:
         self._handlers[kind] = handler
 
-    def is_ready(self, effect: PendingEffect, state: WorldState) -> bool:
+    def is_ready(self, effect: PendingEffect, state: TraceState) -> bool:
         return effect.status == EffectStatus.PENDING and state.now() >= effect.execute_after
 
-    def apply_effect(self, effect: PendingEffect, state: WorldState) -> EffectApplicationResult:
+    def apply_effect(self, effect: PendingEffect, state: TraceState) -> EffectApplicationResult:
         handler = self._handlers.get(effect.kind)
         if handler is None:
             state.update_pending_effect(effect.effect_id, status="failed", last_error=f"No handler registered for effect kind: {effect.kind}")
@@ -76,7 +76,7 @@ class SideEffectScheduler:
             state.update_pending_effect(effect.effect_id, status=new_status, retry_count=retry_count, last_error=str(exc))
             return EffectApplicationResult(effect_id=effect.effect_id, kind=effect.kind, applied=False, error=str(exc))
 
-    def apply_ready_effects(self, state: WorldState) -> list[EffectApplicationResult]:
+    def apply_ready_effects(self, state: TraceState) -> list[EffectApplicationResult]:
         results: list[EffectApplicationResult] = []
         for effect in state.list_pending_effects(status="pending"):
             if self.is_ready(effect, state):

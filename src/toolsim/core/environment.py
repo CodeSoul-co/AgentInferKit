@@ -1,4 +1,4 @@
-"""Execution environment wrapping WorldState, backend, and delayed side-effect scheduler."""
+"""Execution environment wrapping TraceState, backend, and delayed side-effect scheduler."""
 
 from __future__ import annotations
 
@@ -8,14 +8,14 @@ from typing import Any
 from toolsim.backends.base import BaseBackend
 from toolsim.backends.mock_backend import MockBackend
 from toolsim.core.side_effects import EffectApplicationResult, SideEffectScheduler, create_default_scheduler
-from toolsim.core.world_state import WorldState
+from toolsim.core.trace_state import TraceState
 
 
 @dataclass
 class ToolEnvironment:
-    """Execution environment around WorldState, backend, and delayed side effects."""
+    """Execution environment around TraceState, backend, and delayed side effects."""
 
-    state: WorldState
+    state: TraceState
     backend: BaseBackend = field(default_factory=MockBackend)
     scheduler: SideEffectScheduler = field(default_factory=create_default_scheduler)
     auto_advance_clock: float = 0.0

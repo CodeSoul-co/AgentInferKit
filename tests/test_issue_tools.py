@@ -8,14 +8,14 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from toolsim.backends.sandbox_backend import SandboxBackend
 from toolsim.execution.stateful_executor import StatefulExecutor, create_default_tool_registry
 from toolsim.runners.experiment_runner import ExperimentRunner
-from toolsim.core.world_state import WorldState
+from toolsim.core.trace_state import TraceState
 
 
 def _executor() -> StatefulExecutor:
     return StatefulExecutor(create_default_tool_registry())
 
 
-def _create_issue(executor: StatefulExecutor, state: WorldState, **overrides):
+def _create_issue(executor: StatefulExecutor, state: TraceState, **overrides):
     args = {
         "issue_id": "iss1",
         "title": "Bug in search flow",
@@ -28,7 +28,7 @@ def _create_issue(executor: StatefulExecutor, state: WorldState, **overrides):
 
 
 def test_issue_create_success():
-    state = WorldState()
+    state = TraceState()
     record = _create_issue(_executor(), state)
 
     assert record.success is True
@@ -38,7 +38,7 @@ def test_issue_create_success():
 
 def test_issue_duplicate_create_fails():
     executor = _executor()
-    state = WorldState()
+    state = TraceState()
     _create_issue(executor, state)
 
     record = executor.execute(
@@ -54,7 +54,7 @@ def test_issue_duplicate_create_fails():
 
 def test_issue_assign_moves_issue_to_in_progress():
     executor = _executor()
-    state = WorldState()
+    state = TraceState()
     _create_issue(executor, state)
 
     record = executor.execute(
@@ -73,7 +73,7 @@ def test_issue_assign_moves_issue_to_in_progress():
 def test_issue_assign_missing_issue_fails():
     record = _executor().execute(
         "issue.assign",
-        WorldState(),
+        TraceState(),
         {"issue_id": "missing", "assignee": "bob"},
         permissions={"issue.assign"},
     )
@@ -84,7 +84,7 @@ def test_issue_assign_missing_issue_fails():
 
 def test_issue_comment_creates_comment_and_updates_count():
     executor = _executor()
-    state = WorldState(clock=3.0)
+    state = TraceState(clock=3.0)
     _create_issue(executor, state)
 
     record = executor.execute(
@@ -101,7 +101,7 @@ def test_issue_comment_creates_comment_and_updates_count():
 
 def test_issue_comment_on_closed_issue_respects_policy():
     executor = _executor()
-    state = WorldState(policies={"issue": {"allow_comment_on_closed": False}})
+    state = TraceState(policies={"issue": {"allow_comment_on_closed": False}})
     _create_issue(executor, state)
     executor.execute("issue.assign", state, {"issue_id": "iss1", "assignee": "bob"}, permissions={"issue.assign"})
     executor.execute("issue.close", state, {"issue_id": "iss1", "resolution": "fixed"}, permissions={"issue.close"})
@@ -119,7 +119,7 @@ def test_issue_comment_on_closed_issue_respects_policy():
 
 def test_issue_close_requires_assignee_by_default():
     executor = _executor()
-    state = WorldState()
+    state = TraceState()
     _create_issue(executor, state)
 
     record = executor.execute(
@@ -135,7 +135,7 @@ def test_issue_close_requires_assignee_by_default():
 
 def test_issue_close_and_reopen_success():
     executor = _executor()
-    state = WorldState(clock=5.0)
+    state = TraceState(clock=5.0)
     _create_issue(executor, state)
     executor.execute("issue.assign", state, {"issue_id": "iss1", "assignee": "bob"}, permissions={"issue.assign"})
 
@@ -159,7 +159,7 @@ def test_issue_close_and_reopen_success():
 
 def test_issue_reopen_non_closed_issue_fails():
     executor = _executor()
-    state = WorldState()
+    state = TraceState()
     _create_issue(executor, state)
 
     record = executor.execute(
@@ -175,7 +175,7 @@ def test_issue_reopen_non_closed_issue_fails():
 
 def test_issue_permission_failure_is_reported():
     executor = _executor()
-    state = WorldState()
+    state = TraceState()
 
     record = executor.execute("issue.create", state, {"issue_id": "iss1", "title": "Bug"}, permissions=set())
 

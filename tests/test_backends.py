@@ -10,7 +10,7 @@ from toolsim.backends.sandbox_backend import SandboxBackend
 from toolsim.backends.live_like_backend import LiveLikeBackend
 from toolsim.core.environment import ToolEnvironment
 from toolsim.execution.stateful_executor import StatefulExecutor, create_default_tool_registry
-from toolsim.core.world_state import PendingEffect
+from toolsim.core.trace_state import PendingEffect
 
 
 def test_mock_backend_basic_crud_and_snapshot_roundtrip():

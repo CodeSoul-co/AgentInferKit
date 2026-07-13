@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from toolsim.execution.stateful_executor import ExecutionRecord, StatefulExecutor, create_default_tool_registry
 from toolsim.execution.stateful_tracer import TraceRecorder
 from toolsim.core.tool_spec import ConditionCheckResult
-from toolsim.core.world_state import WorldState
+from toolsim.core.trace_state import TraceState
 
 
 def _record(**kwargs):
@@ -84,7 +84,7 @@ def test_trace_recorder_summary_and_filters_use_new_record_fields():
 
 
 def test_executor_with_tracer_auto_logs_records():
-    ws = WorldState()
+    ws = TraceState()
     tracer = TraceRecorder()
     executor = StatefulExecutor(create_default_tool_registry(), tracer=tracer)
 
@@ -100,7 +100,7 @@ def test_executor_with_tracer_auto_logs_records():
 
 
 def test_executor_without_tracer_still_executes_normally():
-    ws = WorldState()
+    ws = TraceState()
     executor = StatefulExecutor(create_default_tool_registry())
 
     record = executor.execute("file.write", ws, {"file_id": "doc1", "content": "hello"})

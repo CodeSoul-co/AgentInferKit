@@ -28,7 +28,7 @@ def test_trace_report_contains_core_execution_signals():
     assert "Created `issue.iss1`" in report
     assert "Updated `issue.iss1`" in report
     assert "`assignee`: None -> 'bob'" in report
-    assert "Final World State" in report
+    assert "Final Trace State" in report
     assert "`issue`: 1" in report
 
 

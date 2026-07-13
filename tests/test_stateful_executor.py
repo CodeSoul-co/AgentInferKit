@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from toolsim.core.tool_spec import ToolExecutionResult, ToolMetadata, ToolSpec
 from toolsim.execution.stateful_executor import ExecutorConfig, StatefulExecutor, create_default_tool_registry
-from toolsim.core.world_state import PendingEffect, WorldState
+from toolsim.core.trace_state import PendingEffect, TraceState
 
 
 class ExplodingTool(ToolSpec):
@@ -17,7 +17,7 @@ class ExplodingTool(ToolSpec):
     description = "Raise an exception to test executor error handling."
     input_schema = {"type": "object", "properties": {}}
 
-    def execute(self, state: WorldState, args: dict) -> ToolExecutionResult:
+    def execute(self, state: TraceState, args: dict) -> ToolExecutionResult:
         raise RuntimeError("boom")
 
 
@@ -30,7 +30,7 @@ class PartialPendingTool(ToolSpec):
         supports_async=True,
     )
 
-    def execute(self, state: WorldState, args: dict) -> ToolExecutionResult:
+    def execute(self, state: TraceState, args: dict) -> ToolExecutionResult:
         effect = PendingEffect(
             effect_id="eff_demo",
             kind="delayed.index",
@@ -50,7 +50,7 @@ class PartialPendingTool(ToolSpec):
 
 
 def test_executor_calls_file_write_successfully():
-    ws = WorldState()
+    ws = TraceState()
     executor = StatefulExecutor(create_default_tool_registry())
 
     record = executor.execute("file.write", ws, {"file_id": "doc1", "content": "hello"})
@@ -63,7 +63,7 @@ def test_executor_calls_file_write_successfully():
 
 
 def test_executor_calls_file_read_successfully():
-    ws = WorldState()
+    ws = TraceState()
     executor = StatefulExecutor(create_default_tool_registry())
     executor.execute("file.write", ws, {"file_id": "doc1", "content": "hello"})
 
@@ -76,7 +76,7 @@ def test_executor_calls_file_read_successfully():
 
 
 def test_executor_completes_write_index_query_loop():
-    ws = WorldState()
+    ws = TraceState()
     executor = StatefulExecutor(create_default_tool_registry())
 
     write_record = executor.execute("file.write", ws, {"file_id": "doc1", "content": "alpha beta"})
@@ -91,7 +91,7 @@ def test_executor_completes_write_index_query_loop():
 
 
 def test_executor_returns_failure_for_missing_tool():
-    ws = WorldState()
+    ws = TraceState()
     executor = StatefulExecutor(create_default_tool_registry())
 
     record = executor.execute("missing.tool", ws, {"x": 1})
@@ -104,7 +104,7 @@ def test_executor_returns_failure_for_missing_tool():
 
 
 def test_read_only_tools_do_not_change_hash():
-    ws = WorldState()
+    ws = TraceState()
     executor = StatefulExecutor(create_default_tool_registry())
     executor.execute("file.write", ws, {"file_id": "doc1", "content": "alpha beta"})
     executor.execute("search.index", ws, {"file_id": "doc1"})
@@ -119,7 +119,7 @@ def test_read_only_tools_do_not_change_hash():
 
 
 def test_write_tools_change_hash():
-    ws = WorldState()
+    ws = TraceState()
     executor = StatefulExecutor(create_default_tool_registry())
 
     write_record = executor.execute("file.write", ws, {"file_id": "doc1", "content": "alpha beta"})
@@ -132,7 +132,7 @@ def test_write_tools_change_hash():
 
 
 def test_executor_catches_tool_exception():
-    ws = WorldState()
+    ws = TraceState()
     tools = create_default_tool_registry()
     tools["test.explode"] = ExplodingTool()
     executor = StatefulExecutor(tools)
@@ -145,7 +145,7 @@ def test_executor_catches_tool_exception():
 
 
 def test_executor_enforces_permissions_when_provided():
-    ws = WorldState()
+    ws = TraceState()
     executor = StatefulExecutor(create_default_tool_registry())
 
     record = executor.execute("file.write", ws, {"file_id": "doc1", "content": "hello"}, permissions=set())
@@ -156,7 +156,7 @@ def test_executor_enforces_permissions_when_provided():
 
 
 def test_executor_enforces_preconditions_before_read():
-    ws = WorldState()
+    ws = TraceState()
     executor = StatefulExecutor(create_default_tool_registry())
 
     record = executor.execute("file.read", ws, {"file_id": "missing"})
@@ -167,7 +167,7 @@ def test_executor_enforces_preconditions_before_read():
 
 
 def test_executor_records_partial_pending_and_scheduled_effects():
-    ws = WorldState()
+    ws = TraceState()
     tools = create_default_tool_registry()
     tools["test.partial_pending"] = PartialPendingTool()
     executor = StatefulExecutor(tools)
@@ -183,7 +183,7 @@ def test_executor_records_partial_pending_and_scheduled_effects():
 
 
 def test_executor_can_disable_strict_preconditions():
-    ws = WorldState()
+    ws = TraceState()
     executor = StatefulExecutor(create_default_tool_registry(), config=ExecutorConfig(strict_preconditions=False))
 
     record = executor.execute("file.read", ws, {"file_id": "missing"})

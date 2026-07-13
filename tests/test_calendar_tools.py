@@ -7,14 +7,14 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from toolsim.core.environment import ToolEnvironment
 from toolsim.execution.stateful_executor import StatefulExecutor, create_default_tool_registry
-from toolsim.core.world_state import WorldState
+from toolsim.core.trace_state import TraceState
 
 
 def _executor() -> StatefulExecutor:
     return StatefulExecutor(create_default_tool_registry())
 
 
-def _create_baseline_event(executor: StatefulExecutor, state: WorldState, **overrides):
+def _create_baseline_event(executor: StatefulExecutor, state: TraceState, **overrides):
     args = {
         "event_id": "evt1",
         "title": "Team Sync",
@@ -28,7 +28,7 @@ def _create_baseline_event(executor: StatefulExecutor, state: WorldState, **over
 
 
 def test_calendar_create_event_success():
-    state = WorldState()
+    state = TraceState()
     record = _create_baseline_event(_executor(), state, permissions={"calendar.create_event"})
 
     assert record.success is True
@@ -38,7 +38,7 @@ def test_calendar_create_event_success():
 
 def test_calendar_duplicate_event_id_fails():
     executor = _executor()
-    state = WorldState()
+    state = TraceState()
     _create_baseline_event(executor, state, permissions={"calendar.create_event"})
 
     record = executor.execute(
@@ -59,7 +59,7 @@ def test_calendar_duplicate_event_id_fails():
 
 
 def test_calendar_create_event_rejects_invalid_time_range():
-    state = WorldState()
+    state = TraceState()
     record = _executor().execute(
         "calendar.create_event",
         state,
@@ -73,7 +73,7 @@ def test_calendar_create_event_rejects_invalid_time_range():
 
 def test_calendar_conflict_detection_blocks_overlapping_participant_event():
     executor = _executor()
-    state = WorldState()
+    state = TraceState()
     _create_baseline_event(executor, state, permissions={"calendar.create_event"})
 
     record = executor.execute(
@@ -90,7 +90,7 @@ def test_calendar_conflict_detection_blocks_overlapping_participant_event():
 
 def test_calendar_search_finds_matching_event():
     executor = _executor()
-    state = WorldState()
+    state = TraceState()
     _create_baseline_event(executor, state, permissions={"calendar.create_event"})
 
     record = executor.execute(
@@ -107,7 +107,7 @@ def test_calendar_search_finds_matching_event():
 
 def test_calendar_update_event_successfully_changes_fields():
     executor = _executor()
-    state = WorldState(clock=5.0)
+    state = TraceState(clock=5.0)
     _create_baseline_event(executor, state, permissions={"calendar.create_event"})
     state.set_clock(6.0)
 
@@ -127,7 +127,7 @@ def test_calendar_update_event_successfully_changes_fields():
 
 def test_calendar_update_event_rejects_conflict():
     executor = _executor()
-    state = WorldState()
+    state = TraceState()
     _create_baseline_event(executor, state, permissions={"calendar.create_event"})
     executor.execute(
         "calendar.create_event",
@@ -149,7 +149,7 @@ def test_calendar_update_event_rejects_conflict():
 
 def test_calendar_delete_event_soft_deletes():
     executor = _executor()
-    state = WorldState(clock=0.0, policies={"calendar": {"allow_delete_started_event": True}})
+    state = TraceState(clock=0.0, policies={"calendar": {"allow_delete_started_event": True}})
     _create_baseline_event(executor, state, permissions={"calendar.create_event"})
 
     record = executor.execute(
@@ -165,7 +165,7 @@ def test_calendar_delete_event_soft_deletes():
 
 def test_calendar_delete_started_event_respects_policy_and_clock():
     executor = _executor()
-    state = WorldState(clock=9.0, policies={"calendar": {"allow_delete_started_event": False}})
+    state = TraceState(clock=9.0, policies={"calendar": {"allow_delete_started_event": False}})
     _create_baseline_event(executor, state, permissions={"calendar.create_event"})
     env = ToolEnvironment(state=state)
     env.advance_time(1.5)

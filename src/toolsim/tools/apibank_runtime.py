@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from toolsim.core.world_state import WorldState
+from toolsim.core.trace_state import TraceState
 
 
 APIBANK_ACCOUNT_DATABASE: dict[str, dict[str, str]] = {
@@ -28,7 +28,7 @@ APIBANK_VERIFICATION_CODE = 970420
 APIBANK_DATABASE_ENTITY_TYPES = ("account", "agenda", "meeting")
 
 
-def ensure_apibank_state(state: WorldState) -> None:
+def ensure_apibank_state(state: TraceState) -> None:
     """Seed API-Bank databases that are needed by the selected subset."""
     accounts = state.entities.setdefault("account", {})
     for username, record in APIBANK_ACCOUNT_DATABASE.items():
@@ -40,7 +40,7 @@ def ensure_apibank_state(state: WorldState) -> None:
     state.policies["backend"]["api_bank_runtime"] = APIBANK_RUNTIME_NAME
 
 
-def persist_apibank_databases(state: WorldState, database_dir: str | Path) -> None:
+def persist_apibank_databases(state: TraceState, database_dir: str | Path) -> None:
     """Mirror API-Bank's JSON database dump convention for live-like sessions."""
     path = Path(database_dir)
     path.mkdir(parents=True, exist_ok=True)
@@ -55,7 +55,7 @@ def persist_apibank_databases(state: WorldState, database_dir: str | Path) -> No
         )
 
 
-def call_apibank_api(state: WorldState, api_name: str, args: dict[str, Any]) -> dict[str, Any]:
+def call_apibank_api(state: TraceState, api_name: str, args: dict[str, Any]) -> dict[str, Any]:
     """Run one supported API-Bank API and return its official response shape."""
     ensure_apibank_state(state)
     input_parameters = dict(args)
@@ -76,7 +76,7 @@ def call_apibank_api(state: WorldState, api_name: str, args: dict[str, Any]) -> 
     }
 
 
-def _dispatch_api(state: WorldState, api_name: str, args: dict[str, Any]) -> tuple[Any, bool]:
+def _dispatch_api(state: TraceState, api_name: str, args: dict[str, Any]) -> tuple[Any, bool]:
     if api_name == "CheckToken":
         return {"username": _check_token(state, str(args["token"]))}, False
     if api_name == "GetUserToken":
@@ -109,14 +109,14 @@ def _response(api_name: str, input_parameters: dict[str, Any], output: Any, exce
     }
 
 
-def _check_token(state: WorldState, token: str) -> str:
+def _check_token(state: TraceState, token: str) -> str:
     for username, account in state.entities.get("account", {}).items():
         if account.get("token") == token:
             return str(username)
     raise Exception("The token is invalid.")
 
 
-def _get_user_token(state: WorldState, username: str, password: str) -> str:
+def _get_user_token(state: TraceState, username: str, password: str) -> str:
     account = state.get_entity("account", username)
     if account is None:
         raise Exception("The username does not exist.")
@@ -125,7 +125,7 @@ def _get_user_token(state: WorldState, username: str, password: str) -> str:
     return str(account["token"])
 
 
-def _modify_password(state: WorldState, token: str, old_password: str, new_password: str) -> tuple[dict[str, str], bool]:
+def _modify_password(state: TraceState, token: str, old_password: str, new_password: str) -> tuple[dict[str, str], bool]:
     username = _check_token(state, token)
     account = state.get_entity("account", username)
     if account is None:
@@ -138,7 +138,7 @@ def _modify_password(state: WorldState, token: str, old_password: str, new_passw
     return {"status": "success"}, True
 
 
-def _forgot_password(state: WorldState, args: dict[str, Any]) -> tuple[int | str, bool]:
+def _forgot_password(state: TraceState, args: dict[str, Any]) -> tuple[int | str, bool]:
     status = args.get("status")
     if status == "Forgot Password":
         if "username" not in args or "email" not in args:
@@ -184,7 +184,7 @@ def _forgot_password(state: WorldState, args: dict[str, Any]) -> tuple[int | str
     raise Exception("The status is only 'Forgot Password' or 'Verification Code'.")
 
 
-def _add_agenda(state: WorldState, args: dict[str, Any]) -> tuple[str, bool]:
+def _add_agenda(state: TraceState, args: dict[str, Any]) -> tuple[str, bool]:
     _parse_time(str(args["time"]), required=True)
     content = str(args["content"])
     if content.strip() == "":
@@ -200,7 +200,7 @@ def _add_agenda(state: WorldState, args: dict[str, Any]) -> tuple[str, bool]:
     return "success", True
 
 
-def _query_agenda(state: WorldState, args: dict[str, Any]) -> dict[str, Any]:
+def _query_agenda(state: TraceState, args: dict[str, Any]) -> dict[str, Any]:
     time = str(args.get("time", ""))
     content = str(args.get("content", ""))
     if time:
@@ -216,7 +216,7 @@ def _query_agenda(state: WorldState, args: dict[str, Any]) -> dict[str, Any]:
     raise Exception("Error")
 
 
-def _modify_agenda(state: WorldState, args: dict[str, Any]) -> tuple[str, bool]:
+def _modify_agenda(state: TraceState, args: dict[str, Any]) -> tuple[str, bool]:
     time = str(args.get("time", ""))
     content = str(args.get("content", ""))
     if time:
@@ -238,7 +238,7 @@ def _modify_agenda(state: WorldState, args: dict[str, Any]) -> tuple[str, bool]:
     raise Exception("Error")
 
 
-def _add_meeting(state: WorldState, args: dict[str, Any]) -> tuple[str, bool]:
+def _add_meeting(state: TraceState, args: dict[str, Any]) -> tuple[str, bool]:
     _parse_time(str(args["start_time"]), required=True)
     _parse_time(str(args["end_time"]), required=True)
     topic = str(args["meeting_topic"])
@@ -258,7 +258,7 @@ def _add_meeting(state: WorldState, args: dict[str, Any]) -> tuple[str, bool]:
     return "success", True
 
 
-def _query_meeting(state: WorldState, args: dict[str, Any]) -> dict[str, Any]:
+def _query_meeting(state: TraceState, args: dict[str, Any]) -> dict[str, Any]:
     start_time = str(args.get("start_time", ""))
     end_time = str(args.get("end_time", ""))
     topic = str(args.get("meeting_topic", ""))
@@ -279,7 +279,7 @@ def _query_meeting(state: WorldState, args: dict[str, Any]) -> dict[str, Any]:
     raise Exception("Error")
 
 
-def _modify_meeting(state: WorldState, args: dict[str, Any]) -> tuple[str, bool]:
+def _modify_meeting(state: TraceState, args: dict[str, Any]) -> tuple[str, bool]:
     start_time = str(args.get("start_time", ""))
     end_time = str(args.get("end_time", ""))
     topic = str(args.get("meeting_topic", ""))

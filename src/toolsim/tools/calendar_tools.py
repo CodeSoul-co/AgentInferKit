@@ -1,4 +1,4 @@
-"""Calendar event tools backed by WorldState entities."""
+"""Calendar event tools backed by TraceState entities."""
 
 from __future__ import annotations
 
@@ -6,24 +6,24 @@ from typing import Any
 
 from toolsim.core.constants import CALENDAR_ALLOWED_STATUSES, EntityType
 from toolsim.core.tool_spec import PostconditionSpec, PreconditionSpec, ToolExecutionResult, ToolMetadata, ToolSpec
-from toolsim.core.world_state import WorldState
+from toolsim.core.trace_state import TraceState
 
 _DEFAULT_CALENDAR_ID = "default"
 
 
-def _calendar_policy(state: WorldState) -> dict[str, Any]:
-    """Extract calendar policy from world state."""
+def _calendar_policy(state: TraceState) -> dict[str, Any]:
+    """Extract calendar policy from trace state."""
     policy = state.policies.get("calendar", {})
     return policy if isinstance(policy, dict) else {}
 
 
-def _iter_events(state: WorldState) -> list[dict[str, Any]]:
+def _iter_events(state: TraceState) -> list[dict[str, Any]]:
     """Iterate over all calendar events sorted by id."""
     events = state.entities.get(EntityType.CALENDAR_EVENT, {})
     return [event for _, event in sorted(events.items())]
 
 
-def _find_event(state: WorldState, event_id: str) -> dict[str, Any] | None:
+def _find_event(state: TraceState, event_id: str) -> dict[str, Any] | None:
     """Retrieve a single event by id, or None if absent."""
     return state.get_entity(EntityType.CALENDAR_EVENT, event_id)
 
@@ -39,7 +39,7 @@ def _participants_overlap(left: list[str], right: list[str]) -> bool:
 
 
 def _find_conflicts(
-    state: WorldState,
+    state: TraceState,
     *,
     event_id: str | None,
     calendar_id: str,
@@ -230,7 +230,7 @@ class CalendarSearchEventsTool(ToolSpec):
         idempotency="idempotent",
     )
 
-    def execute(self, state: WorldState, args: dict[str, Any]) -> ToolExecutionResult:
+    def execute(self, state: TraceState, args: dict[str, Any]) -> ToolExecutionResult:
         start_time = args.get("start_time")
         end_time = args.get("end_time")
         participant = args.get("participant")

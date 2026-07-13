@@ -63,7 +63,7 @@ class PostconditionSpec:
 class ExecutionContext:
     """Context object passed to a tool at execution time."""
 
-    state: "WorldState"
+    state: "TraceState"
     call_id: str
     clock: float
     permissions: set[str] = field(default_factory=set)
@@ -131,7 +131,7 @@ class ToolSpec(ABC):
 
     @abstractmethod
     def execute(self, state_or_context: Any, args: dict[str, Any]) -> ToolExecutionResult:
-        """Execute the tool against a WorldState or ExecutionContext."""
+        """Execute the tool against a TraceState or ExecutionContext."""
 
     def get_metadata(self) -> ToolMetadata:
         """Return the tool's metadata, building a default if none was set."""
@@ -151,8 +151,8 @@ class ToolSpec(ABC):
         """Return the list of postconditions for this tool."""
         return list(getattr(self, "postconditions", []) or [])
 
-    def get_state_from_input(self, state_or_context: Any) -> "WorldState":
-        """Extract WorldState from the execute() argument, which may be a state or context."""
+    def get_state_from_input(self, state_or_context: Any) -> "TraceState":
+        """Extract TraceState from the execute() argument, which may be a state or context."""
         if isinstance(state_or_context, ExecutionContext):
             return state_or_context.state
         return state_or_context

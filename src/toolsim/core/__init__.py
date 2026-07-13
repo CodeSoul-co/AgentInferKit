@@ -29,11 +29,11 @@ from toolsim.core.tool_spec import (
     ToolSpec,
 )
 from toolsim.core.utils import extract_last_query_hits
-from toolsim.core.world_state import (
+from toolsim.core.trace_state import (
     PendingEffect,
     PolicyDecision,
     StateSnapshot,
-    WorldState,
+    TraceState,
 )
 
 __all__ = [
@@ -47,7 +47,7 @@ __all__ = [
     "DEFAULT_REINDEX_DELAY",
     "DEFAULT_AUTO_ADVANCE_CLOCK",
     # State
-    "WorldState",
+    "TraceState",
     "PendingEffect",
     "StateSnapshot",
     "PolicyDecision",

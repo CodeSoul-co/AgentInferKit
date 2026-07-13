@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from toolsim.execution.stateful_executor import ExecutionRecord
     from toolsim.execution.stateful_tracer import TraceRecorder
 
-from toolsim.core.world_state import WorldState
+from toolsim.core.trace_state import TraceState
 from toolsim.tools.calendar_tools import CalendarSearchEventsTool
 from toolsim.tools.search_tools import SearchQueryTool
 
@@ -60,7 +60,7 @@ class StateGoalResult:
 
 @dataclass
 class StateEvaluationResult:
-    """Result of evaluating all goal assertions against a world state."""
+    """Result of evaluating all goal assertions against a trace state."""
 
     goal_count: int
     passed_count: int
@@ -126,17 +126,17 @@ class CallLevelEvaluator:
 
 
 class StateLevelEvaluator:
-    """Evaluate goal assertions against a final :class:`WorldState`."""
+    """Evaluate goal assertions against a final :class:`TraceState`."""
 
     def evaluate(
         self,
-        state: WorldState,
+        state: TraceState,
         goals: Iterable[dict[str, Any]],
     ) -> StateEvaluationResult:
-        """Check a list of goal assertions against the current world state.
+        """Check a list of goal assertions against the current trace state.
 
         Args:
-            state: The world state to evaluate.
+            state: The trace state to evaluate.
             goals: Iterable of goal dicts with a ``type`` key.
 
         Returns:
@@ -158,7 +158,7 @@ class StateLevelEvaluator:
             details=details,
         )
 
-    def _evaluate_goal(self, state: WorldState, goal: dict[str, Any]) -> StateGoalResult:
+    def _evaluate_goal(self, state: TraceState, goal: dict[str, Any]) -> StateGoalResult:
         """Evaluate a single goal assertion."""
         goal_type = goal.get("type", "unknown")
 
@@ -343,7 +343,7 @@ def _normalize_records(
     return list(records_or_tracer)
 
 
-def _find_matching_entity_id(state: WorldState, entity_type: str, fields: dict[str, Any]) -> str | None:
+def _find_matching_entity_id(state: TraceState, entity_type: str, fields: dict[str, Any]) -> str | None:
     for entity_id, entity in state.entities.get(entity_type, {}).items():
         if all(entity.get(field) == expected for field, expected in fields.items()):
             return entity_id

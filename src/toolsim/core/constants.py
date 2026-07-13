@@ -15,7 +15,7 @@ from enum import Enum
 # ---------------------------------------------------------------------------
 
 class EntityType(str, Enum):
-    """Canonical names for entity types stored in WorldState."""
+    """Canonical names for entity types stored in TraceState."""
 
     FILE = "file"
     SEARCH_INDEX = "search_index"

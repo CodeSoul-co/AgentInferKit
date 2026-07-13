@@ -3,7 +3,7 @@
 Semantics:
   - No explicit search_index entities.
   - search.query directly searches current file content via substring matching.
-  - Still reuses WorldState as minimal shared storage.
+  - Still reuses TraceState as minimal shared storage.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 from toolsim.core.tool_spec import ToolExecutionResult, ToolSpec
-from toolsim.core.world_state import WorldState
+from toolsim.core.trace_state import TraceState
 from toolsim.evaluators.evaluator import (
     CallLevelEvaluator,
     StateEvaluationResult,
@@ -41,7 +41,7 @@ class StatelessSearchQueryTool(ToolSpec):
         "required": ["query"],
     }
 
-    def execute(self, state: WorldState, args: dict[str, Any]) -> ToolExecutionResult:
+    def execute(self, state: TraceState, args: dict[str, Any]) -> ToolExecutionResult:
         query: str | None = args.get("query")
 
         if not query:
@@ -111,7 +111,7 @@ class StatelessCalendarCreateEventTool(ToolSpec):
 
     tool_name = "calendar.create_event"
 
-    def execute(self, state: WorldState, args: dict[str, Any]) -> ToolExecutionResult:
+    def execute(self, state: TraceState, args: dict[str, Any]) -> ToolExecutionResult:
         event_id = args.get("event_id")
         title = args.get("title")
         if not event_id:
@@ -151,7 +151,7 @@ class StatelessCalendarUpdateEventTool(ToolSpec):
 
     tool_name = "calendar.update_event"
 
-    def execute(self, state: WorldState, args: dict[str, Any]) -> ToolExecutionResult:
+    def execute(self, state: TraceState, args: dict[str, Any]) -> ToolExecutionResult:
         event_id = args.get("event_id")
         if not event_id:
             return ToolExecutionResult(success=False, error="Missing required argument: event_id")
@@ -183,7 +183,7 @@ class StatelessCalendarSearchEventsTool(ToolSpec):
 
     tool_name = "calendar.search_events"
 
-    def execute(self, state: WorldState, args: dict[str, Any]) -> ToolExecutionResult:
+    def execute(self, state: TraceState, args: dict[str, Any]) -> ToolExecutionResult:
         start_time = args.get("start_time")
         end_time = args.get("end_time")
         participant = args.get("participant")
@@ -217,7 +217,7 @@ class StatelessCalendarDeleteEventTool(ToolSpec):
 
     tool_name = "calendar.delete_event"
 
-    def execute(self, state: WorldState, args: dict[str, Any]) -> ToolExecutionResult:
+    def execute(self, state: TraceState, args: dict[str, Any]) -> ToolExecutionResult:
         event_id = args.get("event_id")
         if not event_id:
             return ToolExecutionResult(success=False, error="Missing required argument: event_id")
@@ -241,7 +241,7 @@ class StatelessIssueCreateTool(ToolSpec):
 
     tool_name = "issue.create"
 
-    def execute(self, state: WorldState, args: dict[str, Any]) -> ToolExecutionResult:
+    def execute(self, state: TraceState, args: dict[str, Any]) -> ToolExecutionResult:
         issue_id = args.get("issue_id")
         title = args.get("title")
         if not issue_id:
@@ -277,7 +277,7 @@ class StatelessIssueAssignTool(ToolSpec):
 
     tool_name = "issue.assign"
 
-    def execute(self, state: WorldState, args: dict[str, Any]) -> ToolExecutionResult:
+    def execute(self, state: TraceState, args: dict[str, Any]) -> ToolExecutionResult:
         issue_id = args.get("issue_id")
         assignee = args.get("assignee")
         if not issue_id:
@@ -306,7 +306,7 @@ class StatelessIssueCommentTool(ToolSpec):
 
     tool_name = "issue.comment"
 
-    def execute(self, state: WorldState, args: dict[str, Any]) -> ToolExecutionResult:
+    def execute(self, state: TraceState, args: dict[str, Any]) -> ToolExecutionResult:
         issue_id = args.get("issue_id")
         comment_id = args.get("comment_id")
         content = args.get("content")
@@ -344,7 +344,7 @@ class StatelessIssueCloseTool(ToolSpec):
 
     tool_name = "issue.close"
 
-    def execute(self, state: WorldState, args: dict[str, Any]) -> ToolExecutionResult:
+    def execute(self, state: TraceState, args: dict[str, Any]) -> ToolExecutionResult:
         issue_id = args.get("issue_id")
         resolution = args.get("resolution")
         if not issue_id:
@@ -374,7 +374,7 @@ class StatelessIssueReopenTool(ToolSpec):
 
     tool_name = "issue.reopen"
 
-    def execute(self, state: WorldState, args: dict[str, Any]) -> ToolExecutionResult:
+    def execute(self, state: TraceState, args: dict[str, Any]) -> ToolExecutionResult:
         issue_id = args.get("issue_id")
         if not issue_id:
             return ToolExecutionResult(success=False, error="Missing required argument: issue_id")
@@ -412,7 +412,7 @@ STATELESS_TOOLS: dict[str, ToolSpec] = {
 class StatelessStateLevelEvaluator(StateLevelEvaluator):
     """State-level evaluator aligned with stateless query semantics."""
 
-    def _evaluate_goal(self, state: WorldState, goal: dict[str, Any]) -> StateGoalResult:
+    def _evaluate_goal(self, state: TraceState, goal: dict[str, Any]) -> StateGoalResult:
         goal_type = goal.get("type", "unknown")
 
         if goal_type == "indexed_contains":
@@ -457,10 +457,10 @@ class StatelessExperimentRunner:
     def run(
         self,
         tool_calls: list[dict[str, Any]],
-        initial_state: WorldState | None = None,
+        initial_state: TraceState | None = None,
         goals: list[dict[str, Any]] | None = None,
     ) -> ExperimentResult:
-        state = initial_state if initial_state is not None else WorldState()
+        state = initial_state if initial_state is not None else TraceState()
         tracer = TraceRecorder()
         executor = self._build_executor(tracer)
 

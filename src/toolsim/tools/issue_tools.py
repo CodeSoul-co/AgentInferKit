@@ -11,7 +11,7 @@ from toolsim.core.tool_spec import (
     ToolMetadata,
     ToolSpec,
 )
-from toolsim.core.world_state import WorldState
+from toolsim.core.trace_state import TraceState
 
 _ISSUE_ENTITY_TYPE = "issue"
 _COMMENT_ENTITY_TYPE = "issue_comment"
@@ -21,16 +21,16 @@ _STATUS_IN_PROGRESS = "in_progress"
 _STATUS_CLOSED = "closed"
 
 
-def _issue_policy(state: WorldState) -> dict[str, Any]:
+def _issue_policy(state: TraceState) -> dict[str, Any]:
     policy = state.policies.get("issue", {})
     return policy if isinstance(policy, dict) else {}
 
 
-def _find_issue(state: WorldState, issue_id: str) -> dict[str, Any] | None:
+def _find_issue(state: TraceState, issue_id: str) -> dict[str, Any] | None:
     return state.get_entity(_ISSUE_ENTITY_TYPE, issue_id)
 
 
-def _find_comment(state: WorldState, comment_id: str) -> dict[str, Any] | None:
+def _find_comment(state: TraceState, comment_id: str) -> dict[str, Any] | None:
     return state.get_entity(_COMMENT_ENTITY_TYPE, comment_id)
 
 

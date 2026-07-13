@@ -2,7 +2,7 @@
 
 The implementation mirrors the core official ToolSandbox semantics for
 settings, contacts, messaging, and reminders while staying inside AgentInferKit's
-deterministic WorldState execution model.
+deterministic TraceState execution model.
 """
 
 from __future__ import annotations

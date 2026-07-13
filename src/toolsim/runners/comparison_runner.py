@@ -11,7 +11,7 @@ from toolsim.adapters.toolsandbox_adapter import ToolSandboxConvertedCase
 from toolsim.runners.experiment_runner import ExperimentResult, ExperimentRunner
 from toolsim.runners.stateless_baseline import StatelessExperimentRunner
 from toolsim.core.utils import extract_last_query_hits
-from toolsim.core.world_state import WorldState
+from toolsim.core.trace_state import TraceState
 
 
 @dataclass
@@ -22,8 +22,8 @@ class ComparisonCase:
     stateless_tool_calls: list[dict[str, Any]]
     goals_stateful: list[dict[str, Any]] | None = None
     goals_stateless: list[dict[str, Any]] | None = None
-    initial_state_stateful: WorldState | None = None
-    initial_state_stateless: WorldState | None = None
+    initial_state_stateful: TraceState | None = None
+    initial_state_stateless: TraceState | None = None
 
 
 @dataclass
@@ -79,12 +79,12 @@ class ComparisonRunner:
     def run_case(self, case: ComparisonCase) -> ComparisonResult:
         stateful_result = self._stateful_runner.run(
             tool_calls=case.stateful_tool_calls,
-            initial_state=_clone_state(case.initial_state_stateful) if case.initial_state_stateful is not None else WorldState(),
+            initial_state=_clone_state(case.initial_state_stateful) if case.initial_state_stateful is not None else TraceState(),
             goals=case.goals_stateful,
         )
         stateless_result = self._stateless_runner.run(
             tool_calls=case.stateless_tool_calls,
-            initial_state=_clone_state(case.initial_state_stateless) if case.initial_state_stateless is not None else WorldState(),
+            initial_state=_clone_state(case.initial_state_stateless) if case.initial_state_stateless is not None else TraceState(),
             goals=case.goals_stateless,
         )
 
@@ -416,8 +416,8 @@ def select_toolsandbox_comparison_subset_cases(
     return selected
 
 
-def _clone_state(state: WorldState) -> WorldState:
-    return WorldState.from_dict(state.to_dict())
+def _clone_state(state: TraceState) -> TraceState:
+    return TraceState.from_dict(state.to_dict())
 
 
 def _compact_toolsandbox_stateless_calls(case: ToolSandboxConvertedCase) -> list[dict[str, Any]]:
@@ -449,7 +449,7 @@ def _filter_toolsandbox_stateless_goals(goals: list[dict[str, Any]]) -> list[dic
 def _toolsandbox_goal_to_stateless_call(
     goal: dict[str, Any],
     stateful_calls_by_name: dict[str, list[dict[str, Any]]],
-    initial_state: WorldState,
+    initial_state: TraceState,
 ) -> dict[str, Any] | None:
     goal_type = goal.get("type")
     entity_type = goal.get("entity_type")
@@ -483,7 +483,7 @@ def _toolsandbox_goal_to_stateless_call(
     return None
 
 
-def _state_has_matching_record(state: WorldState, entity_type: str, fields: dict[str, Any]) -> bool:
+def _state_has_matching_record(state: TraceState, entity_type: str, fields: dict[str, Any]) -> bool:
     for entity in state.entities.get(entity_type, {}).values():
         if all(entity.get(field) == expected for field, expected in fields.items()):
             return True

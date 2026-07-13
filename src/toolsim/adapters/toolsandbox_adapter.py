@@ -3,7 +3,7 @@
 The adapter preserves the original ToolSandbox metadata while translating a
 scenario into AgentInferKit's stateful ``ExperimentRunner`` inputs:
 
-- initial ``WorldState``
+- initial ``TraceState``
 - oracle tool-call sequence inferred from milestone targets
 - state-level goals inferred from milestone constraints
 """
@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
 
-from toolsim.core.world_state import WorldState
+from toolsim.core.trace_state import TraceState
 from toolsim.tools.toolsandbox_runtime import ensure_toolsandbox_state
 
 
@@ -73,7 +73,7 @@ class ToolSandboxConvertedCase:
     domain: str
     required_tools: list[str]
     categories: list[str]
-    initial_state: WorldState
+    initial_state: TraceState
     oracle_tool_calls: list[dict[str, Any]]
     goals: list[dict[str, Any]]
     minefield_goals: list[dict[str, Any]]
@@ -247,9 +247,9 @@ def _case_sort_key(case: ToolSandboxConvertedCase) -> tuple[Any, ...]:
     )
 
 
-def build_initial_state(scenario: ToolSandboxScenario) -> WorldState:
-    """Build a minimal WorldState from ToolSandbox initial metadata."""
-    state = WorldState()
+def build_initial_state(scenario: ToolSandboxScenario) -> TraceState:
+    """Build a minimal TraceState from ToolSandbox initial metadata."""
+    state = TraceState()
     ensure_toolsandbox_state(state)
     if scenario.initial_settings:
         settings = dict(state.get_entity("setting", "device") or {})
@@ -303,7 +303,7 @@ def build_initial_state(scenario: ToolSandboxScenario) -> WorldState:
     return state
 
 
-def _seed_initial_records_from_constraints(state: WorldState, scenario: ToolSandboxScenario) -> None:
+def _seed_initial_records_from_constraints(state: TraceState, scenario: ToolSandboxScenario) -> None:
     """Recover base records that are referenced by update/remove milestones.
 
     The exported scenario metadata stores aggregate initial counts and names, but

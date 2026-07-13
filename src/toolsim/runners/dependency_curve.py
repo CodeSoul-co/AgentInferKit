@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from toolsim.adapters.toolsandbox_adapter import ToolSandboxConvertedCase
-from toolsim.core.world_state import WorldState
+from toolsim.core.trace_state import TraceState
 from toolsim.evaluators.trajectory_evaluator import TrajectoryLevelEvaluator
 from toolsim.runners.comparison_runner import (
     _compact_toolsandbox_stateless_calls,
@@ -56,7 +56,7 @@ class DependencyCurveCase:
     goals: list[dict[str, Any]]
     oracle_tool_calls: list[dict[str, Any]]
     strategy_tool_calls: dict[StrategyName, list[dict[str, Any]]]
-    initial_state: WorldState = field(default_factory=WorldState)
+    initial_state: TraceState = field(default_factory=TraceState)
     required_edges: list[DependencyEdge] = field(default_factory=list)
 
     def tool_calls_for_strategy(self, strategy: StrategyName) -> list[dict[str, Any]]:
@@ -202,7 +202,7 @@ class DependencyCurveRunner:
     def run_case(self, case: DependencyCurveCase, strategy: StrategyName) -> DependencyCaseRunResult:
         result = self._experiment_runner.run(
             tool_calls=case.tool_calls_for_strategy(strategy),
-            initial_state=WorldState.from_dict(case.initial_state.to_dict()),
+            initial_state=TraceState.from_dict(case.initial_state.to_dict()),
             goals=case.goals,
         )
         final_state_correct = result.state_metrics.all_passed if result.state_metrics is not None else False
@@ -662,7 +662,7 @@ def _case(
     oracle_tool_calls: list[dict[str, Any]],
     goals: list[dict[str, Any]],
     *,
-    initial_state: WorldState | None = None,
+    initial_state: TraceState | None = None,
     edges: list[DependencyEdge] | None = None,
     direct: list[dict[str, Any]] | None = None,
     cot: list[dict[str, Any]] | None = None,
@@ -676,7 +676,7 @@ def _case(
         description=description,
         goals=goals,
         oracle_tool_calls=oracle_tool_calls,
-        initial_state=initial_state or WorldState(),
+        initial_state=initial_state or TraceState(),
         required_edges=edges or [],
         strategy_tool_calls={
             "direct": direct if direct is not None else oracle_tool_calls,
@@ -687,7 +687,7 @@ def _case(
     )
 
 
-def _state_with_contact(name: str) -> WorldState:
+def _state_with_contact(name: str) -> TraceState:
     state = _toolsandbox_base_state()
     state.set_entity("contact", f"contact_{name.lower()}", {
         "person_id": f"contact_{name.lower()}",
@@ -699,8 +699,8 @@ def _state_with_contact(name: str) -> WorldState:
     return state
 
 
-def _toolsandbox_base_state() -> WorldState:
-    state = WorldState()
+def _toolsandbox_base_state() -> TraceState:
+    state = TraceState()
     ensure_toolsandbox_state(state)
     state.set_entity("contact", "self", {
         "person_id": "self",

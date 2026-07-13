@@ -6,7 +6,7 @@ from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path
 
-from toolsim.core.world_state import WorldState
+from toolsim.core.trace_state import TraceState
 
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -21,7 +21,7 @@ def clone_toolsandbox_case(case, suffix: str, *, domain: str | None = None, cate
         domain=domain or case.domain,
         categories=list(categories or case.categories),
         required_tools=list(case.required_tools),
-        initial_state=WorldState.from_dict(case.initial_state.to_dict()),
+        initial_state=TraceState.from_dict(case.initial_state.to_dict()),
         oracle_tool_calls=deepcopy(case.oracle_tool_calls),
         goals=deepcopy(case.goals),
         minefield_goals=deepcopy(case.minefield_goals),

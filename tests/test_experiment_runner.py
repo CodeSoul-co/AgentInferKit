@@ -17,7 +17,7 @@ from toolsim.runners.experiment_runner import (
     build_issue_tracker_demo_calls,
     build_issue_tracker_demo_goals,
 )
-from toolsim.core.world_state import WorldState
+from toolsim.core.trace_state import TraceState
 
 
 def test_experiment_runner_executes_tool_calls_in_order():
@@ -86,7 +86,7 @@ def test_experiment_runner_keeps_full_trace_when_a_call_fails():
 
 def test_experiment_runner_demo_file_search_flow_behaves_as_expected():
     runner = ExperimentRunner()
-    result = runner.run(tool_calls=build_file_search_demo_calls(), goals=build_file_search_demo_goals(), initial_state=WorldState())
+    result = runner.run(tool_calls=build_file_search_demo_calls(), goals=build_file_search_demo_goals(), initial_state=TraceState())
 
     assert result.trace[1].tool_name == "search.query"
     assert result.trace[1].observation["hits"] == []
@@ -100,7 +100,7 @@ def test_experiment_runner_demo_file_search_flow_behaves_as_expected():
 
 def test_experiment_runner_reuses_environment_for_delayed_effects():
     runner = ExperimentRunner()
-    state = WorldState()
+    state = TraceState()
     environment = ToolEnvironment(state=state)
 
     result = runner.run(

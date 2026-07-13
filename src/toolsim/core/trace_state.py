@@ -83,7 +83,7 @@ class PolicyDecision:
         return {"allowed": self.allowed, "reason": self.reason, "details": self.details}
 
 
-class WorldState:
+class TraceState:
     """Minimal but extensible stateful world model for toolsim."""
 
     def __init__(
@@ -120,7 +120,7 @@ class WorldState:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "WorldState":
+    def from_dict(cls, data: dict[str, Any]) -> "TraceState":
         return cls(
             entities=copy.deepcopy(data.get("entities", {})),
             relations=copy.deepcopy(data.get("relations", {})),
@@ -165,7 +165,7 @@ class WorldState:
         return self.to_dict()
 
     def restore(self, snapshot: dict[str, Any]) -> None:
-        restored = WorldState.from_dict(snapshot)
+        restored = TraceState.from_dict(snapshot)
         self.entities = restored.entities
         self.relations = restored.relations
         self.resources = restored.resources
@@ -267,7 +267,7 @@ class WorldState:
     def __repr__(self) -> str:
         entity_count = sum(len(v) for v in self.entities.values())
         return (
-            f"WorldState(version={self.version}, clock={self.clock}, "
+            f"TraceState(version={self.version}, clock={self.clock}, "
             f"entities={entity_count}, relations={len(self.relations)}, "
             f"resources={len(self.resources)}, policies={len(self.policies)}, "
             f"pending_effects={len(self.pending_effects)})"

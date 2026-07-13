@@ -31,7 +31,7 @@ At the current stage, the project mainly focuses on the **platform layer** and *
 - Unified access to **API models**, **local models**, and **multimodal models**
 - Pluggable reasoning strategies: **Direct**, **CoT**, **Long-CoT**, **ToT**, **ReAct**, **Self-Refine**, **Self-Consistency**
 - Built-in **RAG pipeline** with chunking, indexing, retrieval, and evidence tracking
-- Stateful **tool simulation environment** with world state, registry, and side-effect replay
+- Stateful **tool simulation environment** with trace state, registry, and side-effect replay
 - Tool categories: file search, calendar, issue tracking — all with in-process sandbox execution
 - Batch inference, single-sample debugging, logging, retry, and resume
 - Configurable evaluation with metrics for text, retrieval, and agent tasks
@@ -65,7 +65,7 @@ The engineering foundation of the project, including:
 - RAG pipeline
 - task runners
 - **tool simulation** (`toolsim/`)
-  - `core/` — world state, environment, registry, constants, side effects
+  - `core/` — trace state, environment, registry, constants, side effects
   - `execution/` — stateful executor and tracer
   - `tools/` — file, search, calendar, issue tools
   - `evaluators/` — call-level and state-level evaluators
@@ -230,11 +230,11 @@ Full interactive docs at: `http://localhost:8000/docs`
 
 ## Tool Simulation (`toolsim`)
 
-The `toolsim` module provides a fully in-process, deterministic simulation environment for tool-use agents. Each tool operates against an in-memory `WorldState` with simulated time, enabling reproducible experiments without external services.
+The `toolsim` module provides a fully in-process, deterministic simulation environment for tool-use agents. Each tool operates against an in-memory `TraceState` with simulated time, enabling reproducible experiments without external services.
 
 | Component | Description |
 |-----------|-------------|
-| `WorldState` | In-memory entity store with time simulation |
+| `TraceState` | In-memory entity store with time simulation |
 | `Environment` | Tool registry, backend dispatch, execution context |
 | `FileTools` | File snapshot and reindex with delayed search refresh |
 | `SearchTools` | Entity-based search index (file, calendar, issue) |

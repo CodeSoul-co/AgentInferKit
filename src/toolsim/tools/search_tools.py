@@ -1,4 +1,4 @@
-"""Search indexing and query tools backed by WorldState entities."""
+"""Search indexing and query tools backed by TraceState entities."""
 
 from __future__ import annotations
 
@@ -6,15 +6,15 @@ from typing import Any
 
 from toolsim.core.constants import EntityType
 from toolsim.core.tool_spec import PostconditionSpec, PreconditionSpec, ToolExecutionResult, ToolMetadata, ToolSpec
-from toolsim.core.world_state import WorldState
+from toolsim.core.trace_state import TraceState
 
 
 class SearchIndexTool(ToolSpec):
-    """Explicitly index a file snapshot in WorldState so it becomes searchable."""
+    """Explicitly index a file snapshot in TraceState so it becomes searchable."""
 
     tool_name: str = "search.index"
     description: str = (
-        "Explicitly index a file from the world state so it becomes searchable. "
+        "Explicitly index a file from the trace state so it becomes searchable. "
         "The index stores a content snapshot and does not auto-refresh after file writes "
         "unless delayed effects are scheduled."
     )
@@ -132,7 +132,7 @@ class SearchQueryTool(ToolSpec):
             )
         if not index_entries:
             index_bucket = state.entities.get(EntityType.SEARCH_INDEX, {})
-            index_entries.extend((file_id, index_entry, "world_state") for file_id, index_entry in index_bucket.items())
+            index_entries.extend((file_id, index_entry, "trace_state") for file_id, index_entry in index_bucket.items())
         for file_id, index_entry, source in index_entries:
             indexed_content = index_entry.get("indexed_content_snapshot", "")
             if query in indexed_content:

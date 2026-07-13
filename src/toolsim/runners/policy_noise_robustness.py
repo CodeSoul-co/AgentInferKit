@@ -16,7 +16,7 @@ from typing import Any
 from toolsim.adapters.toolsandbox_adapter import convert_toolsandbox_file
 from toolsim.backends.mock_backend import MockBackend
 from toolsim.core.environment import ToolEnvironment
-from toolsim.core.world_state import WorldState
+from toolsim.core.trace_state import TraceState
 from toolsim.evaluators.evaluator import CallLevelEvaluator, StateLevelEvaluator
 from toolsim.execution.stateful_executor import ExecutorConfig, ExecutionRecord, StatefulExecutor, create_default_tool_registry
 from toolsim.execution.stateful_tracer import TraceRecorder
@@ -37,7 +37,7 @@ class PolicyNoiseCase:
     goals: list[dict[str, Any]]
     fault_profile: FaultProfile
     payload: dict[str, Any] = field(default_factory=dict)
-    initial_state: WorldState = field(default_factory=WorldState)
+    initial_state: TraceState = field(default_factory=TraceState)
     source: str = "synthetic"
     intensity: int = 1
     intensity_label: str = "level_1"
@@ -242,31 +242,31 @@ def _build_synthetic_policy_noise_cases() -> list[PolicyNoiseCase]:
             "file_write",
             {"tool_name": "file.write", "args": {"file_id": "noise_file", "content": "ready"}},
             [{"type": "entity_field_equals", "entity_type": "file", "entity_id": "noise_file", "field": "content", "expected": "ready"}],
-            WorldState(),
+            TraceState(),
         ),
         (
             "issue_create",
             {"tool_name": "issue.create", "args": {"issue_id": "noise_issue", "title": "Bug"}},
             [{"type": "issue_status_is", "issue_id": "noise_issue", "status": "open"}],
-            WorldState(),
+            TraceState(),
         ),
         (
             "calendar_create",
             {"tool_name": "calendar.create_event", "args": {"event_id": "noise_event", "title": "Sync", "start_time": 14.0, "end_time": 15.0, "participants": ["ana"]}},
             [{"type": "event_exists", "event_id": "noise_event"}],
-            WorldState(),
+            TraceState(),
         ),
         (
             "contact_add",
             {"tool_name": "add_contact", "args": {"person_id": "noise_person", "name": "Mira", "phone_number": "+111"}},
             [{"type": "toolsandbox_record_exists", "entity_type": "contact", "fields": {"name": "Mira", "phone_number": "+111"}}],
-            WorldState(),
+            TraceState(),
         ),
         (
             "wifi_setting",
             {"tool_name": "set_wifi_status", "args": {"wifi": True}},
             [{"type": "toolsandbox_setting_equals", "field": "wifi", "expected": True}],
-            WorldState(),
+            TraceState(),
         ),
     ]
 
@@ -396,7 +396,7 @@ def _run_policy(
     fault_profile: FaultProfile | None,
     allow_recovery: bool,
 ) -> ExperimentResult:
-    state = WorldState.from_dict(case.initial_state.to_dict())
+    state = TraceState.from_dict(case.initial_state.to_dict())
     backend = MockBackend()
     tracer = TraceRecorder()
     executor = StatefulExecutor(
@@ -983,7 +983,7 @@ def _stale_policy_templates() -> list[dict[str, Any]]:
     ]
 
 
-def _state_with_contact(person_id: str, name: str, phone_number: str) -> WorldState:
+def _state_with_contact(person_id: str, name: str, phone_number: str) -> TraceState:
     state = _toolsandbox_base_state()
     state.set_entity("contact", person_id, {
         "person_id": person_id,
@@ -995,7 +995,7 @@ def _state_with_contact(person_id: str, name: str, phone_number: str) -> WorldSt
     return state
 
 
-def _state_with_reminder(reminder_id: str, content: str, timestamp: float) -> WorldState:
+def _state_with_reminder(reminder_id: str, content: str, timestamp: float) -> TraceState:
     state = _toolsandbox_base_state()
     state.set_entity("reminder", reminder_id, {
         "reminder_id": reminder_id,
@@ -1005,7 +1005,7 @@ def _state_with_reminder(reminder_id: str, content: str, timestamp: float) -> Wo
     return state
 
 
-def _state_with_message(message_id: str, content: str) -> WorldState:
+def _state_with_message(message_id: str, content: str) -> TraceState:
     state = _toolsandbox_base_state()
     state.set_entity("messaging", message_id, {
         "message_id": message_id,
@@ -1015,8 +1015,8 @@ def _state_with_message(message_id: str, content: str) -> WorldState:
     return state
 
 
-def _toolsandbox_base_state() -> WorldState:
-    state = WorldState()
+def _toolsandbox_base_state() -> TraceState:
+    state = TraceState()
     ensure_toolsandbox_state(state)
     state.set_entity("contact", "self", {
         "person_id": "self",
@@ -1028,7 +1028,7 @@ def _toolsandbox_base_state() -> WorldState:
     return state
 
 
-def _set_device_fields(state: WorldState, **fields: Any) -> None:
+def _set_device_fields(state: TraceState, **fields: Any) -> None:
     device = dict(state.get_entity("setting", "device") or {})
     device.update(fields)
     state.set_entity("setting", "device", device)

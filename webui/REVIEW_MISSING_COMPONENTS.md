@@ -68,7 +68,7 @@
 
 ---
 
-## 六、WorldState 扩展（文档第6节）
+## 六、TraceState 扩展（文档第6节）
 
 - ❌ SideEffectScheduler（异步副作用调度，如 file.write 后延迟进入索引）
 - ❌ PolicyEngine（ACL、角色权限、业务规则）
